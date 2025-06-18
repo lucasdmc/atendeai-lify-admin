@@ -9,6 +9,141 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      contextualization_data: {
+        Row: {
+          answer: string | null
+          clinic_id: string | null
+          created_at: string
+          id: string
+          order_number: number
+          question: string
+          updated_at: string
+        }
+        Insert: {
+          answer?: string | null
+          clinic_id?: string | null
+          created_at?: string
+          id?: string
+          order_number: number
+          question: string
+          updated_at?: string
+        }
+        Update: {
+          answer?: string | null
+          clinic_id?: string | null
+          created_at?: string
+          id?: string
+          order_number?: number
+          question?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      dashboard_metrics: {
+        Row: {
+          created_at: string
+          id: string
+          metric_date: string
+          metric_name: string
+          metric_value: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metric_date?: string
+          metric_name: string
+          metric_value: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metric_date?: string
+          metric_name?: string
+          metric_value?: number
+        }
+        Relationships: []
+      }
+      settings: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          setting_name: string
+          setting_type: string | null
+          setting_value: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          setting_name: string
+          setting_type?: string | null
+          setting_value?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          setting_name?: string
+          setting_type?: string | null
+          setting_value?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_permissions: {
+        Row: {
+          can_access: boolean
+          created_at: string
+          id: string
+          module_name: string
+          user_id: string
+        }
+        Insert: {
+          can_access?: boolean
+          created_at?: string
+          id?: string
+          module_name: string
+          user_id: string
+        }
+        Update: {
+          can_access?: boolean
+          created_at?: string
+          id?: string
+          module_name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_profiles: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          role: Database["public"]["Enums"]["user_role"]
+          status: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          name: string
+          role?: Database["public"]["Enums"]["user_role"]
+          status?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          status?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       whatsapp_conversations: {
         Row: {
           created_at: string
@@ -76,10 +211,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: {
+        Args: { user_id: string }
+        Returns: Database["public"]["Enums"]["user_role"]
+      }
     }
     Enums: {
-      [_ in never]: never
+      user_role: "admin" | "suporte_lify" | "atendente"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -194,6 +332,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      user_role: ["admin", "suporte_lify", "atendente"],
+    },
   },
 } as const
