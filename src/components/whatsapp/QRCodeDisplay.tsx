@@ -11,6 +11,12 @@ interface QRCodeDisplayProps {
 }
 
 export const QRCodeDisplay = ({ qrCode, isLoading, connectionStatus, onGenerateQR }: QRCodeDisplayProps) => {
+  console.log('QRCodeDisplay props:', { 
+    qrCode: qrCode ? 'presente' : 'null', 
+    isLoading, 
+    connectionStatus 
+  });
+
   return (
     <Card>
       <CardHeader>
@@ -31,7 +37,16 @@ export const QRCodeDisplay = ({ qrCode, isLoading, connectionStatus, onGenerateQ
                   </div>
                 </div>
               ) : (
-                <img src={qrCode} alt="QR Code WhatsApp" className="w-48 h-48" />
+                <div>
+                  <p className="text-sm text-green-600 mb-2">QR Code carregado com sucesso!</p>
+                  <img 
+                    src={qrCode} 
+                    alt="QR Code WhatsApp" 
+                    className="w-48 h-48"
+                    onLoad={() => console.log('QR Code image loaded successfully')}
+                    onError={(e) => console.error('QR Code image failed to load:', e)}
+                  />
+                </div>
               )}
             </div>
           </div>
@@ -39,7 +54,9 @@ export const QRCodeDisplay = ({ qrCode, isLoading, connectionStatus, onGenerateQ
           <div className="flex justify-center items-center h-48 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
             <div className="text-center">
               <QrCode className="h-16 w-16 text-gray-400 mx-auto mb-2" />
-              <p className="text-gray-500">QR Code será exibido aqui</p>
+              <p className="text-gray-500">
+                {isLoading ? 'Gerando QR Code...' : 'QR Code será exibido aqui'}
+              </p>
             </div>
           </div>
         )}
@@ -51,6 +68,7 @@ export const QRCodeDisplay = ({ qrCode, isLoading, connectionStatus, onGenerateQ
         >
           {connectionStatus === 'connected' ? 'Conectado' : 
            connectionStatus === 'demo' ? 'Modo Demo Ativo' :
+           isLoading ? 'Gerando...' :
            'Gerar QR Code'}
         </Button>
 
@@ -58,6 +76,13 @@ export const QRCodeDisplay = ({ qrCode, isLoading, connectionStatus, onGenerateQ
           <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
             <p className="font-medium">Modo Demonstração Ativo</p>
             <p>Configure um servidor WhatsApp para ativar a funcionalidade completa.</p>
+          </div>
+        )}
+
+        {qrCode && connectionStatus !== 'demo' && (
+          <div className="text-sm text-green-600 bg-green-50 p-3 rounded-lg">
+            <p className="font-medium">QR Code Ativo</p>
+            <p>Escaneie com seu WhatsApp Business para conectar.</p>
           </div>
         )}
       </CardContent>

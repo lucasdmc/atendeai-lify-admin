@@ -22,6 +22,7 @@ export const useWhatsAppConnection = (): WhatsAppConnectionHook => {
   useEffect(() => {
     const checkStatus = async () => {
       try {
+        console.log('Checking WhatsApp status...');
         const { data, error } = await supabase.functions.invoke('whatsapp-integration/status');
         
         if (error) {
@@ -29,8 +30,18 @@ export const useWhatsAppConnection = (): WhatsAppConnectionHook => {
           return;
         }
         
+        console.log('Status response from hook:', data);
+        
         if (data?.status) {
+          console.log('Setting connection status to:', data.status);
           setConnectionStatus(data.status);
+          
+          // Se recebeu QR Code no status, atualizar
+          if (data.qrCode) {
+            console.log('QR Code received in status check:', data.qrCode.substring(0, 50) + '...');
+            setQrCode(data.qrCode);
+          }
+          
           if (data.clientInfo) {
             setClientInfo(data.clientInfo);
           }
@@ -54,18 +65,26 @@ export const useWhatsAppConnection = (): WhatsAppConnectionHook => {
   }, [connectionStatus]);
 
   const generateQRCode = async () => {
+    console.log('generateQRCode called');
     setIsLoading(true);
     setConnectionStatus('connecting');
     
     try {
+      console.log('Calling whatsapp-integration/initialize...');
       const { data, error } = await supabase.functions.invoke('whatsapp-integration/initialize');
       
+      console.log('Initialize response:', { data, error });
+      
       if (error) {
+        console.error('Supabase function error:', error);
         throw new Error(error.message || 'Erro ao chamar função');
       }
       
       if (data?.success) {
+        console.log('Initialize success, data:', data);
+        
         if (data.status === 'demo') {
+          console.log('Setting demo mode');
           setConnectionStatus('demo');
           setQrCode(data.qrCode);
           toast({
@@ -73,19 +92,29 @@ export const useWhatsAppConnection = (): WhatsAppConnectionHook => {
             description: "WhatsApp está em modo demonstração. Configure um servidor para uso real.",
             variant: "default",
           });
+        } else if (data.data?.qrCode) {
+          console.log('QR Code received from initialize:', data.data.qrCode.substring(0, 50) + '...');
+          setQrCode(data.data.qrCode);
+          toast({
+            title: "QR Code gerado",
+            description: "Escaneie o código com seu WhatsApp Business para conectar.",
+          });
         } else if (data.qrCode) {
+          console.log('QR Code received directly:', data.qrCode.substring(0, 50) + '...');
           setQrCode(data.qrCode);
           toast({
             title: "QR Code gerado",
             description: "Escaneie o código com seu WhatsApp Business para conectar.",
           });
         } else {
+          console.log('No QR Code in response, message:', data.message);
           toast({
             title: "Inicialização iniciada",
             description: data.message || "Verifique o status para obter o QR Code.",
           });
         }
       } else {
+        console.error('Initialize failed:', data);
         throw new Error(data?.error || 'Falha ao gerar QR Code');
       }
     } catch (error) {
@@ -100,6 +129,8 @@ export const useWhatsAppConnection = (): WhatsAppConnectionHook => {
       setIsLoading(false);
     }
   };
+
+  console.log('Hook state:', { connectionStatus, qrCode: qrCode ? 'presente' : 'null', isLoading });
 
   return {
     connectionStatus,
