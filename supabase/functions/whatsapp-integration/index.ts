@@ -24,6 +24,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     console.log(`WhatsApp Integration - Endpoint called: ${path}`);
+    console.log(`WHATSAPP_SERVER_URL configured as: ${WHATSAPP_SERVER_URL || 'NOT SET'}`);
 
     switch (path) {
       case 'initialize':
@@ -73,14 +74,25 @@ async function initializeWhatsApp() {
   }
 
   try {
-    console.log(`Trying to initialize WhatsApp via: ${WHATSAPP_SERVER_URL}/api/whatsapp/initialize`);
+    const initUrl = `${WHATSAPP_SERVER_URL}/api/whatsapp/initialize`;
+    console.log(`Trying to initialize WhatsApp via: ${initUrl}`);
     
-    const response = await fetch(`${WHATSAPP_SERVER_URL}/api/whatsapp/initialize`, {
+    // Adicionar timeout para evitar travamento
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos timeout
+    
+    const response = await fetch(initUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
-      }
+      },
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
+
+    console.log(`Initialize response status: ${response.status}`);
+    console.log(`Initialize response ok: ${response.ok}`);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -100,6 +112,16 @@ async function initializeWhatsApp() {
     });
   } catch (error) {
     console.error('Error initializing WhatsApp:', error);
+    
+    if (error.name === 'AbortError') {
+      return new Response(JSON.stringify({
+        success: false,
+        error: `Connection timeout to WhatsApp server at ${WHATSAPP_SERVER_URL}. The server may be down or unreachable.`
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500
+      });
+    }
     
     return new Response(JSON.stringify({
       success: false,
@@ -123,14 +145,25 @@ async function getConnectionStatus() {
   }
 
   try {
-    console.log(`Checking WhatsApp status at: ${WHATSAPP_SERVER_URL}/api/whatsapp/status`);
+    const statusUrl = `${WHATSAPP_SERVER_URL}/api/whatsapp/status`;
+    console.log(`Checking WhatsApp status at: ${statusUrl}`);
     
-    const response = await fetch(`${WHATSAPP_SERVER_URL}/api/whatsapp/status`, {
+    // Adicionar timeout para evitar travamento
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos timeout
+    
+    const response = await fetch(statusUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
-      }
+      },
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
+    
+    console.log(`Status response status: ${response.status}`);
+    console.log(`Status response ok: ${response.ok}`);
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -146,6 +179,16 @@ async function getConnectionStatus() {
     });
   } catch (error) {
     console.error('Error getting status:', error);
+    
+    if (error.name === 'AbortError') {
+      return new Response(JSON.stringify({
+        status: 'disconnected',
+        error: `Connection timeout to WhatsApp server at ${WHATSAPP_SERVER_URL}. The server may be down or unreachable.`
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
     return new Response(JSON.stringify({
       status: 'disconnected',
       error: `Cannot reach WhatsApp server at ${WHATSAPP_SERVER_URL}. Error: ${error.message}`
