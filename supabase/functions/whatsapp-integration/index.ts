@@ -4,6 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
 // Configuração do servidor WhatsApp - aceita IP direto ou domínio
 const WHATSAPP_SERVER_URL = Deno.env.get('WHATSAPP_SERVER_URL');
@@ -269,12 +270,15 @@ async function handleWebhook(data: any, supabase: any) {
     if (data.event === 'message.received' && data.data) {
       console.log('Processing incoming message:', data.data);
       
+      const messageContent = data.data.message || 'Mensagem não suportada';
+      const fromNumber = data.data.from;
+      
       // Salvar mensagem recebida
       const { error: messageError } = await supabase
         .from('whatsapp_messages')
         .insert({
-          conversation_id: `conv_${data.data.from.replace(/\D/g, '')}`,
-          content: data.data.message || 'Mensagem não suportada',
+          conversation_id: `conv_${fromNumber.replace(/\D/g, '')}`,
+          content: messageContent,
           message_type: 'inbound',
           whatsapp_message_id: `msg_${data.data.timestamp || Date.now()}`
         });
@@ -287,14 +291,17 @@ async function handleWebhook(data: any, supabase: any) {
       const { error: conversationError } = await supabase
         .from('whatsapp_conversations')
         .upsert({
-          phone_number: data.data.from,
-          name: data.data.from,
+          phone_number: fromNumber,
+          name: fromNumber,
           updated_at: new Date().toISOString()
         });
 
       if (conversationError) {
         console.error('Error updating conversation:', conversationError);
       }
+
+      // NOVA FUNCIONALIDADE: Processar mensagem com IA e responder automaticamente
+      await processAndRespondWithAI(fromNumber, messageContent, supabase);
     }
 
     return new Response(JSON.stringify({ success: true }), {
@@ -305,6 +312,115 @@ async function handleWebhook(data: any, supabase: any) {
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+  }
+}
+
+async function processAndRespondWithAI(phoneNumber: string, message: string, supabase: any) {
+  console.log(`Processando mensagem com IA para ${phoneNumber}: ${message}`);
+  
+  try {
+    // Buscar contexto da clínica
+    const { data: contextData } = await supabase
+      .from('contextualization_data')
+      .select('question, answer')
+      .order('order_number');
+
+    // Buscar histórico recente da conversa
+    const { data: recentMessages } = await supabase
+      .from('whatsapp_messages')
+      .select('content, message_type, timestamp')
+      .eq('conversation_id', `conv_${phoneNumber.replace(/\D/g, '')}`)
+      .order('timestamp', { ascending: false })
+      .limit(10);
+
+    // Construir prompt do sistema com contexto da clínica
+    let systemPrompt = `Você é um assistente virtual de uma clínica médica. Seja sempre educado, profissional e prestativo.
+
+INFORMAÇÕES DA CLÍNICA:`;
+
+    if (contextData && contextData.length > 0) {
+      contextData.forEach((item) => {
+        if (item.answer) {
+          systemPrompt += `\n- ${item.question}: ${item.answer}`;
+        }
+      });
+    } else {
+      systemPrompt += `\n- Esta é uma clínica médica que oferece diversos serviços de saúde.`;
+    }
+
+    systemPrompt += `\n\nINSTRUÇÕES:
+- Responda de forma clara e objetiva
+- Se não souber uma informação específica, seja honesto e ofereça alternativas
+- Para agendamentos ou informações específicas, oriente o paciente a entrar em contato por telefone
+- Mantenha sempre um tom profissional e acolhedor
+- Respostas devem ser concisas (máximo 2-3 parágrafos)`;
+
+    // Construir histórico da conversa
+    const messages = [{ role: 'system', content: systemPrompt }];
+
+    if (recentMessages && recentMessages.length > 0) {
+      // Adicionar mensagens recentes ao contexto (em ordem cronológica)
+      recentMessages
+        .reverse()
+        .slice(0, 8)
+        .forEach((msg) => {
+          if (msg.content && msg.content !== message) { // Evitar duplicar a mensagem atual
+            messages.push({
+              role: msg.message_type === 'inbound' ? 'user' : 'assistant',
+              content: msg.content
+            });
+          }
+        });
+    }
+
+    // Adicionar mensagem atual
+    messages.push({ role: 'user', content: message });
+
+    // Chamar a OpenAI se a chave estiver configurada
+    let aiResponse = 'Olá! Obrigado por entrar em contato. Como posso ajudá-lo hoje?';
+    
+    if (openAIApiKey) {
+      try {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openAIApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: messages,
+            temperature: 0.7,
+            max_tokens: 500,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          aiResponse = data.choices[0].message.content;
+          console.log('Resposta IA gerada:', aiResponse.substring(0, 100) + '...');
+        } else {
+          console.error('Erro na OpenAI API:', response.status);
+        }
+      } catch (error) {
+        console.error('Erro ao chamar OpenAI:', error);
+      }
+    }
+
+    // Enviar resposta de volta via WhatsApp
+    await sendMessage(phoneNumber, aiResponse, supabase);
+    
+    console.log(`Resposta automática enviada para ${phoneNumber}`);
+    
+  } catch (error) {
+    console.error('Erro ao processar mensagem com IA:', error);
+    
+    // Enviar mensagem de erro genérica
+    try {
+      await sendMessage(phoneNumber, 'Desculpe, estou com dificuldades no momento. Tente novamente em alguns minutos ou entre em contato por telefone.', supabase);
+    } catch (sendError) {
+      console.error('Erro ao enviar mensagem de erro:', sendError);
+    }
   }
 }
 
