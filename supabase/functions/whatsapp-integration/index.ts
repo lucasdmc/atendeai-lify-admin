@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -6,7 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-// Configuração segura para a URL do servidor WhatsApp
+// Configuração do servidor WhatsApp - aceita IP direto ou domínio
 const WHATSAPP_SERVER_URL = Deno.env.get('WHATSAPP_SERVER_URL');
 
 const corsHeaders = {
@@ -65,7 +64,7 @@ async function initializeWhatsApp() {
     console.log('WhatsApp server not configured, returning demo response');
     return new Response(JSON.stringify({
       success: true,
-      message: 'WhatsApp server not configured. This is a demo environment.',
+      message: 'WhatsApp server not configured. Configure WHATSAPP_SERVER_URL environment variable.',
       qrCode: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
       status: 'demo'
     }), {
@@ -74,7 +73,7 @@ async function initializeWhatsApp() {
   }
 
   try {
-    console.log(`Initializing WhatsApp connection via server: ${WHATSAPP_SERVER_URL}`);
+    console.log(`Trying to initialize WhatsApp via: ${WHATSAPP_SERVER_URL}/api/whatsapp/initialize`);
     
     const response = await fetch(`${WHATSAPP_SERVER_URL}/api/whatsapp/initialize`, {
       method: 'POST',
@@ -84,7 +83,9 @@ async function initializeWhatsApp() {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to initialize: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`Server response error (${response.status}):`, errorText);
+      throw new Error(`Server returned ${response.status}: ${response.statusText}`);
     }
 
     const result = await response.json();
@@ -92,7 +93,7 @@ async function initializeWhatsApp() {
 
     return new Response(JSON.stringify({
       success: true,
-      message: 'WhatsApp initialization started. Check status for QR code.',
+      message: 'WhatsApp initialization started successfully.',
       data: result
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -102,7 +103,7 @@ async function initializeWhatsApp() {
     
     return new Response(JSON.stringify({
       success: false,
-      error: 'Failed to connect to WhatsApp server. Make sure your Node.js server is running and accessible.'
+      error: `Failed to connect to WhatsApp server at ${WHATSAPP_SERVER_URL}. Error: ${error.message}`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500
@@ -115,14 +116,14 @@ async function getConnectionStatus() {
   if (!WHATSAPP_SERVER_URL) {
     return new Response(JSON.stringify({
       status: 'demo',
-      message: 'WhatsApp server not configured - demo mode'
+      message: 'WhatsApp server not configured - configure WHATSAPP_SERVER_URL'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
   try {
-    console.log(`Getting WhatsApp status from server: ${WHATSAPP_SERVER_URL}`);
+    console.log(`Checking WhatsApp status at: ${WHATSAPP_SERVER_URL}/api/whatsapp/status`);
     
     const response = await fetch(`${WHATSAPP_SERVER_URL}/api/whatsapp/status`, {
       method: 'GET',
@@ -132,7 +133,9 @@ async function getConnectionStatus() {
     });
     
     if (!response.ok) {
-      throw new Error(`Failed to get status: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`Status check failed (${response.status}):`, errorText);
+      throw new Error(`Server returned ${response.status}: ${response.statusText}`);
     }
 
     const status = await response.json();
@@ -145,7 +148,7 @@ async function getConnectionStatus() {
     console.error('Error getting status:', error);
     return new Response(JSON.stringify({
       status: 'disconnected',
-      error: 'Cannot connect to WhatsApp server. Make sure the Node.js server is running and accessible.'
+      error: `Cannot reach WhatsApp server at ${WHATSAPP_SERVER_URL}. Error: ${error.message}`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
