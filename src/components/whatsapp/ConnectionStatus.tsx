@@ -1,9 +1,9 @@
 
-import { CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { CheckCircle, AlertCircle, RefreshCw, Play } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface ConnectionStatusProps {
-  status: 'disconnected' | 'connecting' | 'connected';
+  status: 'disconnected' | 'connecting' | 'connected' | 'demo';
 }
 
 export const ConnectionStatus = ({ status }: ConnectionStatusProps) => {
@@ -11,6 +11,7 @@ export const ConnectionStatus = ({ status }: ConnectionStatusProps) => {
     switch (status) {
       case 'connected': return 'bg-green-500';
       case 'connecting': return 'bg-yellow-500';
+      case 'demo': return 'bg-blue-500';
       default: return 'bg-red-500';
     }
   };
@@ -19,6 +20,7 @@ export const ConnectionStatus = ({ status }: ConnectionStatusProps) => {
     switch (status) {
       case 'connected': return 'Conectado';
       case 'connecting': return 'Conectando...';
+      case 'demo': return 'Modo Demo';
       default: return 'Desconectado';
     }
   };
@@ -27,6 +29,7 @@ export const ConnectionStatus = ({ status }: ConnectionStatusProps) => {
     switch (status) {
       case 'connected': return <CheckCircle className="h-4 w-4" />;
       case 'connecting': return <RefreshCw className="h-4 w-4 animate-spin" />;
+      case 'demo': return <Play className="h-4 w-4" />;
       default: return <AlertCircle className="h-4 w-4" />;
     }
   };
