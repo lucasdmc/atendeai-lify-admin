@@ -73,21 +73,8 @@ async function initializeWhatsApp() {
     });
   }
 
-  // Verificar se é localhost (ambiente de desenvolvimento)
-  if (WHATSAPP_SERVER_URL.includes('localhost') || WHATSAPP_SERVER_URL.includes('127.0.0.1')) {
-    console.log('Localhost detected in production, treating as demo mode');
-    return new Response(JSON.stringify({
-      success: true,
-      message: 'Development mode detected. WhatsApp integration is in demo mode.',
-      qrCode: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-      status: 'demo'
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
   try {
-    console.log('Initializing WhatsApp connection via Node.js server...');
+    console.log(`Initializing WhatsApp connection via server: ${WHATSAPP_SERVER_URL}`);
     
     const response = await fetch(`${WHATSAPP_SERVER_URL}/api/whatsapp/initialize`, {
       method: 'POST',
@@ -134,19 +121,8 @@ async function getConnectionStatus() {
     });
   }
 
-  // Verificar se é localhost (ambiente de desenvolvimento)
-  if (WHATSAPP_SERVER_URL.includes('localhost') || WHATSAPP_SERVER_URL.includes('127.0.0.1')) {
-    console.log('Localhost detected, returning demo status');
-    return new Response(JSON.stringify({
-      status: 'demo',
-      message: 'Development environment - demo mode'
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
   try {
-    console.log('Getting WhatsApp status from Node.js server...');
+    console.log(`Getting WhatsApp status from server: ${WHATSAPP_SERVER_URL}`);
     
     const response = await fetch(`${WHATSAPP_SERVER_URL}/api/whatsapp/status`, {
       method: 'GET',
@@ -180,19 +156,6 @@ async function sendMessage(to: string, message: string, supabase: any) {
   // Verificar se o servidor WhatsApp está configurado
   if (!WHATSAPP_SERVER_URL) {
     throw new Error('WhatsApp server not configured');
-  }
-
-  // Verificar se é localhost (ambiente de desenvolvimento) 
-  if (WHATSAPP_SERVER_URL.includes('localhost') || WHATSAPP_SERVER_URL.includes('127.0.0.1')) {
-    console.log('Demo mode - simulating message send');
-    return new Response(JSON.stringify({
-      success: true,
-      messageId: `demo_${Date.now()}`,
-      status: 'sent',
-      message: 'Message sent in demo mode'
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
   }
 
   try {
@@ -306,18 +269,6 @@ async function disconnectWhatsApp() {
       success: true,
       status: 'disconnected',
       message: 'WhatsApp server not configured.'
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
-  // Verificar se é localhost (ambiente de desenvolvimento)
-  if (WHATSAPP_SERVER_URL.includes('localhost') || WHATSAPP_SERVER_URL.includes('127.0.0.1')) {
-    console.log('Demo mode - simulating disconnect');
-    return new Response(JSON.stringify({
-      success: true,
-      status: 'disconnected',
-      message: 'WhatsApp client disconnected (demo mode).'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
