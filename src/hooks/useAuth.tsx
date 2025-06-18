@@ -37,6 +37,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (profileError) {
         console.error('Error fetching profile:', profileError);
+        // Mesmo com erro, definir loading como false para evitar loop
+        setUserRole(null);
+        setUserPermissions([]);
         setLoading(false);
         return;
       }
@@ -56,6 +59,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (permissionsError) {
         console.error('Error fetching permissions:', permissionsError);
+        // Mesmo com erro, definir permissões vazias e loading como false
+        setUserPermissions([]);
         setLoading(false);
         return;
       }
@@ -69,6 +74,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     } catch (error) {
       console.error('Error fetching user data:', error);
+      // CRÍTICO: sempre definir loading como false, mesmo com erro
+      setUserRole(null);
+      setUserPermissions([]);
       setLoading(false);
     }
   };
@@ -82,9 +90,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user profile and permissions directly
-          await fetchUserData(session.user.id);
+          // Buscar dados do usuário apenas se ainda estiver carregando ou se o usuário mudou
+          fetchUserData(session.user.id);
         } else {
+          // Se não há usuário logado, limpar dados e parar loading
           setUserRole(null);
           setUserPermissions([]);
           setLoading(false);
