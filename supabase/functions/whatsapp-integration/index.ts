@@ -6,28 +6,12 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-// Configuração da Evolution API
-const EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL') || 'https://api.evolution.com.br';
-const EVOLUTION_API_KEY = Deno.env.get('EVOLUTION_API_KEY') || '';
+// URL do seu servidor Node.js local
+const WHATSAPP_SERVER_URL = Deno.env.get('WHATSAPP_SERVER_URL') || 'http://localhost:3001';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-// Estado global da sessão WhatsApp
-interface WhatsAppSession {
-  instanceName: string;
-  qrCode?: string;
-  status: 'disconnected' | 'qr' | 'connected' | 'initializing';
-  clientInfo?: any;
-  lastActivity: number;
-}
-
-let currentSession: WhatsAppSession = {
-  instanceName: `instance_${Date.now()}`,
-  status: 'disconnected',
-  lastActivity: Date.now()
 };
 
 serve(async (req) => {
@@ -77,151 +61,55 @@ serve(async (req) => {
 
 async function initializeWhatsApp() {
   try {
-    console.log('Initializing WhatsApp connection using Evolution API...');
+    console.log('Initializing WhatsApp connection via Node.js server...');
     
-    currentSession.status = 'initializing';
-    
-    // Criar uma nova instância na Evolution API
-    const createInstanceResponse = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
+    const response = await fetch(`${WHATSAPP_SERVER_URL}/initialize`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'apikey': EVOLUTION_API_KEY
-      },
-      body: JSON.stringify({
-        instanceName: currentSession.instanceName,
-        webhook: `${supabaseUrl}/functions/v1/whatsapp-integration/webhook`,
-        webhookByEvents: true,
-        events: [
-          'APPLICATION_STARTUP',
-          'QRCODE_UPDATED',
-          'CONNECTION_UPDATE',
-          'MESSAGES_UPSERT'
-        ]
-      })
-    });
-
-    if (!createInstanceResponse.ok) {
-      throw new Error(`Failed to create instance: ${createInstanceResponse.statusText}`);
-    }
-
-    const instanceData = await createInstanceResponse.json();
-    console.log('Instance created:', instanceData);
-
-    // Conectar a instância para gerar QR Code
-    const connectResponse = await fetch(`${EVOLUTION_API_URL}/instance/connect/${currentSession.instanceName}`, {
-      method: 'GET',
-      headers: {
-        'apikey': EVOLUTION_API_KEY
+        'Content-Type': 'application/json'
       }
     });
 
-    if (!connectResponse.ok) {
-      throw new Error(`Failed to connect instance: ${connectResponse.statusText}`);
+    if (!response.ok) {
+      throw new Error(`Failed to initialize: ${response.statusText}`);
     }
 
-    currentSession.status = 'qr';
-
-    // Aguardar um pouco e buscar o QR Code
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    const qrResponse = await fetch(`${EVOLUTION_API_URL}/instance/connect/${currentSession.instanceName}`, {
-      method: 'GET',
-      headers: {
-        'apikey': EVOLUTION_API_KEY
-      }
-    });
-
-    if (qrResponse.ok) {
-      const qrData = await qrResponse.json();
-      if (qrData.qrcode && qrData.qrcode.code) {
-        // Gerar imagem do QR Code
-        const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&format=png&margin=10&data=${encodeURIComponent(qrData.qrcode.code)}`;
-        currentSession.qrCode = qrCodeImageUrl;
-      }
-    }
+    const result = await response.json();
 
     return new Response(JSON.stringify({
       success: true,
-      instanceName: currentSession.instanceName,
-      status: currentSession.status,
-      qrCode: currentSession.qrCode,
-      message: 'WhatsApp connection initialized. Please scan the QR code with your WhatsApp app.'
+      message: 'WhatsApp initialization started. Check status for QR code.'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
     console.error('Error initializing WhatsApp:', error);
-    currentSession.status = 'disconnected';
-    
-    // Fallback: Gerar QR Code de exemplo para demonstração
-    const fallbackQRData = `fallback_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const fallbackQRUrl = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&format=png&margin=10&data=${encodeURIComponent(fallbackQRData)}`;
-    
-    currentSession.qrCode = fallbackQRUrl;
-    currentSession.status = 'qr';
-    
-    console.log('Using fallback QR code for demonstration');
     
     return new Response(JSON.stringify({
-      success: true,
-      instanceName: currentSession.instanceName,
-      status: currentSession.status,
-      qrCode: currentSession.qrCode,
-      message: 'Demo QR code generated. Configure Evolution API credentials for real connection.',
-      isDemo: true
+      success: false,
+      error: 'Failed to connect to WhatsApp server. Make sure your Node.js server is running.'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500
     });
   }
 }
 
 async function getConnectionStatus() {
   try {
-    if (EVOLUTION_API_KEY && EVOLUTION_API_URL) {
-      // Verificar status real da instância
-      const statusResponse = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${currentSession.instanceName}`, {
-        method: 'GET',
-        headers: {
-          'apikey': EVOLUTION_API_KEY
-        }
-      });
-
-      if (statusResponse.ok) {
-        const statusData = await statusResponse.json();
-        if (statusData.state === 'open') {
-          currentSession.status = 'connected';
-          
-          // Buscar informações do cliente
-          const infoResponse = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
-            method: 'GET',
-            headers: {
-              'apikey': EVOLUTION_API_KEY
-            }
-          });
-
-          if (infoResponse.ok) {
-            const instances = await infoResponse.json();
-            const currentInstance = instances.find((inst: any) => inst.instanceName === currentSession.instanceName);
-            if (currentInstance) {
-              currentSession.clientInfo = {
-                number: currentInstance.owner?.id || 'Conectado',
-                name: currentInstance.owner?.name || 'WhatsApp Business',
-                platform: 'web',
-                connectedAt: new Date().toISOString()
-              };
-            }
-          }
-        }
-      }
+    const response = await fetch(`${WHATSAPP_SERVER_URL}/status`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to get status: ${response.statusText}`);
     }
 
-    const status = {
-      status: currentSession.status,
-      clientInfo: currentSession.clientInfo,
-      qrCode: currentSession.qrCode,
-      instanceName: currentSession.instanceName
-    };
+    const status = await response.json();
+
+    // Se temos QR code, converter para imagem
+    if (status.qrCode && status.status === 'qr') {
+      const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&format=png&margin=10&data=${encodeURIComponent(status.qrCode)}`;
+      status.qrCode = qrCodeImageUrl;
+    }
 
     console.log('Current WhatsApp status:', status);
 
@@ -231,10 +119,8 @@ async function getConnectionStatus() {
   } catch (error) {
     console.error('Error getting status:', error);
     return new Response(JSON.stringify({
-      status: currentSession.status,
-      clientInfo: currentSession.clientInfo,
-      qrCode: currentSession.qrCode,
-      instanceName: currentSession.instanceName
+      status: 'disconnected',
+      error: 'Cannot connect to WhatsApp server'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -242,30 +128,26 @@ async function getConnectionStatus() {
 }
 
 async function sendMessage(to: string, message: string, supabase: any) {
-  if (currentSession.status !== 'connected') {
-    throw new Error('WhatsApp not connected. Please scan the QR code first.');
-  }
-
   try {
     console.log(`Sending WhatsApp message to ${to}: ${message}`);
     
-    const sendResponse = await fetch(`${EVOLUTION_API_URL}/message/sendText/${currentSession.instanceName}`, {
+    const response = await fetch(`${WHATSAPP_SERVER_URL}/send-message`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'apikey': EVOLUTION_API_KEY
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        number: to,
-        text: message
+        to: to,
+        message: message
       })
     });
 
-    if (!sendResponse.ok) {
-      throw new Error(`Failed to send message: ${sendResponse.statusText}`);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to send message');
     }
 
-    const result = await sendResponse.json();
+    const result = await response.json();
 
     // Salvar mensagem no banco
     const { error } = await supabase
@@ -274,7 +156,7 @@ async function sendMessage(to: string, message: string, supabase: any) {
         conversation_id: `conv_${to.replace(/\D/g, '')}`,
         content: message,
         message_type: 'outbound',
-        whatsapp_message_id: result.key?.id || `msg_${Date.now()}`
+        whatsapp_message_id: result.messageId || `msg_${Date.now()}`
       });
 
     if (error) {
@@ -294,7 +176,7 @@ async function sendMessage(to: string, message: string, supabase: any) {
 
     return new Response(JSON.stringify({
       success: true,
-      messageId: result.key?.id || `msg_${Date.now()}`,
+      messageId: result.messageId,
       status: 'sent'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -309,57 +191,34 @@ async function handleWebhook(data: any, supabase: any) {
   console.log('WhatsApp webhook received:', data);
 
   try {
-    // Processar eventos da Evolution API
-    if (data.event === 'qrcode.updated') {
-      console.log('QR Code updated:', data.data);
-      if (data.data.qrcode) {
-        const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&format=png&margin=10&data=${encodeURIComponent(data.data.qrcode)}`;
-        currentSession.qrCode = qrCodeImageUrl;
-        currentSession.status = 'qr';
+    if (data.event === 'message.received' && data.data) {
+      console.log('Processing incoming message:', data.data);
+      
+      // Salvar mensagem recebida
+      const { error: messageError } = await supabase
+        .from('whatsapp_messages')
+        .insert({
+          conversation_id: `conv_${data.data.from.replace(/\D/g, '')}`,
+          content: data.data.message || 'Mensagem não suportada',
+          message_type: 'inbound',
+          whatsapp_message_id: `msg_${data.data.timestamp || Date.now()}`
+        });
+
+      if (messageError) {
+        console.error('Error saving incoming message:', messageError);
       }
-    }
 
-    if (data.event === 'connection.update') {
-      console.log('Connection update:', data.data);
-      if (data.data.state === 'open') {
-        currentSession.status = 'connected';
-      } else if (data.data.state === 'close') {
-        currentSession.status = 'disconnected';
-      }
-    }
+      // Criar ou atualizar conversa
+      const { error: conversationError } = await supabase
+        .from('whatsapp_conversations')
+        .upsert({
+          phone_number: data.data.from,
+          name: data.data.from,
+          updated_at: new Date().toISOString()
+        });
 
-    if (data.event === 'messages.upsert' && data.data) {
-      for (const message of data.data) {
-        if (message.key.fromMe) continue; // Ignorar mensagens enviadas por nós
-        
-        console.log('Processing incoming message:', message);
-        
-        // Salvar mensagem recebida
-        const { error: messageError } = await supabase
-          .from('whatsapp_messages')
-          .insert({
-            conversation_id: `conv_${message.key.remoteJid.replace(/\D/g, '')}`,
-            content: message.message?.conversation || message.message?.extendedTextMessage?.text || 'Mensagem não suportada',
-            message_type: 'inbound',
-            whatsapp_message_id: message.key.id
-          });
-
-        if (messageError) {
-          console.error('Error saving incoming message:', messageError);
-        }
-
-        // Criar ou atualizar conversa
-        const { error: conversationError } = await supabase
-          .from('whatsapp_conversations')
-          .upsert({
-            phone_number: message.key.remoteJid,
-            name: message.pushName || message.key.remoteJid,
-            updated_at: new Date().toISOString()
-          });
-
-        if (conversationError) {
-          console.error('Error updating conversation:', conversationError);
-        }
+      if (conversationError) {
+        console.error('Error updating conversation:', conversationError);
       }
     }
 
@@ -378,22 +237,8 @@ async function disconnectWhatsApp() {
   try {
     console.log('Disconnecting WhatsApp client...');
     
-    if (EVOLUTION_API_KEY && currentSession.instanceName) {
-      await fetch(`${EVOLUTION_API_URL}/instance/logout/${currentSession.instanceName}`, {
-        method: 'DELETE',
-        headers: {
-          'apikey': EVOLUTION_API_KEY
-        }
-      });
-    }
-
-    currentSession = {
-      instanceName: `instance_${Date.now()}`,
-      status: 'disconnected',
-      lastActivity: Date.now()
-    };
-
-    console.log('WhatsApp client disconnected successfully.');
+    // Aqui você poderia implementar um endpoint no seu servidor Node.js para desconectar
+    // Por exemplo: await fetch(`${WHATSAPP_SERVER_URL}/disconnect`, { method: 'POST' });
 
     return new Response(JSON.stringify({
       success: true,
