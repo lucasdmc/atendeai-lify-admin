@@ -40,6 +40,8 @@ serve(async (req) => {
       
       case 'webhook':
         const webhookData = await req.json();
+        console.log('=== WEBHOOK RECEBIDO ===');
+        console.log('Raw webhook data:', JSON.stringify(webhookData, null, 2));
         return await handleWebhook(webhookData, supabase);
       
       case 'disconnect':
@@ -264,16 +266,22 @@ async function sendMessage(to: string, message: string, supabase: any) {
 }
 
 async function handleWebhook(data: any, supabase: any) {
-  console.log('WhatsApp webhook received:', data);
+  console.log('=== PROCESSANDO WEBHOOK ===');
+  console.log('Webhook data received:', JSON.stringify(data, null, 2));
 
   try {
     if (data.event === 'message.received' && data.data) {
-      console.log('Processing incoming message:', data.data);
+      console.log('✅ Evento de mensagem recebida detectado');
+      console.log('Message data:', JSON.stringify(data.data, null, 2));
       
       const messageContent = data.data.message || 'Mensagem não suportada';
       const fromNumber = data.data.from;
       
+      console.log(`📞 Mensagem de: ${fromNumber}`);
+      console.log(`💬 Conteúdo: ${messageContent}`);
+
       // Salvar mensagem recebida
+      console.log('💾 Salvando mensagem no banco...');
       const { error: messageError } = await supabase
         .from('whatsapp_messages')
         .insert({
@@ -284,10 +292,13 @@ async function handleWebhook(data: any, supabase: any) {
         });
 
       if (messageError) {
-        console.error('Error saving incoming message:', messageError);
+        console.error('❌ Erro ao salvar mensagem:', messageError);
+      } else {
+        console.log('✅ Mensagem salva no banco');
       }
 
       // Criar ou atualizar conversa
+      console.log('👤 Atualizando conversa...');
       const { error: conversationError } = await supabase
         .from('whatsapp_conversations')
         .upsert({
@@ -297,18 +308,23 @@ async function handleWebhook(data: any, supabase: any) {
         });
 
       if (conversationError) {
-        console.error('Error updating conversation:', conversationError);
+        console.error('❌ Erro ao atualizar conversa:', conversationError);
+      } else {
+        console.log('✅ Conversa atualizada');
       }
 
-      // NOVA FUNCIONALIDADE: Processar mensagem com IA e responder automaticamente
+      // PROCESSAR COM IA
+      console.log('🤖 Iniciando processamento com IA...');
       await processAndRespondWithAI(fromNumber, messageContent, supabase);
+    } else {
+      console.log('ℹ️ Webhook recebido mas não é uma mensagem:', data.event || 'evento não identificado');
     }
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Error handling webhook:', error);
+    console.error('❌ Erro ao processar webhook:', error);
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -316,22 +332,39 @@ async function handleWebhook(data: any, supabase: any) {
 }
 
 async function processAndRespondWithAI(phoneNumber: string, message: string, supabase: any) {
-  console.log(`Processando mensagem com IA para ${phoneNumber}: ${message}`);
+  console.log(`🤖 === PROCESSAMENTO IA INICIADO ===`);
+  console.log(`📞 Número: ${phoneNumber}`);
+  console.log(`💬 Mensagem: ${message}`);
+  console.log(`🔑 OpenAI Key configurada: ${openAIApiKey ? 'SIM' : 'NÃO'}`);
   
   try {
     // Buscar contexto da clínica
-    const { data: contextData } = await supabase
+    console.log('🏥 Buscando contexto da clínica...');
+    const { data: contextData, error: contextError } = await supabase
       .from('contextualization_data')
       .select('question, answer')
       .order('order_number');
 
+    if (contextError) {
+      console.error('❌ Erro ao buscar contexto:', contextError);
+    } else {
+      console.log(`✅ Contexto encontrado: ${contextData?.length || 0} itens`);
+    }
+
     // Buscar histórico recente da conversa
-    const { data: recentMessages } = await supabase
+    console.log('📝 Buscando histórico da conversa...');
+    const { data: recentMessages, error: messagesError } = await supabase
       .from('whatsapp_messages')
       .select('content, message_type, timestamp')
       .eq('conversation_id', `conv_${phoneNumber.replace(/\D/g, '')}`)
       .order('timestamp', { ascending: false })
       .limit(10);
+
+    if (messagesError) {
+      console.error('❌ Erro ao buscar histórico:', messagesError);
+    } else {
+      console.log(`✅ Histórico encontrado: ${recentMessages?.length || 0} mensagens`);
+    }
 
     // Construir prompt do sistema com contexto da clínica
     let systemPrompt = `Você é um assistente virtual de uma clínica médica. Seja sempre educado, profissional e prestativo.
@@ -376,11 +409,14 @@ INFORMAÇÕES DA CLÍNICA:`;
     // Adicionar mensagem atual
     messages.push({ role: 'user', content: message });
 
+    console.log(`💭 Prompt construído com ${messages.length} mensagens`);
+
     // Chamar a OpenAI se a chave estiver configurada
     let aiResponse = 'Olá! Obrigado por entrar em contato. Como posso ajudá-lo hoje?';
     
     if (openAIApiKey) {
       try {
+        console.log('🔄 Chamando OpenAI API...');
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -395,31 +431,39 @@ INFORMAÇÕES DA CLÍNICA:`;
           }),
         });
 
+        console.log(`📡 OpenAI response status: ${response.status}`);
+
         if (response.ok) {
           const data = await response.json();
           aiResponse = data.choices[0].message.content;
-          console.log('Resposta IA gerada:', aiResponse.substring(0, 100) + '...');
+          console.log('✅ Resposta IA gerada com sucesso');
+          console.log(`💬 Resposta: ${aiResponse.substring(0, 100)}...`);
         } else {
-          console.error('Erro na OpenAI API:', response.status);
+          const errorText = await response.text();
+          console.error('❌ Erro na OpenAI API:', response.status, errorText);
         }
       } catch (error) {
-        console.error('Erro ao chamar OpenAI:', error);
+        console.error('❌ Erro ao chamar OpenAI:', error);
       }
+    } else {
+      console.log('⚠️ OpenAI Key não configurada, usando resposta padrão');
     }
 
     // Enviar resposta de volta via WhatsApp
+    console.log('📤 Enviando resposta via WhatsApp...');
     await sendMessage(phoneNumber, aiResponse, supabase);
     
-    console.log(`Resposta automática enviada para ${phoneNumber}`);
+    console.log(`✅ Resposta automática enviada para ${phoneNumber}`);
     
   } catch (error) {
-    console.error('Erro ao processar mensagem com IA:', error);
+    console.error('❌ Erro ao processar mensagem com IA:', error);
     
     // Enviar mensagem de erro genérica
     try {
+      console.log('📤 Enviando mensagem de erro...');
       await sendMessage(phoneNumber, 'Desculpe, estou com dificuldades no momento. Tente novamente em alguns minutos ou entre em contato por telefone.', supabase);
     } catch (sendError) {
-      console.error('Erro ao enviar mensagem de erro:', sendError);
+      console.error('❌ Erro ao enviar mensagem de erro:', sendError);
     }
   }
 }
