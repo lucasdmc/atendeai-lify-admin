@@ -5,39 +5,45 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { QrCode, Smartphone, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const ConectarWhatsApp = () => {
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [clientInfo, setClientInfo] = useState<any>(null);
   const { toast } = useToast();
 
-  // Simular geração de QR Code (aqui você integraria com uma API real do WhatsApp)
+  // Verificar status da conexão periodicamente
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const { data } = await supabase.functions.invoke('whatsapp-integration/status');
+        if (data?.status) {
+          setConnectionStatus(data.status);
+          if (data.clientInfo) {
+            setClientInfo(data.clientInfo);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking WhatsApp status:', error);
+      }
+    };
+
+    const interval = setInterval(checkStatus, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
   const generateQRCode = async () => {
     setIsLoading(true);
     setConnectionStatus('connecting');
     
     try {
-      // Simulando chamada para API do WhatsApp
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const { data, error } = await supabase.functions.invoke('whatsapp-integration/generate-qr');
       
-      // QR Code simulado (em produção, seria retornado pela API)
-      const mockQRCode = `data:image/svg+xml;base64,${btoa(`
-        <svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
-          <rect width="200" height="200" fill="white"/>
-          <rect x="0" y="0" width="40" height="40" fill="black"/>
-          <rect x="80" y="0" width="40" height="40" fill="black"/>
-          <rect x="160" y="0" width="40" height="40" fill="black"/>
-          <rect x="0" y="80" width="40" height="40" fill="black"/>
-          <rect x="160" y="80" width="40" height="40" fill="black"/>
-          <rect x="0" y="160" width="40" height="40" fill="black"/>
-          <rect x="80" y="160" width="40" height="40" fill="black"/>
-          <rect x="160" y="160" width="40" height="40" fill="black"/>
-          <text x="100" y="110" text-anchor="middle" font-family="Arial" font-size="12" fill="black">QR Code</text>
-        </svg>
-      `)}`;
+      if (error) throw error;
       
-      setQrCode(mockQRCode);
+      setQrCode(data.qrCode);
       
       toast({
         title: "QR Code gerado",
@@ -55,22 +61,6 @@ const ConectarWhatsApp = () => {
       setIsLoading(false);
     }
   };
-
-  const simulateConnection = () => {
-    setTimeout(() => {
-      setConnectionStatus('connected');
-      toast({
-        title: "WhatsApp conectado!",
-        description: "Seu WhatsApp Business foi conectado com sucesso.",
-      });
-    }, 5000);
-  };
-
-  useEffect(() => {
-    if (qrCode && connectionStatus === 'connecting') {
-      simulateConnection();
-    }
-  }, [qrCode, connectionStatus]);
 
   const getStatusColor = () => {
     switch (connectionStatus) {
@@ -200,13 +190,16 @@ const ConectarWhatsApp = () => {
               </div>
             </div>
 
-            {connectionStatus === 'connected' && (
+            {connectionStatus === 'connected' && clientInfo && (
               <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-center gap-2 text-green-700">
                   <CheckCircle className="h-5 w-5" />
                   <p className="font-medium">WhatsApp conectado com sucesso!</p>
                 </div>
                 <p className="text-sm text-green-600 mt-1">
+                  Número: {clientInfo.number || 'Não informado'}
+                </p>
+                <p className="text-sm text-green-600">
                   Agora você pode receber e enviar mensagens através do sistema.
                 </p>
               </div>
