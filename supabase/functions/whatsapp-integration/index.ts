@@ -26,7 +26,7 @@ let currentSession: WhatsAppSession = {
   lastActivity: Date.now()
 };
 
-// Simular conexão com WhatsApp Web (em produção, usar whatsapp-web.js)
+// Classe para simular a conexão WhatsApp Web
 class WhatsAppClient {
   private session: WhatsAppSession;
   private eventCallbacks: Map<string, Function[]> = new Map();
@@ -57,11 +57,11 @@ class WhatsAppClient {
       this.generateQRCode();
     }, 2000);
 
-    // Simular escaneamento do QR após 10 segundos
+    // Simular escaneamento do QR após 15 segundos
     setTimeout(() => {
       this.session.status = 'connected';
       this.session.clientInfo = {
-        number: '+55119999999999',
+        number: '+5511999999999',
         name: 'WhatsApp Business',
         platform: 'web'
       };
@@ -69,76 +69,38 @@ class WhatsAppClient {
     }, 15000);
   }
 
-  private generateQRCode() {
-    // Em produção, este seria o QR real do WhatsApp
-    const qrData = `whatsapp://connect/${this.session.id}/${Date.now()}`;
-    
-    // Gerar SVG do QR Code (simplificado para demo)
-    const qrSvg = this.generateQRSvg(qrData);
-    this.session.qrCode = `data:image/svg+xml;base64,${btoa(qrSvg)}`;
-    
-    this.emit('qr', this.session.qrCode);
-  }
-
-  private generateQRSvg(data: string): string {
-    // QR Code SVG simplificado para demonstração
-    const size = 200;
-    const cellSize = 4;
-    const cells = size / cellSize;
-    
-    let svg = `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">`;
-    svg += `<rect width="${size}" height="${size}" fill="white"/>`;
-    
-    // Criar padrão de QR Code baseado nos dados
-    const hash = this.simpleHash(data);
-    for (let i = 0; i < cells; i++) {
-      for (let j = 0; j < cells; j++) {
-        if ((hash + i * j) % 3 === 0) {
-          const x = i * cellSize;
-          const y = j * cellSize;
-          svg += `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" fill="black"/>`;
-        }
-      }
+  private async generateQRCode() {
+    try {
+      // Gerar dados únicos para o QR Code
+      const sessionData = {
+        ref: this.session.id,
+        ttl: Date.now() + 300000, // 5 minutos
+        secret: this.generateSecret()
+      };
+      
+      const qrData = `1,${sessionData.ref},${sessionData.secret},${sessionData.ttl}`;
+      
+      // Usar API externa para gerar QR Code real
+      const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
+      
+      console.log('Generated QR data:', qrData);
+      console.log('QR API URL:', qrApiUrl);
+      
+      this.session.qrCode = qrApiUrl;
+      this.emit('qr', this.session.qrCode);
+      
+    } catch (error) {
+      console.error('Error generating QR code:', error);
     }
-    
-    // Adicionar cantos de posicionamento
-    this.addPositionMarkers(svg, size, cellSize);
-    
-    svg += `<text x="${size/2}" y="${size-10}" text-anchor="middle" font-family="Arial" font-size="12" fill="black">Scan with WhatsApp</text>`;
-    svg += '</svg>';
-    
-    return svg;
   }
 
-  private addPositionMarkers(svg: string, size: number, cellSize: number) {
-    const markerSize = cellSize * 7;
-    
-    // Canto superior esquerdo
-    svg += `<rect x="0" y="0" width="${markerSize}" height="${markerSize}" fill="black"/>`;
-    svg += `<rect x="${cellSize}" y="${cellSize}" width="${markerSize-2*cellSize}" height="${markerSize-2*cellSize}" fill="white"/>`;
-    svg += `<rect x="${cellSize*2}" y="${cellSize*2}" width="${markerSize-4*cellSize}" height="${markerSize-4*cellSize}" fill="black"/>`;
-    
-    // Canto superior direito
-    const rightX = size - markerSize;
-    svg += `<rect x="${rightX}" y="0" width="${markerSize}" height="${markerSize}" fill="black"/>`;
-    svg += `<rect x="${rightX+cellSize}" y="${cellSize}" width="${markerSize-2*cellSize}" height="${markerSize-2*cellSize}" fill="white"/>`;
-    svg += `<rect x="${rightX+cellSize*2}" y="${cellSize*2}" width="${markerSize-4*cellSize}" height="${markerSize-4*cellSize}" fill="black"/>`;
-    
-    // Canto inferior esquerdo
-    const bottomY = size - markerSize;
-    svg += `<rect x="0" y="${bottomY}" width="${markerSize}" height="${markerSize}" fill="black"/>`;
-    svg += `<rect x="${cellSize}" y="${bottomY+cellSize}" width="${markerSize-2*cellSize}" height="${markerSize-2*cellSize}" fill="white"/>`;
-    svg += `<rect x="${cellSize*2}" y="${bottomY+cellSize*2}" width="${markerSize-4*cellSize}" height="${markerSize-4*cellSize}" fill="black"/>`;
-  }
-
-  private simpleHash(str: string): number {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
+  private generateSecret(): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < 43; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    return Math.abs(hash);
+    return result;
   }
 
   async sendMessage(to: string, message: string) {
@@ -148,7 +110,6 @@ class WhatsAppClient {
 
     console.log(`Sending message to ${to}: ${message}`);
     
-    // Em produção, usar a API real
     return {
       id: `msg_${Date.now()}`,
       to,
@@ -230,7 +191,7 @@ async function initializeWhatsApp() {
 
     // Configurar event listeners
     whatsappClient.on('qr', (qrCode: string) => {
-      console.log('QR Code generated');
+      console.log('QR Code generated:', qrCode);
       currentSession.qrCode = qrCode;
     });
 
