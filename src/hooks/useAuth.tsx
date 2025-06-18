@@ -24,38 +24,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userPermissions, setUserPermissions] = useState<string[]>([]);
   const { toast } = useToast();
 
+  const fetchUserData = async (userId: string) => {
+    try {
+      console.log('Fetching user data for ID:', userId);
+      
+      // Fetch user profile and permissions
+      const { data: profile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', userId)
+        .single();
+      
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+        return;
+      }
+
+      console.log('Profile fetched:', profile);
+      
+      if (profile) {
+        setUserRole(profile.role);
+        console.log('User role set to:', profile.role);
+      }
+
+      const { data: permissions, error: permissionsError } = await supabase
+        .from('user_permissions')
+        .select('module_name')
+        .eq('user_id', userId)
+        .eq('can_access', true);
+      
+      if (permissionsError) {
+        console.error('Error fetching permissions:', permissionsError);
+        return;
+      }
+
+      console.log('Permissions fetched:', permissions);
+      
+      const moduleNames = permissions?.map(p => p.module_name) || [];
+      setUserPermissions(moduleNames);
+      console.log('User permissions set to:', moduleNames);
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  };
+
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.id);
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user profile and permissions
-          setTimeout(async () => {
-            try {
-              const { data: profile } = await supabase
-                .from('user_profiles')
-                .select('role')
-                .eq('id', session.user.id)
-                .single();
-              
-              if (profile) {
-                setUserRole(profile.role);
-              }
-
-              const { data: permissions } = await supabase
-                .from('user_permissions')
-                .select('module_name')
-                .eq('user_id', session.user.id)
-                .eq('can_access', true);
-              
-              setUserPermissions(permissions?.map(p => p.module_name) || []);
-            } catch (error) {
-              console.error('Error fetching user data:', error);
-            }
-          }, 0);
+          // Fetch user profile and permissions directly
+          await fetchUserData(session.user.id);
         } else {
           setUserRole(null);
           setUserPermissions([]);
@@ -66,9 +89,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', session?.user?.id);
       setSession(session);
       setUser(session?.user ?? null);
-      setLoading(false);
+      
+      if (session?.user) {
+        fetchUserData(session.user.id);
+      } else {
+        setLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();

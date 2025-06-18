@@ -57,12 +57,20 @@ const menuItems = [
 
 const Sidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { userPermissions } = useAuth();
+  const { userPermissions, userRole } = useAuth();
   const location = useLocation();
 
-  const filteredMenuItems = menuItems.filter(item => 
-    userPermissions.includes(item.permission)
-  );
+  // Debug logs
+  console.log('Sidebar - User permissions:', userPermissions);
+  console.log('Sidebar - User role:', userRole);
+
+  const filteredMenuItems = menuItems.filter(item => {
+    const hasPermission = userPermissions.includes(item.permission);
+    console.log(`Menu item ${item.title} (${item.permission}): ${hasPermission}`);
+    return hasPermission;
+  });
+
+  console.log('Filtered menu items:', filteredMenuItems);
 
   return (
     <>
@@ -91,6 +99,12 @@ const Sidebar = () => {
               </h1>
               <p className="text-xs text-gray-600">AtendeAÍ</p>
             </div>
+          </div>
+
+          {/* Debug info */}
+          <div className="p-4 bg-gray-50 text-xs">
+            <p>Role: {userRole || 'N/A'}</p>
+            <p>Permissions: {userPermissions.length}</p>
           </div>
 
           {/* Navigation */}
