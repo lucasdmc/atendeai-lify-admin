@@ -6,8 +6,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-// URL do seu servidor Node.js local
-const WHATSAPP_SERVER_URL = Deno.env.get('WHATSAPP_SERVER_URL') || 'http://localhost:3001';
+// Configuração segura para a URL do servidor WhatsApp
+const WHATSAPP_SERVER_URL = Deno.env.get('WHATSAPP_SERVER_URL');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -60,6 +60,17 @@ serve(async (req) => {
 });
 
 async function initializeWhatsApp() {
+  // Verificar se o servidor WhatsApp está configurado
+  if (!WHATSAPP_SERVER_URL) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'WhatsApp server not configured. Please configure WHATSAPP_SERVER_URL environment variable.'
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 400
+    });
+  }
+
   try {
     console.log('Initializing WhatsApp connection via Node.js server...');
     
@@ -89,7 +100,7 @@ async function initializeWhatsApp() {
     
     return new Response(JSON.stringify({
       success: false,
-      error: 'Failed to connect to WhatsApp server. Make sure your Node.js server is running on port 3001.'
+      error: 'Failed to connect to WhatsApp server. Make sure your Node.js server is running and accessible.'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500
@@ -98,6 +109,16 @@ async function initializeWhatsApp() {
 }
 
 async function getConnectionStatus() {
+  // Se não há servidor configurado, retornar status desconectado
+  if (!WHATSAPP_SERVER_URL) {
+    return new Response(JSON.stringify({
+      status: 'disconnected',
+      message: 'WhatsApp server not configured'
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
     console.log('Getting WhatsApp status from Node.js server...');
     
@@ -128,7 +149,7 @@ async function getConnectionStatus() {
     console.error('Error getting status:', error);
     return new Response(JSON.stringify({
       status: 'disconnected',
-      error: 'Cannot connect to WhatsApp server. Make sure the Node.js server is running.'
+      error: 'Cannot connect to WhatsApp server. Make sure the Node.js server is running and accessible.'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -136,6 +157,11 @@ async function getConnectionStatus() {
 }
 
 async function sendMessage(to: string, message: string, supabase: any) {
+  // Verificar se o servidor WhatsApp está configurado
+  if (!WHATSAPP_SERVER_URL) {
+    throw new Error('WhatsApp server not configured');
+  }
+
   try {
     console.log(`Sending WhatsApp message to ${to}: ${message}`);
     
@@ -241,6 +267,17 @@ async function handleWebhook(data: any, supabase: any) {
 }
 
 async function disconnectWhatsApp() {
+  // Se não há servidor configurado, retornar sucesso
+  if (!WHATSAPP_SERVER_URL) {
+    return new Response(JSON.stringify({
+      success: true,
+      status: 'disconnected',
+      message: 'WhatsApp server not configured.'
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
     console.log('Disconnecting WhatsApp client...');
     
