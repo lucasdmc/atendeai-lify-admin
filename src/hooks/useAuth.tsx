@@ -37,6 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (profileError) {
         console.error('Error fetching profile:', profileError);
+        setLoading(false);
         return;
       }
 
@@ -55,6 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (permissionsError) {
         console.error('Error fetching permissions:', permissionsError);
+        setLoading(false);
         return;
       }
 
@@ -63,8 +65,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const moduleNames = permissions?.map(p => p.module_name) || [];
       setUserPermissions(moduleNames);
       console.log('User permissions set to:', moduleNames);
+      
+      setLoading(false);
     } catch (error) {
       console.error('Error fetching user data:', error);
+      setLoading(false);
     }
   };
 
@@ -82,8 +87,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           setUserRole(null);
           setUserPermissions([]);
+          setLoading(false);
         }
-        setLoading(false);
       }
     );
 
