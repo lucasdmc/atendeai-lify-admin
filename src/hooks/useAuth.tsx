@@ -22,10 +22,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userPermissions, setUserPermissions] = useState<string[]>([]);
+  const [isLoadingUserData, setIsLoadingUserData] = useState(false);
   const { toast } = useToast();
 
   const fetchUserData = async (userId: string) => {
+    // Prevent multiple simultaneous calls
+    if (isLoadingUserData) {
+      console.log('Already fetching user data, skipping...');
+      return;
+    }
+
     try {
+      setIsLoadingUserData(true);
       console.log('Fetching user data for ID:', userId);
       
       // Fetch user profile and permissions
@@ -37,10 +45,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (profileError) {
         console.error('Error fetching profile:', profileError);
-        // Mesmo com erro, definir loading como false para evitar loop
         setUserRole(null);
         setUserPermissions([]);
-        setLoading(false);
         return;
       }
 
@@ -59,9 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (permissionsError) {
         console.error('Error fetching permissions:', permissionsError);
-        // Mesmo com erro, definir permissões vazias e loading como false
         setUserPermissions([]);
-        setLoading(false);
         return;
       }
 
@@ -71,29 +75,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserPermissions(moduleNames);
       console.log('User permissions set to:', moduleNames);
       
-      setLoading(false);
     } catch (error) {
       console.error('Error fetching user data:', error);
-      // CRÍTICO: sempre definir loading como false, mesmo com erro
       setUserRole(null);
       setUserPermissions([]);
+    } finally {
+      setIsLoadingUserData(false);
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    let mounted = true;
+
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!mounted) return;
+        
         console.log('Auth state changed:', event, session?.user?.id);
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Buscar dados do usuário apenas se ainda estiver carregando ou se o usuário mudou
           fetchUserData(session.user.id);
         } else {
-          // Se não há usuário logado, limpar dados e parar loading
           setUserRole(null);
           setUserPermissions([]);
           setLoading(false);
@@ -103,6 +109,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
+      
       console.log('Initial session check:', session?.user?.id);
       setSession(session);
       setUser(session?.user ?? null);
@@ -114,7 +122,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
