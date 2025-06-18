@@ -63,7 +63,7 @@ async function initializeWhatsApp() {
   try {
     console.log('Initializing WhatsApp connection via Node.js server...');
     
-    const response = await fetch(`${WHATSAPP_SERVER_URL}/initialize`, {
+    const response = await fetch(`${WHATSAPP_SERVER_URL}/api/whatsapp/initialize`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -75,10 +75,12 @@ async function initializeWhatsApp() {
     }
 
     const result = await response.json();
+    console.log('Initialize result:', result);
 
     return new Response(JSON.stringify({
       success: true,
-      message: 'WhatsApp initialization started. Check status for QR code.'
+      message: 'WhatsApp initialization started. Check status for QR code.',
+      data: result
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -87,7 +89,7 @@ async function initializeWhatsApp() {
     
     return new Response(JSON.stringify({
       success: false,
-      error: 'Failed to connect to WhatsApp server. Make sure your Node.js server is running.'
+      error: 'Failed to connect to WhatsApp server. Make sure your Node.js server is running on port 3001.'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500
@@ -97,21 +99,27 @@ async function initializeWhatsApp() {
 
 async function getConnectionStatus() {
   try {
-    const response = await fetch(`${WHATSAPP_SERVER_URL}/status`);
+    console.log('Getting WhatsApp status from Node.js server...');
+    
+    const response = await fetch(`${WHATSAPP_SERVER_URL}/api/whatsapp/status`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
     
     if (!response.ok) {
       throw new Error(`Failed to get status: ${response.statusText}`);
     }
 
     const status = await response.json();
+    console.log('Status received:', status);
 
-    // Se temos QR code, converter para imagem
+    // Processar QR code se disponível
     if (status.qrCode && status.status === 'qr') {
-      const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&format=png&margin=10&data=${encodeURIComponent(status.qrCode)}`;
-      status.qrCode = qrCodeImageUrl;
+      // QR code já vem pronto do servidor Node.js
+      console.log('QR code available for scanning');
     }
-
-    console.log('Current WhatsApp status:', status);
 
     return new Response(JSON.stringify(status), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -120,7 +128,7 @@ async function getConnectionStatus() {
     console.error('Error getting status:', error);
     return new Response(JSON.stringify({
       status: 'disconnected',
-      error: 'Cannot connect to WhatsApp server'
+      error: 'Cannot connect to WhatsApp server. Make sure the Node.js server is running.'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -131,7 +139,7 @@ async function sendMessage(to: string, message: string, supabase: any) {
   try {
     console.log(`Sending WhatsApp message to ${to}: ${message}`);
     
-    const response = await fetch(`${WHATSAPP_SERVER_URL}/send-message`, {
+    const response = await fetch(`${WHATSAPP_SERVER_URL}/api/whatsapp/send-message`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -148,6 +156,7 @@ async function sendMessage(to: string, message: string, supabase: any) {
     }
 
     const result = await response.json();
+    console.log('Message sent successfully:', result);
 
     // Salvar mensagem no banco
     const { error } = await supabase
@@ -171,8 +180,6 @@ async function sendMessage(to: string, message: string, supabase: any) {
         name: to,
         updated_at: new Date().toISOString()
       });
-
-    console.log('Message sent successfully:', result);
 
     return new Response(JSON.stringify({
       success: true,
@@ -237,13 +244,20 @@ async function disconnectWhatsApp() {
   try {
     console.log('Disconnecting WhatsApp client...');
     
-    // Aqui você poderia implementar um endpoint no seu servidor Node.js para desconectar
-    // Por exemplo: await fetch(`${WHATSAPP_SERVER_URL}/disconnect`, { method: 'POST' });
+    const response = await fetch(`${WHATSAPP_SERVER_URL}/api/whatsapp/disconnect`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const result = response.ok ? await response.json() : null;
 
     return new Response(JSON.stringify({
       success: true,
       status: 'disconnected',
-      message: 'WhatsApp client disconnected successfully.'
+      message: 'WhatsApp client disconnected successfully.',
+      data: result
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
