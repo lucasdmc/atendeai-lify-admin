@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -51,6 +50,7 @@ const GestaoUsuarios = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
@@ -86,11 +86,17 @@ const GestaoUsuarios = () => {
 
       if (error) throw error;
 
-      // Get emails from auth.users (simulated for this demo)
-      const usersWithEmail = data?.map(user => ({
-        ...user,
-        email: `${user.name.toLowerCase().replace(' ', '.')}@example.com`
-      })) || [];
+      // Para cada usuário, buscar o email do auth.users através de uma function
+      const usersWithEmail = await Promise.all(
+        (data || []).map(async (user) => {
+          // Como não podemos acessar auth.users diretamente, vamos usar o email do metadata
+          // Por enquanto, vamos simular o email baseado no nome até termos uma solução melhor
+          return {
+            ...user,
+            email: `${user.name.toLowerCase().replace(' ', '.')}@example.com`
+          };
+        })
+      );
 
       setUsers(usersWithEmail);
     } catch (error) {
@@ -106,18 +112,91 @@ const GestaoUsuarios = () => {
   };
 
   const handleCreateUser = async () => {
+    if (!newUser.name || !newUser.email || !newUser.password) {
+      toast({
+        title: "Erro",
+        description: "Todos os campos são obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreatingUser(true);
+    
     try {
-      // Simulate user creation (in production, this would use Supabase Auth)
-      const mockUser: User = {
-        id: Date.now().toString(),
-        name: newUser.name,
+      console.log('Criando usuário:', newUser);
+      
+      // Primeiro, criar o usuário no Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: newUser.email,
-        role: newUser.role,
-        status: true,
-        created_at: new Date().toISOString()
+        password: newUser.password,
+        options: {
+          data: {
+            name: newUser.name
+          }
+        }
+      });
+
+      if (authError) {
+        console.error('Erro ao criar usuário no auth:', authError);
+        throw authError;
+      }
+
+      if (!authData.user) {
+        throw new Error('Usuário não foi criado corretamente');
+      }
+
+      console.log('Usuário criado no auth:', authData.user.id);
+
+      // Aguardar um pouco para o trigger criar o perfil
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Atualizar o perfil com o role correto
+      const { error: profileError } = await supabase
+        .from('user_profiles')
+        .update({ 
+          name: newUser.name,
+          role: newUser.role 
+        })
+        .eq('id', authData.user.id);
+
+      if (profileError) {
+        console.error('Erro ao atualizar perfil:', profileError);
+        throw profileError;
+      }
+
+      console.log('Perfil atualizado com sucesso');
+
+      // Definir permissões baseadas no role
+      const defaultPermissions = {
+        admin: ['dashboard', 'conversas', 'conectar_whatsapp', 'contextualizar', 'gestao_usuarios', 'configuracoes'],
+        suporte_lify: ['dashboard', 'conversas', 'conectar_whatsapp', 'contextualizar', 'gestao_usuarios', 'configuracoes'],
+        atendente: ['dashboard', 'conversas', 'conectar_whatsapp']
       };
 
-      setUsers(prev => [...prev, mockUser]);
+      const userPermissions = defaultPermissions[newUser.role];
+
+      // Atualizar permissões
+      for (const permission of permissions) {
+        const hasAccess = userPermissions.includes(permission.id);
+        
+        const { error: permError } = await supabase
+          .from('user_permissions')
+          .update({ can_access: hasAccess })
+          .eq('user_id', authData.user.id)
+          .eq('module_name', permission.id);
+
+        if (permError) {
+          console.error(`Erro ao atualizar permissão ${permission.id}:`, permError);
+        }
+      }
+
+      console.log('Permissões atualizadas');
+
+      // Recarregar a lista de usuários
+      await fetchUsers();
+
+      // Limpar o formulário
       setNewUser({ name: '', email: '', password: '', role: 'atendente' });
       setIsDialogOpen(false);
 
@@ -125,20 +204,44 @@ const GestaoUsuarios = () => {
         title: "Usuário criado",
         description: "O usuário foi criado com sucesso.",
       });
-    } catch (error) {
-      console.error('Error creating user:', error);
+
+    } catch (error: any) {
+      console.error('Erro completo ao criar usuário:', error);
+      
+      let errorMessage = "Não foi possível criar o usuário.";
+      
+      if (error.message?.includes('User already registered')) {
+        errorMessage = "Este email já está em uso.";
+      } else if (error.message?.includes('Password should be at least 6 characters')) {
+        errorMessage = "A senha deve ter pelo menos 6 caracteres.";
+      } else if (error.message?.includes('Invalid email')) {
+        errorMessage = "Email inválido.";
+      }
+
       toast({
         title: "Erro",
-        description: "Não foi possível criar o usuário.",
+        description: errorMessage,
         variant: "destructive",
       });
+    } finally {
+      setIsCreatingUser(false);
     }
   };
 
   const handleToggleUserStatus = async (userId: string) => {
     try {
+      const user = users.find(u => u.id === userId);
+      const newStatus = !user?.status;
+
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ status: newStatus })
+        .eq('id', userId);
+
+      if (error) throw error;
+
       setUsers(prev => prev.map(user => 
-        user.id === userId ? { ...user, status: !user.status } : user
+        user.id === userId ? { ...user, status: newStatus } : user
       ));
 
       toast({
@@ -156,11 +259,39 @@ const GestaoUsuarios = () => {
   };
 
   const handleTogglePermission = async (userId: string, moduleId: string) => {
-    // Simulate permission toggle
-    toast({
-      title: "Permissão atualizada",
-      description: `Permissão para ${moduleId} foi atualizada.`,
-    });
+    try {
+      // Buscar a permissão atual
+      const { data: currentPermission, error: fetchError } = await supabase
+        .from('user_permissions')
+        .select('can_access')
+        .eq('user_id', userId)
+        .eq('module_name', moduleId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const newAccess = !currentPermission.can_access;
+
+      const { error } = await supabase
+        .from('user_permissions')
+        .update({ can_access: newAccess })
+        .eq('user_id', userId)
+        .eq('module_name', moduleId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Permissão atualizada",
+        description: `Permissão para ${moduleId} foi ${newAccess ? 'concedida' : 'removida'}.`,
+      });
+    } catch (error) {
+      console.error('Error updating permission:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar a permissão.",
+        variant: "destructive",
+      });
+    }
   };
 
   const getRoleLabel = (role: string) => {
@@ -184,6 +315,14 @@ const GestaoUsuarios = () => {
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -228,7 +367,7 @@ const GestaoUsuarios = () => {
                   type="password"
                   value={newUser.password}
                   onChange={(e) => setNewUser(prev => ({ ...prev, password: e.target.value }))}
-                  placeholder="Senha"
+                  placeholder="Senha (mínimo 6 caracteres)"
                 />
               </div>
               <div>
@@ -246,9 +385,10 @@ const GestaoUsuarios = () => {
               </div>
               <Button 
                 onClick={handleCreateUser}
+                disabled={isCreatingUser}
                 className="w-full bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600"
               >
-                Criar Usuário
+                {isCreatingUser ? 'Criando...' : 'Criar Usuário'}
               </Button>
             </div>
           </DialogContent>
