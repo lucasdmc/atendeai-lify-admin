@@ -32,13 +32,13 @@ export const ChatInput = ({
           value={inputMessage}
           onChange={(e) => setInputMessage(e.target.value)}
           onKeyPress={handleKeyPress}
-          placeholder={questionsCompleted ? "Contextualização concluída! 🎉" : "Digite sua resposta..."}
-          disabled={isLoading || questionsCompleted}
+          placeholder={questionsCompleted ? "Quer atualizar alguma informação? Digite sua pergunta..." : "Digite sua resposta..."}
+          disabled={isLoading}
           className="flex-1"
         />
         <Button 
           onClick={onSendMessage}
-          disabled={isLoading || !inputMessage.trim() || questionsCompleted}
+          disabled={isLoading || !inputMessage.trim()}
           className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 flex-shrink-0"
         >
           <Send className="h-4 w-4" />
@@ -46,7 +46,7 @@ export const ChatInput = ({
       </div>
       {questionsCompleted && (
         <p className="text-xs text-green-600 mt-2 text-center">
-          ✨ Seu chatbot está pronto para atender os pacientes!
+          ✨ Contextualização concluída! Você pode continuar atualizando as informações da clínica.
         </p>
       )}
     </div>

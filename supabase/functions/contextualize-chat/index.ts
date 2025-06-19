@@ -16,21 +16,21 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const SYSTEM_PROMPT = `Você é um assistente especializado em contextualização de clínicas médicas. Sua função é:
 
-1. Fazer perguntas estruturadas para coletar informações essenciais da clínica
+1. Coletar e atualizar informações essenciais da clínica
 2. Confirmar as informações recebidas de forma clara e educada
-3. Fazer APENAS a próxima pergunta na sequência
+3. Permitir atualizações das informações já coletadas
 4. Manter um tom profissional mas amigável
 
 REGRAS IMPORTANTES:
-- NUNCA repita uma pergunta que já foi respondida
-- Sempre confirme a resposta antes de fazer a próxima pergunta
+- Se todas as perguntas já foram respondidas, ofereça-se para atualizar informações específicas
+- Quando o usuário quiser atualizar uma informação, identifique qual pergunta corresponde à informação e atualize
 - Seja objetivo e direto
-- Quando todas as perguntas estiverem respondidas, parabenize o usuário pela conclusão da contextualização
+- Sempre confirme mudanças realizadas
 
 Use frases como:
-- "Perfeito! Anotei que..."
-- "Entendido! Agora preciso saber..."
-- "Ótimo! Última pergunta..."`;
+- "Perfeito! Atualizei a informação sobre..."
+- "Entendido! Qual informação você gostaria de atualizar?"
+- "Ótimo! Posso ajudá-lo a atualizar qualquer informação da clínica."`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -61,14 +61,12 @@ serve(async (req) => {
     console.log('Answered questions:', answeredQuestions.length);
     console.log('Unanswered questions:', unansweredQuestions.length);
 
-    // Se for uma resposta válida (mais de 2 caracteres) e há perguntas não respondidas
+    // Verificar se todas as perguntas foram respondidas
+    const allAnswered = unansweredQuestions.length === 0;
+    
+    // Se for uma resposta válida (mais de 2 caracteres)
     const isValidResponse = message.trim().length > 2;
     let questionToUpdate = null;
-
-    if (isValidResponse && unansweredQuestions.length > 0) {
-      // Pegar a primeira pergunta não respondida para salvar a resposta
-      questionToUpdate = unansweredQuestions[0];
-    }
 
     // Construir contexto das perguntas já respondidas
     let context = "";
@@ -80,17 +78,54 @@ serve(async (req) => {
       context += "\n";
     }
 
+    // Lógica para determinar se é uma atualização ou nova resposta
+    if (allAnswered && isValidResponse) {
+      // Se todas as perguntas já foram respondidas, tenta encontrar qual informação atualizar
+      // Usa IA para identificar qual pergunta o usuário quer atualizar
+      const identificationPrompt = `
+      Baseado na mensagem do usuário: "${message}"
+      
+      E nas perguntas disponíveis:
+      ${questions?.map((q, i) => `${i + 1}. ${q.question}`).join('\n')}
+      
+      Identifique qual pergunta (número) o usuário quer atualizar. Se não conseguir identificar claramente, responda "0".
+      Responda apenas com o número da pergunta.`;
+
+      const identificationResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'user', content: identificationPrompt }
+          ],
+          temperature: 0.1,
+          max_tokens: 10,
+        }),
+      });
+
+      const identificationData = await identificationResponse.json();
+      const questionNumber = parseInt(identificationData.choices[0].message.content.trim());
+      
+      if (questionNumber > 0 && questionNumber <= questions.length) {
+        questionToUpdate = questions[questionNumber - 1];
+      }
+    } else if (!allAnswered && isValidResponse) {
+      // Se ainda há perguntas não respondidas, pegar a primeira
+      questionToUpdate = unansweredQuestions[0];
+    }
+
     // Determinar próxima pergunta após salvar a resposta atual
     let nextQuestion = null;
-    if (questionToUpdate) {
-      // Se vamos salvar uma resposta, a próxima pergunta será a seguinte na lista
+    if (questionToUpdate && !allAnswered) {
+      // Se vamos salvar uma resposta e ainda há perguntas, a próxima será a seguinte na lista
       const currentIndex = unansweredQuestions.findIndex(q => q.id === questionToUpdate.id);
       if (currentIndex < unansweredQuestions.length - 1) {
         nextQuestion = unansweredQuestions[currentIndex + 1];
       }
-    } else if (unansweredQuestions.length > 0) {
-      // Se não há resposta para salvar, usar a primeira pergunta não respondida
-      nextQuestion = unansweredQuestions[0];
     }
 
     // Construir prompt para o AI
@@ -101,18 +136,21 @@ serve(async (req) => {
     }
 
     if (questionToUpdate) {
-      systemMessage += `\n\nO usuário acabou de responder a pergunta: "${questionToUpdate.question}"`;
-      systemMessage += `\nConfirme a resposta de forma positiva e`;
+      systemMessage += `\n\nO usuário acabou de responder/atualizar: "${questionToUpdate.question}"`;
+      systemMessage += `\nConfirme a ${allAnswered ? 'atualização' : 'resposta'} de forma positiva e`;
       
       if (nextQuestion) {
         systemMessage += ` faça a próxima pergunta: "${nextQuestion.question}"`;
+      } else if (allAnswered) {
+        systemMessage += ` informe que a informação foi atualizada com sucesso. Pergunte se há mais alguma informação que ele gostaria de atualizar.`;
       } else {
-        systemMessage += ` informe que a contextualização foi concluída com sucesso. Parabenize o usuário e explique que agora o chatbot está pronto para atender os pacientes com as informações da clínica.`;
+        systemMessage += ` informe que a contextualização foi concluída com sucesso. Parabenize o usuário e pergunte se há alguma informação que gostaria de atualizar.`;
       }
-    } else if (nextQuestion) {
+    } else if (allAnswered) {
+      systemMessage += `\n\nTodas as perguntas já foram respondidas. O usuário pode querer atualizar alguma informação. Seja prestativo e pergunte qual informação ele gostaria de atualizar ou se tem alguma dúvida sobre as informações já coletadas.`;
+    } else if (unansweredQuestions.length > 0) {
+      const nextQuestion = unansweredQuestions[0];
       systemMessage += `\n\nFaça a seguinte pergunta: "${nextQuestion.question}"`;
-    } else {
-      systemMessage += `\n\nTodas as perguntas já foram respondidas. Parabenize o usuário pela conclusão da contextualização.`;
     }
 
     // Chamada para OpenAI
@@ -149,7 +187,7 @@ serve(async (req) => {
       if (updateError) {
         console.error('Error updating question:', updateError);
       } else {
-        console.log('Question answered and saved:', questionToUpdate.question);
+        console.log('Question answered/updated:', questionToUpdate.question);
       }
     }
 
@@ -159,10 +197,10 @@ serve(async (req) => {
       .select('*')
       .order('order_number', { ascending: true });
 
-    const allAnswered = updatedQuestions?.every(q => q.answer && q.answer.trim() !== '') || false;
+    const allQuestionsAnswered = updatedQuestions?.every(q => q.answer && q.answer.trim() !== '') || false;
 
-    // Se todas foram respondidas, gerar base de conhecimento
-    if (allAnswered) {
+    // Se todas foram respondidas, gerar/atualizar base de conhecimento
+    if (allQuestionsAnswered) {
       const knowledgeBase = {};
       updatedQuestions?.forEach(q => {
         if (q.answer && q.answer.trim() !== '') {
@@ -197,7 +235,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       response: aiResponse,
-      questionsCompleted: allAnswered,
+      questionsCompleted: allQuestionsAnswered,
       totalQuestions: totalQuestions,
       answeredQuestions: answeredCount
     }), {
