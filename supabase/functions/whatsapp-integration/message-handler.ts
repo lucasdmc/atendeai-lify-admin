@@ -50,7 +50,7 @@ export async function sendMessage(to: string, message: string, supabase: any) {
       .insert({
         conversation_id: conversationData.id,
         content: message,
-        message_type: 'sent', // Mudança aqui: usar 'sent' em vez de 'outbound'
+        message_type: 'sent',
         whatsapp_message_id: result.messageId || `msg_${Date.now()}`
       });
 
@@ -93,16 +93,37 @@ export async function handleWebhook(data: any, supabase: any) {
       
       const messageContent = data.data.message || 'Mensagem não suportada';
       const fromNumber = data.data.from;
-      const contactName = data.data.pushName || data.data.notifyName || data.data.contact?.name || null;
+      
+      // Melhorar a captura do nome do contato
+      let contactName = null;
+      
+      // Tentar diferentes campos para o nome
+      if (data.data.pushName && data.data.pushName.trim() && data.data.pushName !== fromNumber) {
+        contactName = data.data.pushName.trim();
+      } else if (data.data.notifyName && data.data.notifyName.trim() && data.data.notifyName !== fromNumber) {
+        contactName = data.data.notifyName.trim();
+      } else if (data.data.contact?.name && data.data.contact.name.trim() && data.data.contact.name !== fromNumber) {
+        contactName = data.data.contact.name.trim();
+      } else if (data.data.contactName && data.data.contactName.trim() && data.data.contactName !== fromNumber) {
+        contactName = data.data.contactName.trim();
+      } else if (data.data.contact?.verifiedName && data.data.contact.verifiedName.trim()) {
+        contactName = data.data.contact.verifiedName.trim();
+      }
       
       console.log(`📞 Mensagem de: ${fromNumber}`);
-      console.log(`👤 Nome do contato: ${contactName || 'Não informado'}`);
+      console.log(`👤 Nome do contato detectado: ${contactName || 'Não encontrado'}`);
       console.log(`💬 Conteúdo: ${messageContent}`);
+      console.log('🔍 Dados de contato disponíveis:', {
+        pushName: data.data.pushName,
+        notifyName: data.data.notifyName,
+        contactName: data.data.contactName,
+        contact: data.data.contact
+      });
 
       // Primeiro, buscar ou criar a conversa usando o número de telefone
       const { data: existingConversation, error: fetchError } = await supabase
         .from('whatsapp_conversations')
-        .select('id')
+        .select('id, name')
         .eq('phone_number', fromNumber)
         .single();
 
@@ -118,9 +139,9 @@ export async function handleWebhook(data: any, supabase: any) {
         };
 
         // Adicionar nome do contato se disponível e válido
-        if (contactName && contactName.trim() && contactName !== fromNumber) {
-          conversationData.name = contactName.trim();
-          console.log(`📝 Nome do contato salvo: ${contactName}`);
+        if (contactName && !contactName.includes('@s.whatsapp.net') && !contactName.includes('@c.us')) {
+          conversationData.name = contactName;
+          console.log(`📝 Nome do contato salvo na nova conversa: ${contactName}`);
         }
 
         const { data: newConversation, error: createError } = await supabase
@@ -149,10 +170,13 @@ export async function handleWebhook(data: any, supabase: any) {
           updated_at: new Date().toISOString()
         };
 
-        // Adicionar nome do contato se disponível e ainda não foi salvo
-        if (contactName && contactName.trim() && contactName !== fromNumber) {
-          updateData.name = contactName.trim();
-          console.log(`📝 Atualizando nome do contato: ${contactName}`);
+        // Atualizar nome do contato se disponível e ainda não foi salvo ou se é diferente
+        if (contactName && 
+            !contactName.includes('@s.whatsapp.net') && 
+            !contactName.includes('@c.us') &&
+            (!existingConversation.name || existingConversation.name === fromNumber || existingConversation.name.includes('@s.whatsapp.net'))) {
+          updateData.name = contactName;
+          console.log(`📝 Atualizando nome do contato na conversa existente: ${contactName}`);
         }
 
         await supabase
@@ -168,7 +192,7 @@ export async function handleWebhook(data: any, supabase: any) {
         .insert({
           conversation_id: conversationId,
           content: messageContent,
-          message_type: 'received', // Mudança aqui: usar 'received' em vez de 'inbound'
+          message_type: 'received',
           whatsapp_message_id: `msg_${data.data.timestamp || Date.now()}`
         });
 

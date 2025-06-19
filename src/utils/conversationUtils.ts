@@ -11,10 +11,33 @@ interface Conversation {
 }
 
 export const getDisplayName = (conversation: Conversation) => {
-  if (conversation?.name && conversation.name !== conversation.phone_number && !conversation.name.includes('@s.whatsapp.net')) {
+  // Primeiro, verificar se há um nome salvo e se é válido
+  if (conversation?.name && 
+      conversation.name.trim() && 
+      conversation.name !== conversation.phone_number && 
+      !conversation.name.includes('@s.whatsapp.net') &&
+      !conversation.name.includes('@c.us')) {
     return conversation.name;
   }
-  return conversation?.formatted_phone_number || conversation?.phone_number || 'Contato Desconhecido';
+  
+  // Se não há nome válido, usar o número formatado ou original
+  const phoneToDisplay = conversation?.formatted_phone_number || conversation?.phone_number;
+  
+  // Se o número ainda contém @s.whatsapp.net, remover
+  if (phoneToDisplay && phoneToDisplay.includes('@s.whatsapp.net')) {
+    const cleanNumber = phoneToDisplay.replace('@s.whatsapp.net', '');
+    // Tentar formatar o número limpo
+    if (cleanNumber.startsWith('55') && cleanNumber.length >= 12) {
+      // Formato brasileiro
+      const countryCode = cleanNumber.substring(0, 2);
+      const areaCode = cleanNumber.substring(2, 4);
+      const number = cleanNumber.substring(4);
+      return `+${countryCode} (${areaCode}) ${number.substring(0, 5)}-${number.substring(5)}`;
+    }
+    return `+${cleanNumber}`;
+  }
+  
+  return phoneToDisplay || 'Contato Desconhecido';
 };
 
 export const formatMessageTime = (timestamp: string) => {
