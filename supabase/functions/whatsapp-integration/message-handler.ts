@@ -4,14 +4,21 @@ import { processAndRespondWithAI } from './ai-processor.ts';
 import type { WhatsappMessage } from './types.ts';
 
 export async function sendMessage(to: string, message: string, supabase: any) {
+  console.log(`=== ENVIANDO MENSAGEM ===`);
+  console.log(`Para: ${to}`);
+  console.log(`Mensagem: ${message}`);
+  console.log(`WHATSAPP_SERVER_URL: ${WHATSAPP_SERVER_URL}`);
+
   if (!WHATSAPP_SERVER_URL) {
+    console.error('❌ WHATSAPP_SERVER_URL não configurado');
     throw new Error('WhatsApp server not configured');
   }
 
   try {
-    console.log(`Sending WhatsApp message to ${to}: ${message}`);
+    const sendUrl = `${WHATSAPP_SERVER_URL}/api/whatsapp/send-message`;
+    console.log(`📤 Enviando para URL: ${sendUrl}`);
     
-    const response = await fetch(`${WHATSAPP_SERVER_URL}/api/whatsapp/send-message`, {
+    const response = await fetch(sendUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -22,13 +29,16 @@ export async function sendMessage(to: string, message: string, supabase: any) {
       })
     });
 
+    console.log(`📡 Status da resposta: ${response.status}`);
+
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to send message');
+      const errorData = await response.text();
+      console.error(`❌ Erro na resposta: ${errorData}`);
+      throw new Error(`Failed to send message: ${response.status} - ${errorData}`);
     }
 
     const result = await response.json();
-    console.log('Message sent successfully:', result);
+    console.log('✅ Mensagem enviada com sucesso:', result);
 
     // Buscar o ID da conversa existente na tabela
     const { data: conversationData, error: conversationFetchError } = await supabase
@@ -38,11 +48,11 @@ export async function sendMessage(to: string, message: string, supabase: any) {
       .single();
 
     if (conversationFetchError) {
-      console.error('Error fetching conversation:', conversationFetchError);
+      console.error('❌ Erro ao buscar conversa:', conversationFetchError);
       throw new Error('Conversation not found');
     }
 
-    console.log('Found conversation ID:', conversationData.id);
+    console.log('✅ Conversa encontrada ID:', conversationData.id);
 
     // Salvar mensagem no banco usando o ID correto da conversa
     const { error } = await supabase
@@ -55,9 +65,9 @@ export async function sendMessage(to: string, message: string, supabase: any) {
       });
 
     if (error) {
-      console.error('Error saving message to database:', error);
+      console.error('❌ Erro ao salvar mensagem no banco:', error);
     } else {
-      console.log('Message saved to database successfully');
+      console.log('✅ Mensagem salva no banco com sucesso');
     }
 
     // Atualizar conversa
@@ -77,19 +87,19 @@ export async function sendMessage(to: string, message: string, supabase: any) {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Error sending message:', error);
+    console.error('❌ Erro crítico ao enviar mensagem:', error);
     throw error;
   }
 }
 
 export async function handleWebhook(data: any, supabase: any) {
   console.log('=== PROCESSANDO WEBHOOK ===');
-  console.log('Webhook data received:', JSON.stringify(data, null, 2));
+  console.log('📥 Dados do webhook recebidos:', JSON.stringify(data, null, 2));
 
   try {
     if (data.event === 'message.received' && data.data) {
       console.log('✅ Evento de mensagem recebida detectado');
-      console.log('Message data:', JSON.stringify(data.data, null, 2));
+      console.log('📱 Dados da mensagem:', JSON.stringify(data.data, null, 2));
       
       const messageContent = data.data.message || 'Mensagem não suportada';
       const fromNumber = data.data.from;
@@ -144,6 +154,7 @@ export async function handleWebhook(data: any, supabase: any) {
       console.log(`💬 Conteúdo: ${messageContent}`);
 
       // Primeiro, buscar ou criar a conversa usando o número de telefone
+      console.log('🔍 Buscando conversa existente...');
       const { data: existingConversation, error: fetchError } = await supabase
         .from('whatsapp_conversations')
         .select('id, name')
@@ -217,7 +228,7 @@ export async function handleWebhook(data: any, supabase: any) {
       }
 
       // Salvar mensagem recebida
-      console.log('💾 Salvando mensagem no banco...');
+      console.log('💾 Salvando mensagem recebida no banco...');
       const { error: messageError } = await supabase
         .from('whatsapp_messages')
         .insert({
@@ -235,17 +246,27 @@ export async function handleWebhook(data: any, supabase: any) {
 
       // PROCESSAR COM IA
       console.log('🤖 Iniciando processamento com IA...');
-      await processAndRespondWithAI(fromNumber, messageContent, supabase);
+      try {
+        await processAndRespondWithAI(fromNumber, messageContent, supabase);
+        console.log('✅ Processamento com IA concluído');
+      } catch (aiError) {
+        console.error('❌ Erro no processamento com IA:', aiError);
+      }
     } else {
       console.log('ℹ️ Webhook recebido mas não é uma mensagem:', data.event || 'evento não identificado');
+      console.log('📄 Dados completos do webhook:', JSON.stringify(data, null, 2));
     }
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('❌ Erro ao processar webhook:', error);
-    return new Response(JSON.stringify({ success: true }), {
+    console.error('❌ Erro crítico ao processar webhook:', error);
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: error.message 
+    }), {
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

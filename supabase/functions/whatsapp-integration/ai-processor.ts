@@ -123,9 +123,11 @@ INFORMAÇÕES DA CLÍNICA:`;
         } else {
           const errorText = await response.text();
           console.error('❌ Erro na OpenAI API:', response.status, errorText);
+          aiResponse = 'Desculpe, estou com dificuldades técnicas no momento. Tente novamente em alguns minutos ou entre em contato por telefone.';
         }
       } catch (error) {
         console.error('❌ Erro ao chamar OpenAI:', error);
+        aiResponse = 'Desculpe, estou temporariamente indisponível. Por favor, tente novamente em alguns minutos.';
       }
     } else {
       console.log('⚠️ OpenAI Key não configurada, usando resposta padrão');
@@ -133,12 +135,16 @@ INFORMAÇÕES DA CLÍNICA:`;
 
     // Enviar resposta de volta via WhatsApp
     console.log('📤 Enviando resposta via WhatsApp...');
-    await sendMessage(phoneNumber, aiResponse, supabase);
-    
-    console.log(`✅ Resposta automática enviada para ${phoneNumber}`);
+    try {
+      await sendMessage(phoneNumber, aiResponse, supabase);
+      console.log(`✅ Resposta automática enviada para ${phoneNumber}`);
+    } catch (sendError) {
+      console.error('❌ Erro ao enviar resposta:', sendError);
+      throw sendError;
+    }
     
   } catch (error) {
-    console.error('❌ Erro ao processar mensagem com IA:', error);
+    console.error('❌ Erro crítico no processamento com IA:', error);
     
     // Enviar mensagem de erro genérica
     try {
