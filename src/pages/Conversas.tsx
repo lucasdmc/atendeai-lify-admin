@@ -69,25 +69,28 @@ const Conversas = () => {
       // Atualizar conversas que não têm números formatados
       for (const conv of conversationsWithCount) {
         if (!conv.formatted_phone_number) {
-          const { error: updateError } = await supabase
-            .rpc('format_phone_number', { phone_number: conv.phone_number })
-            .then(async (result) => {
-              if (result.data) {
-                const countryCode = await supabase
-                  .rpc('extract_country_code', { phone_number: conv.phone_number });
-                
-                await supabase
-                  .from('whatsapp_conversations')
-                  .update({
-                    formatted_phone_number: result.data,
-                    country_code: countryCode.data
-                  })
-                  .eq('id', conv.id);
-                
-                conv.formatted_phone_number = result.data;
-                conv.country_code = countryCode.data;
-              }
-            });
+          try {
+            const formatResult = await supabase
+              .rpc('format_phone_number', { phone_number: conv.phone_number });
+            
+            if (formatResult.data) {
+              const countryResult = await supabase
+                .rpc('extract_country_code', { phone_number: conv.phone_number });
+              
+              await supabase
+                .from('whatsapp_conversations')
+                .update({
+                  formatted_phone_number: formatResult.data,
+                  country_code: countryResult.data
+                })
+                .eq('id', conv.id);
+              
+              conv.formatted_phone_number = formatResult.data;
+              conv.country_code = countryResult.data;
+            }
+          } catch (updateError) {
+            console.error('Error formatting phone number:', updateError);
+          }
         }
       }
       
