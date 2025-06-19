@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface DashboardMetrics {
   novas_conversas: number;
+  conversas_andamento: number;
   aguardando_resposta: number;
   tempo_medio_chatbot: number;
 }
@@ -16,6 +17,7 @@ interface TopicData {
 export const useDashboardMetrics = () => {
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     novas_conversas: 0,
+    conversas_andamento: 0,
     aguardando_resposta: 0,
     tempo_medio_chatbot: 0
   });

@@ -32,6 +32,21 @@ serve(async (req) => {
 
     const novasConversas = novasConversasData?.length || 0;
 
+    // Calcular conversas em andamento (que tiveram atividade nos últimos 7 dias)
+    const seteDiasAtras = new Date();
+    seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
+    
+    const { data: conversasAndamentoData, error: conversasAndamentoError } = await supabase
+      .from('whatsapp_conversations')
+      .select('id', { count: 'exact' })
+      .gte('updated_at', seteDiasAtras.toISOString());
+
+    if (conversasAndamentoError) {
+      console.error('Erro ao buscar conversas em andamento:', conversasAndamentoError);
+    }
+
+    const conversasAndamento = conversasAndamentoData?.length || 0;
+
     // Calcular conversas aguardando resposta
     const { data: todasConversas, error: conversasError } = await supabase
       .from('whatsapp_conversations')
@@ -115,6 +130,17 @@ serve(async (req) => {
         onConflict: 'metric_name,metric_date'
       });
 
+    // Inserir/atualizar conversas em andamento
+    await supabase
+      .from('dashboard_metrics')
+      .upsert({
+        metric_name: 'conversas_andamento',
+        metric_value: conversasAndamento,
+        metric_date: hoje
+      }, {
+        onConflict: 'metric_name,metric_date'
+      });
+
     // Inserir/atualizar aguardando resposta
     await supabase
       .from('dashboard_metrics')
@@ -139,6 +165,7 @@ serve(async (req) => {
 
     console.log('Métricas atualizadas:', {
       novasConversas,
+      conversasAndamento,
       aguardandoResposta,
       tempoMedioChatbot: Math.round(tempoMedioChatbot)
     });
@@ -147,6 +174,7 @@ serve(async (req) => {
       success: true,
       metrics: {
         novas_conversas: novasConversas,
+        conversas_andamento: conversasAndamento,
         aguardando_resposta: aguardandoResposta,
         tempo_medio_chatbot: Math.round(tempoMedioChatbot)
       }

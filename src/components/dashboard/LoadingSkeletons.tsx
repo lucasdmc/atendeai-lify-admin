@@ -9,8 +9,8 @@ export const LoadingSkeletons: React.FC = () => {
       <DashboardHeader onRefresh={() => {}} />
       
       {/* Skeleton para as métricas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {Array.from({ length: 3 }).map((_, i) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {Array.from({ length: 4 }).map((_, i) => (
           <Card key={i} className="animate-pulse border-2 border-gray-100">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
               <div className="space-y-2">

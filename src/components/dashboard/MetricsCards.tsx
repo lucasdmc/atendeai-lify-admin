@@ -5,11 +5,13 @@ import {
   MessageSquare, 
   Clock, 
   Bot,
-  TrendingUp
+  TrendingUp,
+  Users
 } from 'lucide-react';
 
 interface DashboardMetrics {
   novas_conversas: number;
+  conversas_andamento: number;
   aguardando_resposta: number;
   tempo_medio_chatbot: number;
 }
@@ -28,6 +30,15 @@ export const MetricsCards: React.FC<MetricsCardsProps> = ({ metrics }) => {
       color: 'text-blue-600',
       bgColor: 'bg-gradient-to-br from-blue-50 to-blue-100',
       borderColor: 'border-blue-200'
+    },
+    {
+      title: 'Conversas em Andamento',
+      value: metrics.conversas_andamento,
+      description: 'Conversas ativas (últimos 7 dias)',
+      icon: Users,
+      color: 'text-purple-600',
+      bgColor: 'bg-gradient-to-br from-purple-50 to-purple-100',
+      borderColor: 'border-purple-200'
     },
     {
       title: 'Aguardando Resposta',
@@ -50,7 +61,7 @@ export const MetricsCards: React.FC<MetricsCardsProps> = ({ metrics }) => {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
       {metricCards.map((metric, index) => {
         const Icon = metric.icon;
         return (
