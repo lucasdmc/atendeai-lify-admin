@@ -1,13 +1,12 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, MessageCircle, Phone, Clock, User2 } from 'lucide-react';
-import CountryFlag from '@/components/CountryFlag';
+import { MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import ConversationSearch from '@/components/conversations/ConversationSearch';
+import ConversationList from '@/components/conversations/ConversationList';
+import LoadingState from '@/components/conversations/LoadingState';
 
 interface Conversation {
   id: string;
@@ -102,23 +101,6 @@ const Conversas = () => {
     }
   };
 
-  const getTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-    
-    if (diffInHours < 1) return 'Agora há pouco';
-    if (diffInHours < 24) return `${diffInHours}h atrás`;
-    const diffInDays = Math.floor(diffInHours / 24);
-    return `${diffInDays}d atrás`;
-  };
-
-  const getStatusColor = (messageCount: number) => {
-    if (messageCount > 10) return 'bg-green-100 text-green-800';
-    if (messageCount > 5) return 'bg-yellow-100 text-yellow-800';
-    return 'bg-red-100 text-red-800';
-  };
-
   const openConversation = (conversationId: string) => {
     // Navegar para a conversa específica (implementaremos depois)
     console.log('Opening conversation:', conversationId);
@@ -126,24 +108,7 @@ const Conversas = () => {
   };
 
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-8 bg-gray-200 rounded w-48 animate-pulse"></div>
-        <Card>
-          <CardHeader>
-            <div className="h-6 bg-gray-200 rounded w-32 animate-pulse"></div>
-            <div className="h-4 bg-gray-200 rounded w-64 animate-pulse"></div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-16 bg-gray-100 rounded animate-pulse"></div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <LoadingState />;
   }
 
   return (
@@ -164,99 +129,17 @@ const Conversas = () => {
             Gerencie todas as conversas do WhatsApp Business
           </CardDescription>
           
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Buscar por telefone ou nome..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+          <ConversationSearch
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+          />
         </CardHeader>
         <CardContent>
-          {filteredConversations.length === 0 ? (
-            <div className="text-center py-8">
-              <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">
-                {searchTerm ? 'Nenhuma conversa encontrada' : 'Nenhuma conversa disponível'}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {filteredConversations.map((conversation) => (
-                <div
-                  key={conversation.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer border"
-                  onClick={() => openConversation(conversation.id)}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="relative">
-                      <div className="w-12 h-12 bg-gradient-to-r from-orange-400 to-pink-400 rounded-full flex items-center justify-center">
-                        {conversation.name ? (
-                          <User2 className="h-6 w-6 text-white" />
-                        ) : (
-                          <Phone className="h-6 w-6 text-white" />
-                        )}
-                      </div>
-                      {conversation.country_code && (
-                        <div className="absolute -bottom-1 -right-1">
-                          <CountryFlag 
-                            countryCode={conversation.country_code} 
-                            className="w-4 h-4"
-                          />
-                        </div>
-                      )}
-                      {conversation.unread_count && conversation.unread_count > 0 && (
-                        <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                          {conversation.unread_count}
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-gray-900">
-                          {conversation.name || 'Usuário Anônimo'}
-                        </h3>
-                        <Badge variant="outline" className={getStatusColor(conversation.message_count || 0)}>
-                          {conversation.message_count} mensagens
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-gray-600 font-mono">
-                        {conversation.formatted_phone_number || conversation.phone_number}
-                      </p>
-                      {conversation.last_message_preview && (
-                        <p className="text-xs text-gray-500 mt-1 truncate max-w-xs">
-                          {conversation.last_message_preview}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="text-right flex flex-col items-end gap-2">
-                    <div className="flex items-center gap-1 text-sm text-gray-500">
-                      <Clock className="h-3 w-3" />
-                      {getTimeAgo(conversation.updated_at)}
-                    </div>
-                    <Badge variant="secondary">
-                      Ativa
-                    </Badge>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openConversation(conversation.id);
-                      }}
-                    >
-                      Abrir Chat
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <ConversationList
+            conversations={filteredConversations}
+            searchTerm={searchTerm}
+            onOpenConversation={openConversation}
+          />
         </CardContent>
       </Card>
     </div>
