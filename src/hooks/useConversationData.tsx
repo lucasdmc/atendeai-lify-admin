@@ -97,12 +97,22 @@ export const useConversationData = (conversationId: string | undefined) => {
   };
 
   const sendMessage = async (messageContent: string) => {
-    if (!conversation) return;
+    if (!conversation) {
+      console.error('No conversation found');
+      toast({
+        title: "Erro",
+        description: "Conversa não encontrada.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       setSending(true);
       
-      console.log('Sending message to:', conversation.phone_number);
+      console.log('=== ENVIANDO MENSAGEM ===');
+      console.log('Para:', conversation.phone_number);
+      console.log('Mensagem:', messageContent);
       
       const { data, error } = await supabase.functions.invoke('whatsapp-integration/send-message', {
         body: {
@@ -111,9 +121,15 @@ export const useConversationData = (conversationId: string | undefined) => {
         }
       });
 
-      if (error) throw error;
+      console.log('Resposta da function:', { data, error });
+
+      if (error) {
+        console.error('Erro da Supabase function:', error);
+        throw error;
+      }
 
       if (data?.success) {
+        console.log('✅ Mensagem enviada com sucesso');
         toast({
           title: "Mensagem enviada",
           description: "Sua mensagem foi enviada com sucesso.",
@@ -124,13 +140,25 @@ export const useConversationData = (conversationId: string | undefined) => {
           fetchMessages();
         }, 1000);
       } else {
+        console.error('❌ Erro na resposta:', data);
         throw new Error(data?.error || 'Falha ao enviar mensagem');
       }
-    } catch (error) {
-      console.error('Error sending message:', error);
+    } catch (error: any) {
+      console.error('❌ Error sending message:', error);
+      
+      let errorMessage = "Não foi possível enviar a mensagem.";
+      
+      if (error.message?.includes("WhatsApp not connected")) {
+        errorMessage = "WhatsApp não está conectado. Verifique a conexão no módulo 'Conectar WhatsApp'.";
+      } else if (error.message?.includes("timeout")) {
+        errorMessage = "Timeout ao enviar mensagem. Tente novamente.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
-        title: "Erro",
-        description: "Não foi possível enviar a mensagem. Tente novamente.",
+        title: "Erro ao enviar mensagem",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
