@@ -10,14 +10,22 @@ const Dashboard = () => {
   const { metrics, topicsData, loading, refreshMetrics } = useDashboardMetrics();
 
   if (loading) {
-    return <LoadingSkeletons />;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+        <div className="max-w-7xl mx-auto">
+          <LoadingSkeletons />
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <DashboardHeader onRefresh={refreshMetrics} />
-      <MetricsCards metrics={metrics} />
-      <TopicsChart topicsData={topicsData} />
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+      <div className="max-w-7xl mx-auto space-y-8">
+        <DashboardHeader onRefresh={refreshMetrics} />
+        <MetricsCards metrics={metrics} />
+        <TopicsChart topicsData={topicsData} />
+      </div>
     </div>
   );
 };
