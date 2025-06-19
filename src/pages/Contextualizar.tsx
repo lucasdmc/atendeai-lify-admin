@@ -38,12 +38,16 @@ const Contextualizar = () => {
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [answeredQuestions, setAnsweredQuestions] = useState(0);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
+  // Auto-scroll para a última mensagem
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
-    }
+    scrollToBottom();
   }, [messages]);
 
   const progress = totalQuestions > 0 ? Math.round((answeredQuestions / totalQuestions) * 100) : 0;
@@ -145,7 +149,7 @@ const Contextualizar = () => {
       </div>
 
       <Card className="h-[600px] flex flex-col">
-        <CardHeader>
+        <CardHeader className="flex-shrink-0">
           <CardTitle className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-orange-500" />
             Chat de Contextualização
@@ -156,9 +160,10 @@ const Contextualizar = () => {
             )}
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex-1 flex flex-col p-0">
-          <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
-            <div className="space-y-4">
+        
+        <CardContent className="flex-1 flex flex-col p-0 min-h-0">
+          <ScrollArea className="flex-1 px-4" ref={scrollAreaRef}>
+            <div className="space-y-4 py-4">
               {messages.map((message) => (
                 <div
                   key={message.id}
@@ -166,7 +171,7 @@ const Contextualizar = () => {
                     message.isUser ? 'flex-row-reverse' : 'flex-row'
                   }`}
                 >
-                  <div className={`p-2 rounded-full ${
+                  <div className={`p-2 rounded-full flex-shrink-0 ${
                     message.isUser 
                       ? 'bg-gradient-to-r from-orange-400 to-pink-500' 
                       : 'bg-gray-100'
@@ -185,7 +190,7 @@ const Contextualizar = () => {
                         ? 'bg-gradient-to-r from-orange-400 to-pink-500 text-white'
                         : 'bg-gray-100 text-gray-800'
                     }`}>
-                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                      <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
                       {message.timestamp.toLocaleTimeString()}
@@ -193,9 +198,10 @@ const Contextualizar = () => {
                   </div>
                 </div>
               ))}
+              
               {isLoading && (
                 <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-full bg-gray-100">
+                  <div className="p-2 rounded-full bg-gray-100 flex-shrink-0">
                     <Bot className="h-4 w-4 text-gray-600" />
                   </div>
                   <div className="bg-gray-100 p-3 rounded-lg">
@@ -207,10 +213,13 @@ const Contextualizar = () => {
                   </div>
                 </div>
               )}
+              
+              {/* Elemento invisível para scroll automático */}
+              <div ref={messagesEndRef} />
             </div>
           </ScrollArea>
           
-          <div className="p-4 border-t">
+          <div className="p-4 border-t flex-shrink-0">
             <div className="flex gap-2">
               <Input
                 value={inputMessage}
@@ -223,7 +232,7 @@ const Contextualizar = () => {
               <Button 
                 onClick={sendMessage}
                 disabled={isLoading || !inputMessage.trim()}
-                className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600"
+                className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 flex-shrink-0"
               >
                 <Send className="h-4 w-4" />
               </Button>
