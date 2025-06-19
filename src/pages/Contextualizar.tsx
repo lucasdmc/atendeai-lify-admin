@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Send, Bot, User, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Send, Bot, User, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -27,7 +27,7 @@ const Contextualizar = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: 'Olá! Vou ajudá-lo a contextualizar seu chatbot para sua clínica. Vamos começar coletando informações importantes. Qual é o nome da sua clínica?',
+      content: 'Olá! 👋 Vou ajudá-lo a contextualizar seu chatbot para sua clínica. Vamos começar coletando informações importantes sobre seu negócio. Qual é o nome da sua clínica?',
       isUser: false,
       timestamp: new Date(),
     }
@@ -37,7 +37,6 @@ const Contextualizar = () => {
   const [questionsCompleted, setQuestionsCompleted] = useState(false);
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [answeredQuestions, setAnsweredQuestions] = useState(0);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -92,8 +91,8 @@ const Contextualizar = () => {
 
       if (response.questionsCompleted) {
         toast({
-          title: "Contextualização Concluída!",
-          description: "Todas as informações foram coletadas e sua base de conhecimento foi criada.",
+          title: "🎉 Contextualização Concluída!",
+          description: "Perfeito! Seu chatbot agora está configurado com todas as informações da sua clínica e pronto para atender seus pacientes.",
         });
       }
 
@@ -128,15 +127,15 @@ const Contextualizar = () => {
             {questionsCompleted ? (
               <CheckCircle2 className="h-5 w-5 text-green-500" />
             ) : (
-              <AlertCircle className="h-5 w-5 text-orange-500" />
+              <Sparkles className="h-5 w-5 text-orange-500" />
             )}
             <p className="text-sm text-gray-500">
-              {questionsCompleted ? 'Contextualização Completa' : 'Progresso da Contextualização'}
+              {questionsCompleted ? 'Contextualização Completa ✨' : 'Progresso da Contextualização'}
             </p>
           </div>
           <div className="w-32 bg-gray-200 rounded-full h-2">
             <div 
-              className={`h-2 rounded-full transition-all duration-300 ${
+              className={`h-2 rounded-full transition-all duration-500 ${
                 questionsCompleted ? 'bg-green-500' : 'bg-gradient-to-r from-orange-400 to-pink-500'
               }`}
               style={{ width: `${progress}%` }}
@@ -154,15 +153,15 @@ const Contextualizar = () => {
             <Bot className="h-5 w-5 text-orange-500" />
             Chat de Contextualização
             {questionsCompleted && (
-              <Badge variant="default" className="bg-green-100 text-green-800">
-                Concluído
+              <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
+                ✨ Concluído
               </Badge>
             )}
           </CardTitle>
         </CardHeader>
         
         <CardContent className="flex-1 flex flex-col p-0 min-h-0">
-          <ScrollArea className="flex-1 px-4" ref={scrollAreaRef}>
+          <ScrollArea className="flex-1 px-4">
             <div className="space-y-4 py-4">
               {messages.map((message) => (
                 <div
@@ -225,18 +224,23 @@ const Contextualizar = () => {
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Digite sua resposta..."
-                disabled={isLoading}
+                placeholder={questionsCompleted ? "Contextualização concluída! 🎉" : "Digite sua resposta..."}
+                disabled={isLoading || questionsCompleted}
                 className="flex-1"
               />
               <Button 
                 onClick={sendMessage}
-                disabled={isLoading || !inputMessage.trim()}
+                disabled={isLoading || !inputMessage.trim() || questionsCompleted}
                 className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 flex-shrink-0"
               >
                 <Send className="h-4 w-4" />
               </Button>
             </div>
+            {questionsCompleted && (
+              <p className="text-xs text-green-600 mt-2 text-center">
+                ✨ Seu chatbot está pronto para atender os pacientes!
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

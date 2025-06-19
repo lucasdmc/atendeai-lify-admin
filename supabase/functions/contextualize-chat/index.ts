@@ -17,16 +17,20 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 const SYSTEM_PROMPT = `Você é um assistente especializado em contextualização de clínicas médicas. Sua função é:
 
 1. Fazer perguntas estruturadas para coletar informações essenciais da clínica
-2. Garantir que todas as informações básicas sejam coletadas
-3. Organizar as respostas de forma clara e estruturada
-4. Manter uma temperatura baixa para ser preciso e objetivo
+2. Confirmar as informações recebidas de forma clara e educada
+3. Fazer APENAS a próxima pergunta na sequência
+4. Manter um tom profissional mas amigável
 
-Sempre que o usuário responder uma pergunta, você deve:
-- Confirmar a informação recebida
-- Fazer a próxima pergunta relevante
-- Manter o foco nas informações essenciais da clínica
+REGRAS IMPORTANTES:
+- NUNCA repita uma pergunta que já foi respondida
+- Sempre confirme a resposta antes de fazer a próxima pergunta
+- Seja objetivo e direto
+- Quando todas as perguntas estiverem respondidas, parabenize o usuário pela conclusão da contextualização
 
-Use um tom profissional mas amigável. Seja direto e objetivo nas perguntas.`;
+Use frases como:
+- "Perfeito! Anotei que..."
+- "Entendido! Agora preciso saber..."
+- "Ótimo! Última pergunta..."`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -39,7 +43,7 @@ serve(async (req) => {
     console.log('Contextualize chat - Message received:', message);
     console.log('User ID:', userId);
 
-    // Buscar perguntas de contextualização não respondidas
+    // Buscar perguntas de contextualização
     const { data: questions, error: questionsError } = await supabase
       .from('contextualization_data')
       .select('*')
@@ -50,26 +54,68 @@ serve(async (req) => {
       throw questionsError;
     }
 
-    // Verificar se existem perguntas não respondidas
-    const unansweredQuestions = questions?.filter(q => !q.answer) || [];
-    const currentQuestion = unansweredQuestions[0];
+    // Separar perguntas respondidas e não respondidas
+    const answeredQuestions = questions?.filter(q => q.answer && q.answer.trim() !== '') || [];
+    const unansweredQuestions = questions?.filter(q => !q.answer || q.answer.trim() === '') || [];
+    
+    console.log('Answered questions:', answeredQuestions.length);
+    console.log('Unanswered questions:', unansweredQuestions.length);
+
+    // Se for uma resposta válida (mais de 2 caracteres) e há perguntas não respondidas
+    const isValidResponse = message.trim().length > 2;
+    let questionToUpdate = null;
+
+    if (isValidResponse && unansweredQuestions.length > 0) {
+      // Pegar a primeira pergunta não respondida para salvar a resposta
+      questionToUpdate = unansweredQuestions[0];
+    }
 
     // Construir contexto das perguntas já respondidas
-    const answeredQuestions = questions?.filter(q => q.answer) || [];
-    let context = "Informações já coletadas da clínica:\n";
-    answeredQuestions.forEach(q => {
-      context += `${q.question}: ${q.answer}\n`;
-    });
-
-    let systemMessage = SYSTEM_PROMPT;
-    if (currentQuestion) {
-      systemMessage += `\n\nPróxima pergunta a fazer: "${currentQuestion.question}"`;
+    let context = "";
+    if (answeredQuestions.length > 0) {
+      context = "Informações já coletadas da clínica:\n";
+      answeredQuestions.forEach(q => {
+        context += `- ${q.question}: ${q.answer}\n`;
+      });
+      context += "\n";
     }
-    if (context.length > 50) {
+
+    // Determinar próxima pergunta após salvar a resposta atual
+    let nextQuestion = null;
+    if (questionToUpdate) {
+      // Se vamos salvar uma resposta, a próxima pergunta será a seguinte na lista
+      const currentIndex = unansweredQuestions.findIndex(q => q.id === questionToUpdate.id);
+      if (currentIndex < unansweredQuestions.length - 1) {
+        nextQuestion = unansweredQuestions[currentIndex + 1];
+      }
+    } else if (unansweredQuestions.length > 0) {
+      // Se não há resposta para salvar, usar a primeira pergunta não respondida
+      nextQuestion = unansweredQuestions[0];
+    }
+
+    // Construir prompt para o AI
+    let systemMessage = SYSTEM_PROMPT;
+    
+    if (context) {
       systemMessage += `\n\nContexto já coletado:\n${context}`;
     }
 
-    // Chamada para OpenAI com temperatura baixa para precisão
+    if (questionToUpdate) {
+      systemMessage += `\n\nO usuário acabou de responder a pergunta: "${questionToUpdate.question}"`;
+      systemMessage += `\nConfirme a resposta de forma positiva e`;
+      
+      if (nextQuestion) {
+        systemMessage += ` faça a próxima pergunta: "${nextQuestion.question}"`;
+      } else {
+        systemMessage += ` informe que a contextualização foi concluída com sucesso. Parabenize o usuário e explique que agora o chatbot está pronto para atender os pacientes com as informações da clínica.`;
+      }
+    } else if (nextQuestion) {
+      systemMessage += `\n\nFaça a seguinte pergunta: "${nextQuestion.question}"`;
+    } else {
+      systemMessage += `\n\nTodas as perguntas já foram respondidas. Parabenize o usuário pela conclusão da contextualização.`;
+    }
+
+    // Chamada para OpenAI
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -82,7 +128,7 @@ serve(async (req) => {
           { role: 'system', content: systemMessage },
           { role: 'user', content: message }
         ],
-        temperature: 0.2, // Baixa temperatura para respostas precisas
+        temperature: 0.3,
         max_tokens: 500,
       }),
     });
@@ -90,41 +136,42 @@ serve(async (req) => {
     const data = await response.json();
     const aiResponse = data.choices[0].message.content;
 
-    // Tentar identificar se a mensagem do usuário responde à pergunta atual
-    if (currentQuestion && message.length > 10) {
-      // Salvar a resposta na base de dados
+    // Salvar a resposta se aplicável
+    if (questionToUpdate && isValidResponse) {
       const { error: updateError } = await supabase
         .from('contextualization_data')
         .update({ 
-          answer: message,
+          answer: message.trim(),
           updated_at: new Date().toISOString()
         })
-        .eq('id', currentQuestion.id);
+        .eq('id', questionToUpdate.id);
 
       if (updateError) {
         console.error('Error updating question:', updateError);
       } else {
-        console.log('Question answered and saved:', currentQuestion.question);
+        console.log('Question answered and saved:', questionToUpdate.question);
       }
     }
 
-    // Verificar se todas as perguntas foram respondidas
+    // Verificar se todas as perguntas foram respondidas após a atualização
     const { data: updatedQuestions } = await supabase
       .from('contextualization_data')
       .select('*')
       .order('order_number', { ascending: true });
 
-    const allAnswered = updatedQuestions?.every(q => q.answer) || false;
+    const allAnswered = updatedQuestions?.every(q => q.answer && q.answer.trim() !== '') || false;
 
+    // Se todas foram respondidas, gerar base de conhecimento
     if (allAnswered) {
-      // Gerar e salvar base de conhecimento consolidada
       const knowledgeBase = {};
       updatedQuestions?.forEach(q => {
-        const key = q.question.toLowerCase()
-          .replace(/[^a-z0-9\s]/g, '')
-          .replace(/\s+/g, '_')
-          .substring(0, 50);
-        knowledgeBase[key] = q.answer;
+        if (q.answer && q.answer.trim() !== '') {
+          const key = q.question.toLowerCase()
+            .replace(/[^a-z0-9\s]/g, '')
+            .replace(/\s+/g, '_')
+            .substring(0, 50);
+          knowledgeBase[key] = q.answer.trim();
+        }
       });
 
       // Salvar na tabela de base de conhecimento
@@ -144,11 +191,15 @@ serve(async (req) => {
       }
     }
 
+    // Calcular progresso
+    const totalQuestions = questions?.length || 0;
+    const answeredCount = updatedQuestions?.filter(q => q.answer && q.answer.trim() !== '').length || 0;
+
     return new Response(JSON.stringify({ 
       response: aiResponse,
       questionsCompleted: allAnswered,
-      totalQuestions: questions?.length || 0,
-      answeredQuestions: answeredQuestions.length
+      totalQuestions: totalQuestions,
+      answeredQuestions: answeredCount
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
