@@ -12,6 +12,8 @@ const ConversaIndividual = () => {
   const { conversationId } = useParams();
   const navigate = useNavigate();
   
+  console.log('ConversaIndividual - Conversation ID:', conversationId);
+  
   const {
     conversation,
     messages,
@@ -19,6 +21,8 @@ const ConversaIndividual = () => {
     sending,
     sendMessage
   } = useConversationData(conversationId);
+
+  console.log('ConversaIndividual - State:', { conversation, messages, loading });
 
   const handleBack = () => navigate('/conversas');
 

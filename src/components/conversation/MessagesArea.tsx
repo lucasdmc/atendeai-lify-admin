@@ -6,7 +6,7 @@ import { MessageCircle } from 'lucide-react';
 interface Message {
   id: string;
   content: string;
-  message_type: 'received' | 'sent'; // Mudança aqui: usar os novos valores
+  message_type: 'received' | 'sent';
   timestamp: string;
   whatsapp_message_id: string | null;
 }
@@ -37,6 +37,8 @@ const MessagesArea = ({ messages, loading, formatMessageTime }: MessagesAreaProp
     );
   }
 
+  console.log('MessagesArea - Rendering messages:', messages);
+
   return (
     <Card className="flex-1 flex flex-col">
       <CardContent className="flex-1 flex flex-col p-0">
@@ -48,27 +50,30 @@ const MessagesArea = ({ messages, loading, formatMessageTime }: MessagesAreaProp
               <p className="text-sm">Inicie uma conversa enviando uma mensagem</p>
             </div>
           ) : (
-            messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.message_type === 'sent' ? 'justify-end' : 'justify-start'}`}
-              >
+            messages.map((message) => {
+              console.log('Rendering message:', message);
+              return (
                 <div
-                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                    message.message_type === 'sent'
-                      ? 'bg-gradient-to-r from-orange-500 to-pink-500 text-white'
-                      : 'bg-gray-200 text-gray-900'
-                  }`}
+                  key={message.id}
+                  className={`flex ${message.message_type === 'sent' ? 'justify-end' : 'justify-start'}`}
                 >
-                  <p className="text-sm">{message.content}</p>
-                  <p className={`text-xs mt-1 ${
-                    message.message_type === 'sent' ? 'text-orange-100' : 'text-gray-500'
-                  }`}>
-                    {formatMessageTime(message.timestamp)}
-                  </p>
+                  <div
+                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                      message.message_type === 'sent'
+                        ? 'bg-gradient-to-r from-orange-500 to-pink-500 text-white'
+                        : 'bg-gray-200 text-gray-900'
+                    }`}
+                  >
+                    <p className="text-sm">{message.content}</p>
+                    <p className={`text-xs mt-1 ${
+                      message.message_type === 'sent' ? 'text-orange-100' : 'text-gray-500'
+                    }`}>
+                      {formatMessageTime(message.timestamp)}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
           <div ref={messagesEndRef} />
         </div>

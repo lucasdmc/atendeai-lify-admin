@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 interface Message {
   id: string;
   content: string;
-  message_type: 'received' | 'sent'; // Mudança aqui: usar os novos valores
+  message_type: 'received' | 'sent';
   timestamp: string;
   whatsapp_message_id: string | null;
 }
@@ -33,13 +33,19 @@ export const useConversationData = (conversationId: string | undefined) => {
     if (!conversationId) return;
     
     try {
+      console.log('Fetching conversation data for ID:', conversationId);
       const { data, error } = await supabase
         .from('whatsapp_conversations')
         .select('*')
         .eq('id', conversationId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching conversation:', error);
+        throw error;
+      }
+      
+      console.log('Conversation data found:', data);
       setConversation(data);
     } catch (error) {
       console.error('Error fetching conversation:', error);
@@ -74,7 +80,7 @@ export const useConversationData = (conversationId: string | undefined) => {
       
       const typedMessages = (data || []).map(msg => ({
         ...msg,
-        message_type: msg.message_type as 'received' | 'sent' // Mudança aqui: usar os novos valores
+        message_type: msg.message_type as 'received' | 'sent'
       }));
       
       setMessages(typedMessages);
@@ -113,6 +119,7 @@ export const useConversationData = (conversationId: string | undefined) => {
           description: "Sua mensagem foi enviada com sucesso.",
         });
         
+        // Recarregar mensagens após envio
         setTimeout(() => {
           fetchMessages();
         }, 1000);
@@ -133,6 +140,7 @@ export const useConversationData = (conversationId: string | undefined) => {
 
   useEffect(() => {
     if (conversationId) {
+      console.log('useConversationData - Loading conversation:', conversationId);
       fetchConversationData();
       fetchMessages();
     }
