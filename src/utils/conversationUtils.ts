@@ -11,12 +11,22 @@ interface Conversation {
 }
 
 export const getDisplayName = (conversation: Conversation) => {
+  // Log para debug
+  console.log('getDisplayName - Conversation data:', {
+    name: conversation?.name,
+    phone_number: conversation?.phone_number,
+    formatted_phone_number: conversation?.formatted_phone_number
+  });
+  
   // Primeiro, verificar se há um nome salvo e se é válido
   if (conversation?.name && 
       conversation.name.trim() && 
       conversation.name !== conversation.phone_number && 
       !conversation.name.includes('@s.whatsapp.net') &&
-      !conversation.name.includes('@c.us')) {
+      !conversation.name.includes('@c.us') &&
+      conversation.name !== 'null' &&
+      conversation.name !== 'undefined') {
+    console.log('getDisplayName - Using saved name:', conversation.name);
     return conversation.name;
   }
   
@@ -37,6 +47,7 @@ export const getDisplayName = (conversation: Conversation) => {
     return `+${cleanNumber}`;
   }
   
+  console.log('getDisplayName - Using phone number:', phoneToDisplay);
   return phoneToDisplay || 'Contato Desconhecido';
 };
 

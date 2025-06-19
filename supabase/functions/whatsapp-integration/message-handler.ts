@@ -94,31 +94,54 @@ export async function handleWebhook(data: any, supabase: any) {
       const messageContent = data.data.message || 'Mensagem não suportada';
       const fromNumber = data.data.from;
       
-      // Melhorar a captura do nome do contato
+      // Melhorar a captura do nome do contato com mais opções
       let contactName = null;
       
-      // Tentar diferentes campos para o nome
-      if (data.data.pushName && data.data.pushName.trim() && data.data.pushName !== fromNumber) {
-        contactName = data.data.pushName.trim();
-      } else if (data.data.notifyName && data.data.notifyName.trim() && data.data.notifyName !== fromNumber) {
-        contactName = data.data.notifyName.trim();
-      } else if (data.data.contact?.name && data.data.contact.name.trim() && data.data.contact.name !== fromNumber) {
-        contactName = data.data.contact.name.trim();
-      } else if (data.data.contactName && data.data.contactName.trim() && data.data.contactName !== fromNumber) {
-        contactName = data.data.contactName.trim();
-      } else if (data.data.contact?.verifiedName && data.data.contact.verifiedName.trim()) {
-        contactName = data.data.contact.verifiedName.trim();
-      }
-      
-      console.log(`📞 Mensagem de: ${fromNumber}`);
-      console.log(`👤 Nome do contato detectado: ${contactName || 'Não encontrado'}`);
-      console.log(`💬 Conteúdo: ${messageContent}`);
-      console.log('🔍 Dados de contato disponíveis:', {
+      console.log('🔍 Analisando dados de contato disponíveis:', {
         pushName: data.data.pushName,
         notifyName: data.data.notifyName,
         contactName: data.data.contactName,
-        contact: data.data.contact
+        senderName: data.data.senderName,
+        contact: data.data.contact,
+        author: data.data.author,
+        participant: data.data.participant
       });
+      
+      // Tentar diferentes campos para o nome, em ordem de prioridade
+      const nameFields = [
+        data.data.pushName,
+        data.data.notifyName,
+        data.data.senderName,
+        data.data.contactName,
+        data.data.contact?.name,
+        data.data.contact?.verifiedName,
+        data.data.contact?.pushname,
+        data.data.author,
+        data.data.participant
+      ];
+      
+      for (const nameField of nameFields) {
+        if (nameField && 
+            typeof nameField === 'string' && 
+            nameField.trim() && 
+            nameField !== fromNumber &&
+            !nameField.includes('@s.whatsapp.net') &&
+            !nameField.includes('@c.us') &&
+            nameField !== 'null' &&
+            nameField !== 'undefined') {
+          contactName = nameField.trim();
+          console.log(`👤 Nome do contato encontrado: ${contactName} (campo: ${nameField})`);
+          break;
+        }
+      }
+      
+      if (!contactName) {
+        console.log('❌ Nenhum nome válido encontrado nos dados do webhook');
+      }
+      
+      console.log(`📞 Mensagem de: ${fromNumber}`);
+      console.log(`👤 Nome do contato final: ${contactName || 'Não encontrado'}`);
+      console.log(`💬 Conteúdo: ${messageContent}`);
 
       // Primeiro, buscar ou criar a conversa usando o número de telefone
       const { data: existingConversation, error: fetchError } = await supabase
@@ -139,7 +162,7 @@ export async function handleWebhook(data: any, supabase: any) {
         };
 
         // Adicionar nome do contato se disponível e válido
-        if (contactName && !contactName.includes('@s.whatsapp.net') && !contactName.includes('@c.us')) {
+        if (contactName) {
           conversationData.name = contactName;
           console.log(`📝 Nome do contato salvo na nova conversa: ${contactName}`);
         }
@@ -170,19 +193,27 @@ export async function handleWebhook(data: any, supabase: any) {
           updated_at: new Date().toISOString()
         };
 
-        // Atualizar nome do contato se disponível e ainda não foi salvo ou se é diferente
-        if (contactName && 
-            !contactName.includes('@s.whatsapp.net') && 
-            !contactName.includes('@c.us') &&
-            (!existingConversation.name || existingConversation.name === fromNumber || existingConversation.name.includes('@s.whatsapp.net'))) {
+        // Atualizar nome do contato se:
+        // 1. Temos um nome válido no webhook atual
+        // 2. E (não temos nome salvo OU o nome salvo é igual ao número OU contém @)
+        if (contactName && (
+            !existingConversation.name || 
+            existingConversation.name === fromNumber || 
+            existingConversation.name.includes('@s.whatsapp.net') ||
+            existingConversation.name.includes('@c.us')
+        )) {
           updateData.name = contactName;
           console.log(`📝 Atualizando nome do contato na conversa existente: ${contactName}`);
         }
 
-        await supabase
+        const { error: updateError } = await supabase
           .from('whatsapp_conversations')
           .update(updateData)
           .eq('id', conversationId);
+          
+        if (updateError) {
+          console.error('❌ Erro ao atualizar conversa:', updateError);
+        }
       }
 
       // Salvar mensagem recebida

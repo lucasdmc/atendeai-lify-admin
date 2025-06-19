@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import ConversationSearch from '@/components/conversations/ConversationSearch';
 import ConversationList from '@/components/conversations/ConversationList';
 import LoadingState from '@/components/conversations/LoadingState';
+import { getDisplayName } from '@/utils/conversationUtils';
 
 interface Conversation {
   id: string;
@@ -41,18 +42,9 @@ const Conversas = () => {
     setFilteredConversations(filtered);
   }, [searchTerm, conversations]);
 
-  const getDisplayName = (conversation: Conversation) => {
-    // Se há um nome salvo e ele é diferente do número de telefone, usar o nome
-    if (conversation.name && conversation.name !== conversation.phone_number && !conversation.name.includes('@s.whatsapp.net')) {
-      return conversation.name;
-    }
-    
-    // Caso contrário, usar o número formatado ou o número original
-    return conversation.formatted_phone_number || conversation.phone_number || 'Contato Desconhecido';
-  };
-
   const fetchConversations = async () => {
     try {
+      console.log('🔄 Buscando conversas...');
       // Buscar conversas e contagem de mensagens
       const { data, error } = await supabase
         .from('whatsapp_conversations')
@@ -69,6 +61,11 @@ const Conversas = () => {
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
+      
+      console.log('📊 Conversas encontradas:', data?.length || 0);
+      if (data && data.length > 0) {
+        console.log('📝 Primeira conversa:', data[0]);
+      }
       
       // Para cada conversa, buscar a contagem real de mensagens
       const conversationsWithCount = await Promise.all(
