@@ -9,6 +9,7 @@ interface WhatsAppConnectionHook {
   isLoading: boolean;
   clientInfo: any;
   generateQRCode: () => Promise<void>;
+  disconnect: () => Promise<void>;
 }
 
 export const useWhatsAppConnection = (): WhatsAppConnectionHook => {
@@ -130,6 +131,46 @@ export const useWhatsAppConnection = (): WhatsAppConnectionHook => {
     }
   };
 
+  const disconnect = async () => {
+    console.log('disconnect called');
+    setIsLoading(true);
+    
+    try {
+      console.log('Calling whatsapp-integration/disconnect...');
+      const { data, error } = await supabase.functions.invoke('whatsapp-integration/disconnect');
+      
+      console.log('Disconnect response:', { data, error });
+      
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw new Error(error.message || 'Erro ao desconectar');
+      }
+      
+      if (data?.success) {
+        console.log('Disconnect success');
+        setConnectionStatus('disconnected');
+        setQrCode(null);
+        setClientInfo(null);
+        toast({
+          title: "Desconectado",
+          description: "WhatsApp foi desconectado com sucesso.",
+        });
+      } else {
+        console.error('Disconnect failed:', data);
+        throw new Error(data?.error || 'Falha ao desconectar');
+      }
+    } catch (error) {
+      console.error('Error disconnecting:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível desconectar. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   console.log('Hook state:', { connectionStatus, qrCode: qrCode ? 'presente' : 'null', isLoading });
 
   return {
@@ -138,5 +179,6 @@ export const useWhatsAppConnection = (): WhatsAppConnectionHook => {
     isLoading,
     clientInfo,
     generateQRCode,
+    disconnect,
   };
 };

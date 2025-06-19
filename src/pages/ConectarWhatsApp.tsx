@@ -11,6 +11,7 @@ const ConectarWhatsApp = () => {
     isLoading,
     clientInfo,
     generateQRCode,
+    disconnect,
   } = useWhatsAppConnection();
 
   return (
@@ -29,6 +30,7 @@ const ConectarWhatsApp = () => {
           isLoading={isLoading}
           connectionStatus={connectionStatus}
           onGenerateQR={generateQRCode}
+          onDisconnect={disconnect}
         />
         <ConnectionInstructions
           connectionStatus={connectionStatus}
