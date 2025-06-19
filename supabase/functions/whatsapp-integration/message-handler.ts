@@ -1,13 +1,12 @@
-
 import { corsHeaders, WHATSAPP_SERVER_URL } from './config.ts';
 import { processAndRespondWithAI } from './ai-processor.ts';
 import type { WhatsappMessage } from './types.ts';
 
 export async function sendMessage(to: string, message: string, supabase: any) {
-  console.log(`=== ENVIANDO MENSAGEM ===`);
-  console.log(`Para: ${to}`);
-  console.log(`Mensagem: ${message}`);
-  console.log(`WHATSAPP_SERVER_URL: ${WHATSAPP_SERVER_URL}`);
+  console.log(`📤 === ENVIANDO MENSAGEM ===`);
+  console.log(`📞 Para: ${to}`);
+  console.log(`💬 Mensagem: ${message}`);
+  console.log(`🔗 WHATSAPP_SERVER_URL: ${WHATSAPP_SERVER_URL}`);
 
   if (!WHATSAPP_SERVER_URL) {
     console.error('❌ WHATSAPP_SERVER_URL não configurado');
@@ -16,7 +15,12 @@ export async function sendMessage(to: string, message: string, supabase: any) {
 
   try {
     const sendUrl = `${WHATSAPP_SERVER_URL}/api/whatsapp/send-message`;
-    console.log(`📤 Enviando para URL: ${sendUrl}`);
+    console.log(`🚀 Enviando para URL: ${sendUrl}`);
+    
+    console.log('📋 Request payload:', JSON.stringify({
+      to: to,
+      message: message
+    }, null, 2));
     
     const response = await fetch(sendUrl, {
       method: 'POST',
@@ -30,17 +34,33 @@ export async function sendMessage(to: string, message: string, supabase: any) {
     });
 
     console.log(`📡 Status da resposta: ${response.status}`);
+    console.log(`📡 Status text: ${response.statusText}`);
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error(`❌ Erro na resposta: ${errorData}`);
-      throw new Error(`Failed to send message: ${response.status} - ${errorData}`);
+      console.error(`❌ Erro na resposta (${response.status}): ${errorData}`);
+      
+      // Verificar tipos específicos de erro
+      let errorMessage = `Failed to send message: ${response.status}`;
+      
+      try {
+        const parsedError = JSON.parse(errorData);
+        if (parsedError.error) {
+          errorMessage = parsedError.error;
+        }
+      } catch (parseError) {
+        console.log('⚠️ Could not parse error response as JSON');
+        errorMessage = errorData || errorMessage;
+      }
+      
+      throw new Error(errorMessage);
     }
 
     const result = await response.json();
     console.log('✅ Mensagem enviada com sucesso:', result);
 
     // Buscar o ID da conversa existente na tabela
+    console.log('🔍 Buscando conversa para salvar mensagem...');
     const { data: conversationData, error: conversationFetchError } = await supabase
       .from('whatsapp_conversations')
       .select('id')
@@ -55,6 +75,7 @@ export async function sendMessage(to: string, message: string, supabase: any) {
     console.log('✅ Conversa encontrada ID:', conversationData.id);
 
     // Salvar mensagem no banco usando o ID correto da conversa
+    console.log('💾 Salvando mensagem no banco...');
     const { error } = await supabase
       .from('whatsapp_messages')
       .insert({
@@ -71,13 +92,20 @@ export async function sendMessage(to: string, message: string, supabase: any) {
     }
 
     // Atualizar conversa
-    await supabase
+    console.log('🔄 Atualizando última mensagem da conversa...');
+    const { error: updateError } = await supabase
       .from('whatsapp_conversations')
       .update({
         last_message_preview: message.substring(0, 100),
         updated_at: new Date().toISOString()
       })
       .eq('id', conversationData.id);
+
+    if (updateError) {
+      console.error('❌ Erro ao atualizar conversa:', updateError);
+    } else {
+      console.log('✅ Conversa atualizada com sucesso');
+    }
 
     return new Response(JSON.stringify({
       success: true,
@@ -88,6 +116,14 @@ export async function sendMessage(to: string, message: string, supabase: any) {
     });
   } catch (error) {
     console.error('❌ Erro crítico ao enviar mensagem:', error);
+    
+    // Log detalhado do erro
+    console.error('❌ Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+    
     throw error;
   }
 }
