@@ -9,12 +9,40 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      clinic_knowledge_base: {
+        Row: {
+          clinic_id: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          knowledge_data: Json
+          updated_at: string
+        }
+        Insert: {
+          clinic_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          knowledge_data?: Json
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          knowledge_data?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       contextualization_data: {
         Row: {
           answer: string | null
           clinic_id: string | null
           created_at: string
           id: string
+          knowledge_base: Json | null
           order_number: number
           question: string
           updated_at: string
@@ -24,6 +52,7 @@ export type Database = {
           clinic_id?: string | null
           created_at?: string
           id?: string
+          knowledge_base?: Json | null
           order_number: number
           question: string
           updated_at?: string
@@ -33,6 +62,7 @@ export type Database = {
           clinic_id?: string | null
           created_at?: string
           id?: string
+          knowledge_base?: Json | null
           order_number?: number
           question?: string
           updated_at?: string
@@ -146,24 +176,36 @@ export type Database = {
       }
       whatsapp_conversations: {
         Row: {
+          country_code: string | null
           created_at: string
+          formatted_phone_number: string | null
           id: string
+          last_message_preview: string | null
           name: string | null
           phone_number: string
+          unread_count: number | null
           updated_at: string
         }
         Insert: {
+          country_code?: string | null
           created_at?: string
+          formatted_phone_number?: string | null
           id?: string
+          last_message_preview?: string | null
           name?: string | null
           phone_number: string
+          unread_count?: number | null
           updated_at?: string
         }
         Update: {
+          country_code?: string | null
           created_at?: string
+          formatted_phone_number?: string | null
           id?: string
+          last_message_preview?: string | null
           name?: string | null
           phone_number?: string
+          unread_count?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -211,6 +253,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      extract_country_code: {
+        Args: { phone_number: string }
+        Returns: string
+      }
+      format_phone_number: {
+        Args: { phone_number: string }
+        Returns: string
+      }
       get_user_role: {
         Args: { user_id: string }
         Returns: Database["public"]["Enums"]["user_role"]
