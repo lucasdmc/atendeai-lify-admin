@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 interface Message {
   id: string;
   content: string;
-  message_type: 'inbound' | 'outbound';
+  message_type: 'received' | 'sent'; // Mudança aqui: usar os novos valores
   timestamp: string;
   whatsapp_message_id: string | null;
 }
@@ -70,10 +70,11 @@ export const useConversationData = (conversationId: string | undefined) => {
       }
       
       console.log('Messages found:', data?.length || 0);
+      console.log('Messages data:', data);
       
       const typedMessages = (data || []).map(msg => ({
         ...msg,
-        message_type: msg.message_type as 'inbound' | 'outbound'
+        message_type: msg.message_type as 'received' | 'sent' // Mudança aqui: usar os novos valores
       }));
       
       setMessages(typedMessages);

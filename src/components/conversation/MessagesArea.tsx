@@ -6,7 +6,7 @@ import { MessageCircle } from 'lucide-react';
 interface Message {
   id: string;
   content: string;
-  message_type: 'inbound' | 'outbound';
+  message_type: 'received' | 'sent'; // Mudança aqui: usar os novos valores
   timestamp: string;
   whatsapp_message_id: string | null;
 }
@@ -51,18 +51,18 @@ const MessagesArea = ({ messages, loading, formatMessageTime }: MessagesAreaProp
             messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex ${message.message_type === 'outbound' ? 'justify-end' : 'justify-start'}`}
+                className={`flex ${message.message_type === 'sent' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
                   className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                    message.message_type === 'outbound'
+                    message.message_type === 'sent'
                       ? 'bg-gradient-to-r from-orange-500 to-pink-500 text-white'
                       : 'bg-gray-200 text-gray-900'
                   }`}
                 >
                   <p className="text-sm">{message.content}</p>
                   <p className={`text-xs mt-1 ${
-                    message.message_type === 'outbound' ? 'text-orange-100' : 'text-gray-500'
+                    message.message_type === 'sent' ? 'text-orange-100' : 'text-gray-500'
                   }`}>
                     {formatMessageTime(message.timestamp)}
                   </p>

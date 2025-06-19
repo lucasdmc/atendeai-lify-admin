@@ -22,22 +22,30 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
       console.log(`✅ Contexto encontrado: ${contextData?.length || 0} itens`);
     }
 
-    // Buscar histórico recente da conversa
+    // Buscar histórico recente da conversa usando o número de telefone
     console.log('📝 Buscando histórico da conversa...');
-    const cleanPhone = phoneNumber.replace(/[^\d]/g, '');
-    const conversationId = `conv_${cleanPhone}`;
     
-    const { data: recentMessages, error: messagesError } = await supabase
-      .from('whatsapp_messages')
-      .select('content, message_type, timestamp')
-      .eq('conversation_id', conversationId)
-      .order('timestamp', { ascending: false })
-      .limit(10);
+    const { data: conversationData, error: convError } = await supabase
+      .from('whatsapp_conversations')
+      .select('id')
+      .eq('phone_number', phoneNumber)
+      .single();
 
-    if (messagesError) {
-      console.error('❌ Erro ao buscar histórico:', messagesError);
-    } else {
-      console.log(`✅ Histórico encontrado: ${recentMessages?.length || 0} mensagens`);
+    let recentMessages = [];
+    if (!convError && conversationData) {
+      const { data: messages, error: messagesError } = await supabase
+        .from('whatsapp_messages')
+        .select('content, message_type, timestamp')
+        .eq('conversation_id', conversationData.id)
+        .order('timestamp', { ascending: false })
+        .limit(10);
+
+      if (messagesError) {
+        console.error('❌ Erro ao buscar histórico:', messagesError);
+      } else {
+        recentMessages = messages || [];
+        console.log(`✅ Histórico encontrado: ${recentMessages.length} mensagens`);
+      }
     }
 
     // Construir prompt do sistema com contexto da clínica
@@ -73,7 +81,7 @@ INFORMAÇÕES DA CLÍNICA:`;
         .forEach((msg) => {
           if (msg.content && msg.content !== message) { // Evitar duplicar a mensagem atual
             messages.push({
-              role: msg.message_type === 'inbound' ? 'user' : 'assistant',
+              role: msg.message_type === 'received' ? 'user' : 'assistant',
               content: msg.content
             });
           }

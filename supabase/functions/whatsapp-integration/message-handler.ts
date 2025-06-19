@@ -50,7 +50,7 @@ export async function sendMessage(to: string, message: string, supabase: any) {
       .insert({
         conversation_id: conversationData.id,
         content: message,
-        message_type: 'outbound',
+        message_type: 'sent', // Mudança aqui: usar 'sent' em vez de 'outbound'
         whatsapp_message_id: result.messageId || `msg_${Date.now()}`
       });
 
@@ -99,9 +99,67 @@ export async function handleWebhook(data: any, supabase: any) {
       console.log(`👤 Nome do contato: ${contactName || 'Não informado'}`);
       console.log(`💬 Conteúdo: ${messageContent}`);
 
-      // Gerar ID único da conversa baseado no número limpo
-      const cleanPhone = fromNumber.replace(/[^\d]/g, '');
-      const conversationId = `conv_${cleanPhone}`;
+      // Primeiro, buscar ou criar a conversa usando o número de telefone
+      const { data: existingConversation, error: fetchError } = await supabase
+        .from('whatsapp_conversations')
+        .select('id')
+        .eq('phone_number', fromNumber)
+        .single();
+
+      let conversationId: string;
+
+      if (fetchError && fetchError.code === 'PGRST116') {
+        // Conversa não existe, criar uma nova
+        console.log('📝 Criando nova conversa...');
+        const conversationData: any = {
+          phone_number: fromNumber,
+          last_message_preview: messageContent.substring(0, 100),
+          updated_at: new Date().toISOString()
+        };
+
+        // Adicionar nome do contato se disponível e válido
+        if (contactName && contactName.trim() && contactName !== fromNumber) {
+          conversationData.name = contactName.trim();
+          console.log(`📝 Nome do contato salvo: ${contactName}`);
+        }
+
+        const { data: newConversation, error: createError } = await supabase
+          .from('whatsapp_conversations')
+          .insert(conversationData)
+          .select('id')
+          .single();
+
+        if (createError) {
+          console.error('❌ Erro ao criar conversa:', createError);
+          throw createError;
+        }
+
+        conversationId = newConversation.id;
+        console.log('✅ Nova conversa criada com ID:', conversationId);
+      } else if (fetchError) {
+        console.error('❌ Erro ao buscar conversa:', fetchError);
+        throw fetchError;
+      } else {
+        conversationId = existingConversation.id;
+        console.log('✅ Conversa existente encontrada com ID:', conversationId);
+
+        // Atualizar a conversa existente
+        const updateData: any = {
+          last_message_preview: messageContent.substring(0, 100),
+          updated_at: new Date().toISOString()
+        };
+
+        // Adicionar nome do contato se disponível e ainda não foi salvo
+        if (contactName && contactName.trim() && contactName !== fromNumber) {
+          updateData.name = contactName.trim();
+          console.log(`📝 Atualizando nome do contato: ${contactName}`);
+        }
+
+        await supabase
+          .from('whatsapp_conversations')
+          .update(updateData)
+          .eq('id', conversationId);
+      }
 
       // Salvar mensagem recebida
       console.log('💾 Salvando mensagem no banco...');
@@ -110,7 +168,7 @@ export async function handleWebhook(data: any, supabase: any) {
         .insert({
           conversation_id: conversationId,
           content: messageContent,
-          message_type: 'inbound',
+          message_type: 'received', // Mudança aqui: usar 'received' em vez de 'inbound'
           whatsapp_message_id: `msg_${data.data.timestamp || Date.now()}`
         });
 
@@ -118,31 +176,6 @@ export async function handleWebhook(data: any, supabase: any) {
         console.error('❌ Erro ao salvar mensagem:', messageError);
       } else {
         console.log('✅ Mensagem salva no banco');
-      }
-
-      // Criar ou atualizar conversa com nome do contato se disponível
-      console.log('👤 Atualizando conversa...');
-      const conversationData: any = {
-        id: conversationId,
-        phone_number: fromNumber,
-        last_message_preview: messageContent.substring(0, 100),
-        updated_at: new Date().toISOString()
-      };
-
-      // Adicionar nome do contato se disponível e válido
-      if (contactName && contactName.trim() && contactName !== fromNumber) {
-        conversationData.name = contactName.trim();
-        console.log(`📝 Nome do contato salvo: ${contactName}`);
-      }
-
-      const { error: conversationError } = await supabase
-        .from('whatsapp_conversations')
-        .upsert(conversationData);
-
-      if (conversationError) {
-        console.error('❌ Erro ao atualizar conversa:', conversationError);
-      } else {
-        console.log('✅ Conversa atualizada');
       }
 
       // PROCESSAR COM IA
