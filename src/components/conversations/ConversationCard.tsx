@@ -19,11 +19,13 @@ interface Conversation {
 interface ConversationCardProps {
   conversation: Conversation;
   onOpenConversation: (conversationId: string) => void;
+  getDisplayName: (conversation: Conversation) => string;
 }
 
 const ConversationCard: React.FC<ConversationCardProps> = ({
   conversation,
-  onOpenConversation
+  onOpenConversation,
+  getDisplayName
 }) => {
   const getStatusColor = (messageCount: number) => {
     if (messageCount > 10) return 'bg-green-100 text-green-800';
@@ -46,7 +48,7 @@ const ConversationCard: React.FC<ConversationCardProps> = ({
         <div>
           <div className="flex items-center gap-2 mb-1">
             <h3 className="font-semibold text-gray-900">
-              {conversation.name || 'Usuário Anônimo'}
+              {getDisplayName(conversation)}
             </h3>
             <Badge variant="outline" className={getStatusColor(conversation.message_count || 0)}>
               {conversation.message_count} mensagens

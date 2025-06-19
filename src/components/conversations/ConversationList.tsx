@@ -19,12 +19,14 @@ interface ConversationListProps {
   conversations: Conversation[];
   searchTerm: string;
   onOpenConversation: (conversationId: string) => void;
+  getDisplayName: (conversation: Conversation) => string;
 }
 
 const ConversationList: React.FC<ConversationListProps> = ({
   conversations,
   searchTerm,
-  onOpenConversation
+  onOpenConversation,
+  getDisplayName
 }) => {
   if (conversations.length === 0) {
     return <EmptyState searchTerm={searchTerm} />;
@@ -37,6 +39,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
           key={conversation.id}
           conversation={conversation}
           onOpenConversation={onOpenConversation}
+          getDisplayName={getDisplayName}
         />
       ))}
     </div>

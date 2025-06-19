@@ -32,17 +32,28 @@ const Conversas = () => {
   }, []);
 
   useEffect(() => {
-    const filtered = conversations.filter(conversation =>
-      conversation.phone_number.includes(searchTerm) ||
-      (conversation.formatted_phone_number && conversation.formatted_phone_number.includes(searchTerm)) ||
-      (conversation.name && conversation.name.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    const filtered = conversations.filter(conversation => {
+      const displayName = getDisplayName(conversation);
+      return displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        conversation.phone_number.includes(searchTerm) ||
+        (conversation.formatted_phone_number && conversation.formatted_phone_number.includes(searchTerm));
+    });
     setFilteredConversations(filtered);
   }, [searchTerm, conversations]);
 
+  const getDisplayName = (conversation: Conversation) => {
+    // Se há um nome salvo e ele é diferente do número de telefone, usar o nome
+    if (conversation.name && conversation.name !== conversation.phone_number && !conversation.name.includes('@s.whatsapp.net')) {
+      return conversation.name;
+    }
+    
+    // Caso contrário, usar o número formatado ou o número original
+    return conversation.formatted_phone_number || conversation.phone_number || 'Contato Desconhecido';
+  };
+
   const fetchConversations = async () => {
     try {
-      // Buscar conversas e atualizar números formatados se necessário
+      // Buscar conversas e contagem de mensagens
       const { data, error } = await supabase
         .from('whatsapp_conversations')
         .select(`
@@ -59,11 +70,20 @@ const Conversas = () => {
 
       if (error) throw error;
       
-      // Simular contagem de mensagens para cada conversa
-      const conversationsWithCount = data?.map(conv => ({
-        ...conv,
-        message_count: Math.floor(Math.random() * 20) + 1
-      })) || [];
+      // Para cada conversa, buscar a contagem real de mensagens
+      const conversationsWithCount = await Promise.all(
+        (data || []).map(async (conv) => {
+          const { count } = await supabase
+            .from('whatsapp_messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('conversation_id', conv.id);
+          
+          return {
+            ...conv,
+            message_count: count || 0
+          };
+        })
+      );
 
       // Atualizar conversas que não têm números formatados
       for (const conv of conversationsWithCount) {
@@ -102,9 +122,7 @@ const Conversas = () => {
   };
 
   const openConversation = (conversationId: string) => {
-    // Navegar para a conversa específica (implementaremos depois)
-    console.log('Opening conversation:', conversationId);
-    // navigate(`/conversas/${conversationId}`);
+    navigate(`/conversas/${conversationId}`);
   };
 
   if (loading) {
@@ -139,6 +157,7 @@ const Conversas = () => {
             conversations={filteredConversations}
             searchTerm={searchTerm}
             onOpenConversation={openConversation}
+            getDisplayName={getDisplayName}
           />
         </CardContent>
       </Card>

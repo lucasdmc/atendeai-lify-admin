@@ -229,11 +229,15 @@ async function sendMessage(to: string, message: string, supabase: any) {
     const result = await response.json();
     console.log('Message sent successfully:', result);
 
+    // Gerar ID único da conversa baseado no número limpo
+    const cleanPhone = to.replace(/[^\d]/g, '');
+    const conversationId = `conv_${cleanPhone}`;
+
     // Salvar mensagem no banco
     const { error } = await supabase
       .from('whatsapp_messages')
       .insert({
-        conversation_id: `conv_${to.replace(/\D/g, '')}`,
+        conversation_id: conversationId,
         content: message,
         message_type: 'outbound',
         whatsapp_message_id: result.messageId || `msg_${Date.now()}`
@@ -247,8 +251,9 @@ async function sendMessage(to: string, message: string, supabase: any) {
     await supabase
       .from('whatsapp_conversations')
       .upsert({
+        id: conversationId,
         phone_number: to,
-        name: to,
+        last_message_preview: message.substring(0, 100),
         updated_at: new Date().toISOString()
       });
 
@@ -276,16 +281,22 @@ async function handleWebhook(data: any, supabase: any) {
       
       const messageContent = data.data.message || 'Mensagem não suportada';
       const fromNumber = data.data.from;
+      const contactName = data.data.pushName || data.data.notifyName || data.data.contact?.name || null;
       
       console.log(`📞 Mensagem de: ${fromNumber}`);
+      console.log(`👤 Nome do contato: ${contactName || 'Não informado'}`);
       console.log(`💬 Conteúdo: ${messageContent}`);
+
+      // Gerar ID único da conversa baseado no número limpo
+      const cleanPhone = fromNumber.replace(/[^\d]/g, '');
+      const conversationId = `conv_${cleanPhone}`;
 
       // Salvar mensagem recebida
       console.log('💾 Salvando mensagem no banco...');
       const { error: messageError } = await supabase
         .from('whatsapp_messages')
         .insert({
-          conversation_id: `conv_${fromNumber.replace(/\D/g, '')}`,
+          conversation_id: conversationId,
           content: messageContent,
           message_type: 'inbound',
           whatsapp_message_id: `msg_${data.data.timestamp || Date.now()}`
@@ -297,15 +308,24 @@ async function handleWebhook(data: any, supabase: any) {
         console.log('✅ Mensagem salva no banco');
       }
 
-      // Criar ou atualizar conversa
+      // Criar ou atualizar conversa com nome do contato se disponível
       console.log('👤 Atualizando conversa...');
+      const conversationData: any = {
+        id: conversationId,
+        phone_number: fromNumber,
+        last_message_preview: messageContent.substring(0, 100),
+        updated_at: new Date().toISOString()
+      };
+
+      // Adicionar nome do contato se disponível e válido
+      if (contactName && contactName.trim() && contactName !== fromNumber) {
+        conversationData.name = contactName.trim();
+        console.log(`📝 Nome do contato salvo: ${contactName}`);
+      }
+
       const { error: conversationError } = await supabase
         .from('whatsapp_conversations')
-        .upsert({
-          phone_number: fromNumber,
-          name: fromNumber,
-          updated_at: new Date().toISOString()
-        });
+        .upsert(conversationData);
 
       if (conversationError) {
         console.error('❌ Erro ao atualizar conversa:', conversationError);
@@ -353,10 +373,13 @@ async function processAndRespondWithAI(phoneNumber: string, message: string, sup
 
     // Buscar histórico recente da conversa
     console.log('📝 Buscando histórico da conversa...');
+    const cleanPhone = phoneNumber.replace(/[^\d]/g, '');
+    const conversationId = `conv_${cleanPhone}`;
+    
     const { data: recentMessages, error: messagesError } = await supabase
       .from('whatsapp_messages')
       .select('content, message_type, timestamp')
-      .eq('conversation_id', `conv_${phoneNumber.replace(/\D/g, '')}`)
+      .eq('conversation_id', conversationId)
       .order('timestamp', { ascending: false })
       .limit(10);
 
