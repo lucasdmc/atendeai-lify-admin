@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -66,28 +65,32 @@ export const useWhatsAppConnection = (): WhatsAppConnectionHook => {
   }, [connectionStatus]);
 
   const generateQRCode = async () => {
-    console.log('=== INICIANDO GERAÇÃO QR CODE ===');
+    console.log('🔥 === INICIANDO GERAÇÃO QR CODE ===');
     setIsLoading(true);
     setConnectionStatus('connecting');
     setQrCode(null); // Limpar QR code anterior
     
     try {
-      console.log('Calling whatsapp-integration/initialize...');
+      console.log('🔥 Step 1: Calling whatsapp-integration/initialize...');
       const { data, error } = await supabase.functions.invoke('whatsapp-integration/initialize');
       
-      console.log('Initialize response completa:', JSON.stringify(data, null, 2));
-      console.log('Initialize error:', error);
+      console.log('🔥 Step 2: RAW RESPONSE DATA:', JSON.stringify(data, null, 2));
+      console.log('🔥 Step 3: RAW ERROR:', JSON.stringify(error, null, 2));
       
       if (error) {
-        console.error('❌ Supabase function error:', error);
+        console.error('🔥 Step 4: Supabase function error detected:', error);
         throw new Error(error.message || 'Erro ao chamar função');
       }
       
       if (data?.success) {
-        console.log('✅ Initialize success, analisando data...');
+        console.log('🔥 Step 5: Success=true detected, analyzing response structure...');
+        console.log('🔥 Step 6: data.data exists?', !!data.data);
+        console.log('🔥 Step 7: data.qrCode exists?', !!data.qrCode);
+        console.log('🔥 Step 8: data.status value:', data.status);
+        console.log('🔥 Step 9: data.message value:', data.message);
         
         if (data.status === 'demo') {
-          console.log('🔧 Configurando modo demo');
+          console.log('🔥 Step 10: Demo mode detected');
           setConnectionStatus('demo');
           setQrCode(data.qrCode);
           toast({
@@ -96,7 +99,8 @@ export const useWhatsAppConnection = (): WhatsAppConnectionHook => {
             variant: "default",
           });
         } else if (data.data?.qrCode) {
-          console.log('📱 QR Code encontrado em data.data.qrCode');
+          console.log('🔥 Step 11: QR Code found in data.data.qrCode');
+          console.log('🔥 Step 12: QR Code preview:', data.data.qrCode.substring(0, 100) + '...');
           setQrCode(data.data.qrCode);
           setConnectionStatus('connecting');
           toast({
@@ -104,7 +108,8 @@ export const useWhatsAppConnection = (): WhatsAppConnectionHook => {
             description: "Escaneie o código com seu WhatsApp Business para conectar.",
           });
         } else if (data.qrCode) {
-          console.log('📱 QR Code encontrado em data.qrCode');
+          console.log('🔥 Step 13: QR Code found in data.qrCode');
+          console.log('🔥 Step 14: QR Code preview:', data.qrCode.substring(0, 100) + '...');
           setQrCode(data.qrCode);
           setConnectionStatus('connecting');
           toast({
@@ -112,31 +117,41 @@ export const useWhatsAppConnection = (): WhatsAppConnectionHook => {
             description: "Escaneie o código com seu WhatsApp Business para conectar.",
           });
         } else {
-          console.log('⚠️ Nenhum QR Code retornado, mas inicialização foi bem-sucedida');
-          console.log('Message from server:', data.message);
+          console.log('🔥 Step 15: NO QR CODE FOUND in response!');
+          console.log('🔥 Step 16: Available keys in data:', Object.keys(data));
+          console.log('🔥 Step 17: Available keys in data.data:', data.data ? Object.keys(data.data) : 'data.data is null/undefined');
+          console.log('🔥 Step 18: Server message:', data.message);
+          
           setConnectionStatus('connecting');
           toast({
             title: "Inicialização iniciada",
-            description: data.message || "Aguarde... O QR Code pode aparecer em alguns segundos.",
+            description: "Aguardando QR Code do servidor... Isso pode levar alguns segundos.",
           });
           
           // Tentar verificar status em alguns segundos para pegar o QR Code
+          console.log('🔥 Step 19: Setting timeout to check for QR Code...');
           setTimeout(async () => {
-            console.log('🔄 Tentando buscar QR Code após delay...');
+            console.log('🔥 Step 20: Timeout triggered, checking status for QR Code...');
             const { data: statusData } = await supabase.functions.invoke('whatsapp-integration/status');
-            console.log('Status após delay:', statusData);
+            console.log('🔥 Step 21: Status check response:', JSON.stringify(statusData, null, 2));
             if (statusData?.qrCode) {
-              console.log('✅ QR Code encontrado após delay!');
+              console.log('🔥 Step 22: QR Code found after timeout!');
               setQrCode(statusData.qrCode);
+            } else {
+              console.log('🔥 Step 23: Still no QR Code after timeout ❌');
             }
           }, 3000);
         }
       } else {
-        console.error('❌ Initialize failed:', data);
-        throw new Error(data?.error || 'Falha ao gerar QR Code');
+        console.error('🔥 Step 24: Success=false or missing:', data);
+        throw new Error(data?.error || 'Falha ao gerar QR Code - success=false');
       }
-    } catch (error) {
-      console.error('❌ Erro crítico na geração do QR code:', error);
+    } catch (error: any) {
+      console.error('🔥 Step 25: CRITICAL ERROR in generateQRCode:', error);
+      console.error('🔥 Step 26: Error name:', error.name);
+      console.error('🔥 Step 27: Error message:', error.message);
+      console.error('🔥 Step 28: Error stack:', error.stack);
+      
       toast({
         title: "Erro",
         description: `Não foi possível gerar o QR Code: ${error.message}`,
