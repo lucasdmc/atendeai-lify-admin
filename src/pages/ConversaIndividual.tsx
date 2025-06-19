@@ -79,13 +79,21 @@ const ConversaIndividual = () => {
   const fetchMessages = async () => {
     try {
       setLoading(true);
+      console.log('Fetching messages for conversation:', conversationId);
+      
+      // Buscar mensagens usando o ID da conversa diretamente
       const { data, error } = await supabase
         .from('whatsapp_messages')
         .select('*')
         .eq('conversation_id', conversationId)
         .order('timestamp', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching messages:', error);
+        throw error;
+      }
+      
+      console.log('Messages found:', data?.length || 0);
       
       // Type assertion to ensure message_type is properly typed
       const typedMessages = (data || []).map(msg => ({
@@ -111,6 +119,8 @@ const ConversaIndividual = () => {
 
     try {
       setSending(true);
+      
+      console.log('Sending message to:', conversation.phone_number);
       
       // Chamar a função do WhatsApp para enviar a mensagem
       const { data, error } = await supabase.functions.invoke('whatsapp-integration/send-message', {
@@ -157,7 +167,7 @@ const ConversaIndividual = () => {
   };
 
   const getDisplayName = () => {
-    if (conversation?.name && conversation.name !== conversation.phone_number) {
+    if (conversation?.name && conversation.name !== conversation.phone_number && !conversation.name.includes('@s.whatsapp.net')) {
       return conversation.name;
     }
     return conversation?.formatted_phone_number || conversation?.phone_number || 'Contato Desconhecido';
@@ -211,7 +221,7 @@ const ConversaIndividual = () => {
               
               <div className="relative">
                 <div className="w-10 h-10 bg-gradient-to-r from-orange-400 to-pink-400 rounded-full flex items-center justify-center">
-                  {conversation.name && conversation.name !== conversation.phone_number ? (
+                  {conversation.name && conversation.name !== conversation.phone_number && !conversation.name.includes('@s.whatsapp.net') ? (
                     <User2 className="h-5 w-5 text-white" />
                   ) : (
                     <Phone className="h-5 w-5 text-white" />

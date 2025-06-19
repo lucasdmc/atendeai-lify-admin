@@ -229,15 +229,25 @@ async function sendMessage(to: string, message: string, supabase: any) {
     const result = await response.json();
     console.log('Message sent successfully:', result);
 
-    // Gerar ID único da conversa baseado no número limpo
-    const cleanPhone = to.replace(/[^\d]/g, '');
-    const conversationId = `conv_${cleanPhone}`;
+    // Buscar o ID da conversa existente na tabela
+    const { data: conversationData, error: conversationFetchError } = await supabase
+      .from('whatsapp_conversations')
+      .select('id')
+      .eq('phone_number', to)
+      .single();
 
-    // Salvar mensagem no banco
+    if (conversationFetchError) {
+      console.error('Error fetching conversation:', conversationFetchError);
+      throw new Error('Conversation not found');
+    }
+
+    console.log('Found conversation ID:', conversationData.id);
+
+    // Salvar mensagem no banco usando o ID correto da conversa
     const { error } = await supabase
       .from('whatsapp_messages')
       .insert({
-        conversation_id: conversationId,
+        conversation_id: conversationData.id,
         content: message,
         message_type: 'outbound',
         whatsapp_message_id: result.messageId || `msg_${Date.now()}`
@@ -245,17 +255,18 @@ async function sendMessage(to: string, message: string, supabase: any) {
 
     if (error) {
       console.error('Error saving message to database:', error);
+    } else {
+      console.log('Message saved to database successfully');
     }
 
     // Atualizar conversa
     await supabase
       .from('whatsapp_conversations')
-      .upsert({
-        id: conversationId,
-        phone_number: to,
+      .update({
         last_message_preview: message.substring(0, 100),
         updated_at: new Date().toISOString()
-      });
+      })
+      .eq('id', conversationData.id);
 
     return new Response(JSON.stringify({
       success: true,
