@@ -33,6 +33,8 @@ const ConversationCard: React.FC<ConversationCardProps> = ({
     return 'bg-red-100 text-red-800';
   };
 
+  const displayName = getDisplayName(conversation);
+
   return (
     <div
       className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer border"
@@ -48,7 +50,7 @@ const ConversationCard: React.FC<ConversationCardProps> = ({
         <div>
           <div className="flex items-center gap-2 mb-1">
             <h3 className="font-semibold text-gray-900">
-              {getDisplayName(conversation)}
+              {displayName}
             </h3>
             <Badge variant="outline" className={getStatusColor(conversation.message_count || 0)}>
               {conversation.message_count} mensagens
@@ -69,6 +71,8 @@ const ConversationCard: React.FC<ConversationCardProps> = ({
         messageCount={conversation.message_count || 0}
         updatedAt={conversation.updated_at}
         onOpenConversation={() => onOpenConversation(conversation.id)}
+        conversationId={conversation.id}
+        conversationName={displayName}
       />
     </div>
   );
