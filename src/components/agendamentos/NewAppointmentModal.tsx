@@ -31,7 +31,7 @@ import { GoogleCalendarEvent } from '@/services/googleServiceAccountService';
 interface NewAppointmentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreateEvent: (eventData: Omit<GoogleCalendarEvent, 'id' | 'status'>) => Promise<void>;
+  onCreateEvent: (eventData: Omit<GoogleCalendarEvent, 'id' | 'status'>) => Promise<GoogleCalendarEvent>;
 }
 
 interface FormData {
@@ -85,7 +85,8 @@ const NewAppointmentModal = ({ isOpen, onClose, onCreateEvent }: NewAppointmentM
         attendees: data.attendeeEmail ? [{ email: data.attendeeEmail }] : undefined,
       };
 
-      await onCreateEvent(eventData);
+      const createdEvent = await onCreateEvent(eventData);
+      console.log('Event created successfully:', createdEvent);
       form.reset();
       onClose();
     } catch (error) {
