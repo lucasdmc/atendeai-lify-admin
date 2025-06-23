@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,9 +41,13 @@ interface EditUserModalProps {
 }
 
 const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalProps) => {
-  const [editingUser, setEditingUser] = useState({
+  const [editingUser, setEditingUser] = useState<{
+    name: string;
+    role: 'admin' | 'suporte_lify' | 'atendente';
+    status: boolean;
+  }>({
     name: '',
-    role: 'atendente' as const,
+    role: 'atendente',
     status: true
   });
   const [userPermissions, setUserPermissions] = useState<Permission[]>([]);
@@ -204,7 +207,7 @@ const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalPr
               <label className="text-sm font-medium">Função</label>
               <Select 
                 value={editingUser.role} 
-                onValueChange={(value: any) => setEditingUser(prev => ({ ...prev, role: value }))}
+                onValueChange={(value: 'admin' | 'suporte_lify' | 'atendente') => setEditingUser(prev => ({ ...prev, role: value }))}
               >
                 <SelectTrigger>
                   <SelectValue />
