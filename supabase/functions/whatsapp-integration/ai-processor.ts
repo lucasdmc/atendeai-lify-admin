@@ -1,4 +1,3 @@
-
 import { openAIApiKey } from './config.ts';
 import { sendMessage } from './message-handler.ts';
 
@@ -57,7 +56,7 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
       const appointmentResponse = await handleAppointmentRequest(message, phoneNumber, supabase);
       if (appointmentResponse) {
         console.log('📅 Resposta de agendamento gerada:', appointmentResponse.substring(0, 100) + '...');
-        await sendMessage(phoneNumber, appointmentResponse, supabase);
+        await sendMessageWithRetry(phoneNumber, appointmentResponse, supabase);
         return;
       }
     }
@@ -158,25 +157,44 @@ INSTRUÇÕES:
       console.log('⚠️ OpenAI Key não configurada, usando resposta padrão');
     }
 
-    // Enviar resposta de volta via WhatsApp
+    // Enviar resposta de volta via WhatsApp com retry
     console.log('📤 Enviando resposta via WhatsApp...');
-    try {
-      await sendMessage(phoneNumber, aiResponse, supabase);
-      console.log(`✅ Resposta automática enviada para ${phoneNumber}`);
-    } catch (sendError) {
-      console.error('❌ Erro ao enviar resposta:', sendError);
-      throw sendError;
-    }
+    await sendMessageWithRetry(phoneNumber, aiResponse, supabase);
+    console.log(`✅ Resposta automática enviada para ${phoneNumber}`);
     
   } catch (error) {
     console.error('❌ Erro crítico no processamento com IA:', error);
     
-    // Enviar mensagem de erro genérica
+    // Tentar enviar mensagem de erro básica
     try {
-      console.log('📤 Enviando mensagem de erro...');
-      await sendMessage(phoneNumber, 'Desculpe, estou com dificuldades no momento. Tente novamente em alguns minutos ou entre em contato por telefone.', supabase);
+      console.log('📤 Enviando mensagem de erro básica...');
+      await sendMessageWithRetry(phoneNumber, 'Desculpe, estou com dificuldades no momento. Tente novamente em alguns minutos.', supabase);
     } catch (sendError) {
-      console.error('❌ Erro ao enviar mensagem de erro:', sendError);
+      console.error('❌ Falha total ao comunicar com usuário:', sendError);
+    }
+  }
+}
+
+// Nova função com retry para envio de mensagens
+async function sendMessageWithRetry(phoneNumber: string, message: string, supabase: any, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`🔄 Tentativa ${attempt}/${maxRetries} de envio...`);
+      await sendMessage(phoneNumber, message, supabase);
+      console.log(`✅ Mensagem enviada com sucesso na tentativa ${attempt}`);
+      return; // Sucesso, sair da função
+    } catch (error) {
+      console.error(`❌ Tentativa ${attempt} falhou:`, error.message);
+      
+      if (attempt === maxRetries) {
+        console.error('❌ Todas as tentativas de envio falharam');
+        throw error;
+      }
+      
+      // Aguardar antes da próxima tentativa (backoff exponencial)
+      const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+      console.log(`⏳ Aguardando ${delay}ms antes da próxima tentativa...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
 }
