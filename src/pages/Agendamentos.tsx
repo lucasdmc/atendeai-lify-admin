@@ -16,6 +16,7 @@ const Agendamentos = () => {
     isLoadingEvents,
     calendarId,
     refetch,
+    createEvent,
   } = useGoogleServiceAccount();
 
   if (isLoading) {
@@ -24,7 +25,11 @@ const Agendamentos = () => {
 
   return (
     <div className="space-y-6">
-      <AgendamentosHeader onRefetch={refetch} />
+      <AgendamentosHeader 
+        onRefetch={refetch} 
+        isConnected={isConnected}
+        onCreateEvent={createEvent}
+      />
 
       <ConnectionStatusCard 
         isConnected={isConnected} 
