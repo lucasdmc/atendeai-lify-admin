@@ -22,6 +22,43 @@ interface AppointmentRequest {
   label?: string;
 }
 
+function createDateTime(date: string, time: string): string {
+  try {
+    // Validar formato de data (YYYY-MM-DD)
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(date)) {
+      throw new Error(`Formato de data inválido: ${date}`);
+    }
+    
+    // Validar formato de hora (HH:MM)
+    const timeRegex = /^\d{2}:\d{2}$/;
+    if (!timeRegex.test(time)) {
+      throw new Error(`Formato de hora inválido: ${time}`);
+    }
+    
+    const [hour, minute] = time.split(':').map(Number);
+    
+    // Validar hora e minuto
+    if (hour < 0 || hour > 23) {
+      throw new Error(`Hora inválida: ${hour}`);
+    }
+    if (minute < 0 || minute > 59) {
+      throw new Error(`Minuto inválido: ${minute}`);
+    }
+    
+    const dateTime = new Date(`${date}T${time}:00`);
+    
+    if (isNaN(dateTime.getTime())) {
+      throw new Error(`Data/hora inválida: ${date} ${time}`);
+    }
+    
+    return dateTime.toISOString();
+  } catch (error) {
+    console.error('Erro ao criar datetime:', error);
+    throw error;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -38,10 +75,25 @@ serve(async (req) => {
         console.log('Creating appointment:', appointmentData);
         
         try {
-          // Criar evento diretamente no banco de dados para demonstração
-          // Em produção, aqui seria feita a integração com Google Calendar
-          const startDateTime = new Date(`${appointmentData.date}T${appointmentData.startTime}:00`);
-          const endDateTime = new Date(`${appointmentData.date}T${appointmentData.endTime}:00`);
+          // Validar dados obrigatórios
+          if (!appointmentData.title) {
+            throw new Error('Título é obrigatório');
+          }
+          if (!appointmentData.date) {
+            throw new Error('Data é obrigatória');
+          }
+          if (!appointmentData.startTime) {
+            throw new Error('Hora de início é obrigatória');
+          }
+          if (!appointmentData.endTime) {
+            throw new Error('Hora de fim é obrigatória');
+          }
+          
+          // Criar datetimes com validação
+          const startDateTime = createDateTime(appointmentData.date, appointmentData.startTime);
+          const endDateTime = createDateTime(appointmentData.date, appointmentData.endTime);
+          
+          console.log('Datetimes criados:', { startDateTime, endDateTime });
           
           const { data: eventData, error: eventError } = await supabase
             .from('calendar_events')
@@ -51,8 +103,8 @@ serve(async (req) => {
               calendar_id: 'primary',
               title: appointmentData.title,
               description: appointmentData.description || '',
-              start_time: startDateTime.toISOString(),
-              end_time: endDateTime.toISOString(),
+              start_time: startDateTime,
+              end_time: endDateTime,
               location: appointmentData.location || 'Clínica',
               status: 'confirmed',
               attendees: appointmentData.patientEmail ? JSON.stringify([{ email: appointmentData.patientEmail }]) : null
@@ -62,7 +114,7 @@ serve(async (req) => {
 
           if (eventError) {
             console.error('Erro ao salvar no banco:', eventError);
-            throw new Error('Falha ao salvar agendamento');
+            throw new Error(`Falha ao salvar agendamento: ${eventError.message}`);
           }
 
           console.log('Agendamento salvo no banco:', eventData);

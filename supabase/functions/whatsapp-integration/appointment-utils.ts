@@ -93,28 +93,43 @@ export function extractAppointmentData(message: string): any {
     }
   }
 
-  // Extrair horário - mais flexível
+  // Extrair horário - versão corrigida para formato 24h
   const timeRegex = /(\d{1,2}):?(\d{0,2})\s*h?(?:oras?)?(?:\s*(?:às?|até|-)?\s*(\d{1,2}):?(\d{0,2})\s*h?(?:oras?)?)?/gi;
   const timeMatches = [...message.matchAll(timeRegex)];
   
   if (timeMatches.length > 0) {
     const firstTime = timeMatches[0];
-    const startHour = firstTime[1].padStart(2, '0');
-    const startMin = (firstTime[2] || '00').padStart(2, '0');
-    result.startTime = `${startHour}:${startMin}`;
+    let startHour = parseInt(firstTime[1]);
+    const startMin = parseInt(firstTime[2] || '0');
+    
+    // Validar e corrigir horário se necessário
+    if (startHour > 23) {
+      startHour = startHour % 24; // Se for 26h, converte para 2h
+    }
+    
+    result.startTime = `${startHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`;
     
     // Se há horário de fim especificado
     if (firstTime[3]) {
-      const endHour = firstTime[3].padStart(2, '0');
-      const endMin = (firstTime[4] || '00').padStart(2, '0');
-      result.endTime = `${endHour}:${endMin}`;
+      let endHour = parseInt(firstTime[3]);
+      const endMin = parseInt(firstTime[4] || '0');
+      
+      // Validar e corrigir horário de fim
+      if (endHour > 23) {
+        endHour = endHour % 24;
+      }
+      
+      result.endTime = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
     } else {
       // Assumir 1 hora de duração
-      const endHour = (parseInt(startHour) + 1).toString().padStart(2, '0');
-      result.endTime = `${endHour}:${startMin}`;
+      let endHour = startHour + 1;
+      if (endHour > 23) {
+        endHour = endHour % 24;
+      }
+      result.endTime = `${endHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`;
     }
     
-    console.log('🕐 Horário encontrado:', result.startTime, '-', result.endTime);
+    console.log('🕐 Horário encontrado e corrigido:', result.startTime, '-', result.endTime);
   }
 
   // Extrair tipo de consulta - mais abrangente
