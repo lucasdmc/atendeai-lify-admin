@@ -77,7 +77,7 @@ const Sidebar = () => {
       <Button
         variant="ghost"
         size="icon"
-        className="lg:hidden fixed top-4 left-4 z-50 text-gray-800 hover:bg-gray-100"
+        className="lg:hidden fixed top-4 left-4 z-50"
         onClick={() => setIsOpen(!isOpen)}
       >
         {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -85,15 +85,15 @@ const Sidebar = () => {
 
       {/* Sidebar */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-40 w-64 bg-white/90 backdrop-blur-md shadow-lg border-r border-gray-200/50 transform transition-transform duration-300 ease-in-out lg:translate-x-0",
+        "fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0",
         isOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center gap-2 p-6 border-b border-gray-100">
-            <Sparkles className="h-8 w-8 text-lify-orange" />
+          <div className="flex items-center gap-2 p-6 border-b">
+            <Sparkles className="h-8 w-8 text-orange-500" />
             <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-lify-orange to-lify-pink bg-clip-text text-transparent">
+              <h1 className="text-xl font-bold bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-transparent">
                 Lify
               </h1>
               <p className="text-xs text-gray-600">AtendeAÍ</p>
@@ -117,10 +117,10 @@ const Sidebar = () => {
                     to={item.href}
                     onClick={() => setIsOpen(false)}
                     className={cn(
-                      "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200",
+                      "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                       isActive
-                        ? "bg-gradient-to-r from-lify-orange/20 to-lify-pink/20 text-lify-pink border border-lify-pink/20"
-                        : "text-gray-700 hover:bg-gray-50 hover:text-lify-orange"
+                        ? "bg-gradient-to-r from-orange-100 to-pink-100 text-orange-600 border border-orange-200"
+                        : "text-gray-600 hover:bg-gray-100"
                     )}
                   >
                     <Icon className="h-5 w-5" />

@@ -48,10 +48,10 @@ const UpcomingAppointments = ({
 
   return (
     <>
-      <Card className="bg-white border border-gray-200 hover:shadow-lg transition-all duration-300">
+      <Card className="lg:col-span-2">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-gray-800">
-            <Calendar className="h-5 w-5 text-lify-orange" />
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-orange-500" />
             Próximos Agendamentos
             {isLoadingEvents && <Loader2 className="h-4 w-4 animate-spin" />}
           </CardTitle>
@@ -63,15 +63,15 @@ const UpcomingAppointments = ({
               const labelConfig = getLabelConfig(eventLabel);
               
               return (
-                <div key={event.id} className="flex items-center justify-between p-4 bg-gray-50/50 border border-gray-100 rounded-lg hover:shadow-md hover:bg-gray-50 transition-all">
+                <div key={event.id} className={`flex items-center justify-between p-4 border-2 rounded-lg hover:shadow-md transition-all ${labelConfig.color}`}>
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center bg-gradient-to-br from-lify-pink/10 to-lify-purple/10 border border-lify-pink/20">
-                      <Tag className="h-6 w-6 text-lify-pink" />
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 ${labelConfig.color.replace('bg-', 'border-').replace('text-', 'bg-').replace('-800', '-200').replace('-100', '-50')}`}>
+                      <Tag className={`h-6 w-6 ${labelConfig.color.split(' ')[1]}`} />
                     </div>
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <p className="font-medium text-gray-800">{event.summary}</p>
-                        <Badge variant="outline" className="border-lify-pink/30 text-lify-pink bg-lify-pink/5">
+                        <p className="font-medium">{event.summary}</p>
+                        <Badge variant="outline" className={labelConfig.color}>
                           <Tag className="h-3 w-3 mr-1" />
                           {labelConfig.name}
                         </Badge>
@@ -89,7 +89,7 @@ const UpcomingAppointments = ({
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="text-right mr-3">
-                      <Badge variant="outline" className="mb-2 border-gray-300">
+                      <Badge variant="outline" className="mb-2">
                         {format(new Date(event.start.dateTime), 'dd/MM', { locale: ptBR })}
                       </Badge>
                       <p className="text-xs text-gray-500">
@@ -100,9 +100,9 @@ const UpcomingAppointments = ({
                       variant="outline"
                       size="sm"
                       onClick={() => handleEditEvent(event)}
-                      className="h-8 w-8 p-0 border-lify-pink/30 hover:bg-lify-pink/10"
+                      className="h-8 w-8 p-0"
                     >
-                      <Edit className="h-4 w-4 text-lify-pink" />
+                      <Edit className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
