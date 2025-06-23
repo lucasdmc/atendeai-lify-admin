@@ -324,44 +324,6 @@ class GoogleServiceAccountService {
   getCalendarId(): string {
     return this.calendarId;
   }
-
-  private async getServiceAccountCredentials(): Promise<ServiceAccountCredentials> {
-    // Get credentials from Supabase secrets via edge function
-    const { data, error } = await supabase.functions.invoke('google-service-auth', {
-      body: { action: 'get-credentials' }
-    });
-
-    if (error) {
-      console.error('Failed to get service account credentials:', error);
-      throw new Error('Failed to get service account credentials');
-    }
-
-    return data.credentials;
-  }
-
-  private async getAccessToken(): Promise<string> {
-    if (this.accessToken && this.tokenExpiry && Date.now() < this.tokenExpiry) {
-      return this.accessToken;
-    }
-
-    console.log('Getting new access token for service account...');
-    
-    // Use the edge function to handle JWT creation and token exchange
-    const { data, error } = await supabase.functions.invoke('google-service-auth', {
-      body: { action: 'get-access-token' }
-    });
-
-    if (error) {
-      console.error('Failed to get access token:', error);
-      throw new Error('Failed to authenticate service account');
-    }
-
-    this.accessToken = data.access_token;
-    this.tokenExpiry = Date.now() + (data.expires_in * 1000);
-
-    console.log('Access token obtained successfully');
-    return this.accessToken;
-  }
 }
 
 export const googleServiceAccountService = new GoogleServiceAccountService();
