@@ -3,7 +3,7 @@ import { googleAuthManager } from './google/auth';
 import { googleTokenManager } from './google/tokens';
 import { googleCalendarManager } from './google/calendar';
 
-export { GoogleCalendarEvent, CalendarToken } from './google/types';
+export type { GoogleCalendarEvent, CalendarToken } from './google/types';
 
 class GoogleCalendarService {
   async initiateAuth(): Promise<void> {
