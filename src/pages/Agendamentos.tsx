@@ -1,45 +1,72 @@
 
-import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, Plus, Settings, Users, CalendarDays } from 'lucide-react';
+import { Calendar, Plus, Settings, Users, CalendarDays, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { useGoogleCalendar } from '@/hooks/useGoogleCalendar';
+import CalendarView from '@/components/calendar/CalendarView';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const Agendamentos = () => {
-  const [isGoogleConnected, setIsGoogleConnected] = useState(false);
+  const {
+    isConnected,
+    isLoading,
+    events,
+    isLoadingEvents,
+    connectToGoogle,
+    disconnectFromGoogle,
+  } = useGoogleCalendar();
 
-  const handleConnectGoogle = () => {
-    // TODO: Implementar integração com Google Calendar API
-    console.log('Conectar com Google Calendar');
-    setIsGoogleConnected(true);
-  };
+  const todayEvents = events.filter(event => {
+    if (!event.start?.dateTime) return false;
+    const today = new Date();
+    const eventDate = new Date(event.start.dateTime);
+    return (
+      eventDate.getDate() === today.getDate() &&
+      eventDate.getMonth() === today.getMonth() &&
+      eventDate.getFullYear() === today.getFullYear()
+    );
+  });
 
-  const upcomingAppointments = [
-    {
-      id: 1,
-      client: 'João Silva',
-      service: 'Consulta',
-      date: 'Hoje',
-      time: '14:00 - 15:00',
-      status: 'confirmado'
-    },
-    {
-      id: 2,
-      client: 'Maria Santos',
-      service: 'Retorno',
-      date: 'Amanhã',
-      time: '09:30 - 10:30',
-      status: 'pendente'
-    },
-    {
-      id: 3,
-      client: 'Pedro Costa',
-      service: 'Avaliação',
-      date: 'Quinta',
-      time: '16:00 - 17:00',
-      status: 'confirmado'
-    }
-  ];
+  const thisWeekEvents = events.filter(event => {
+    if (!event.start?.dateTime) return false;
+    const today = new Date();
+    const weekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const eventDate = new Date(event.start.dateTime);
+    return eventDate >= today && eventDate <= weekFromNow;
+  });
+
+  const thisMonthEvents = events.filter(event => {
+    if (!event.start?.dateTime) return false;
+    const today = new Date();
+    const eventDate = new Date(event.start.dateTime);
+    return (
+      eventDate.getMonth() === today.getMonth() &&
+      eventDate.getFullYear() === today.getFullYear()
+    );
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Agendamentos</h1>
+            <p className="text-gray-600 mt-2">Gerencie seus agendamentos e integração com Google Calendar</p>
+          </div>
+        </div>
+        
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -50,23 +77,33 @@ const Agendamentos = () => {
         </div>
         
         <div className="flex gap-2">
-          {!isGoogleConnected && (
+          {isConnected && (
             <Button 
               variant="outline"
-              onClick={handleConnectGoogle}
+              onClick={disconnectFromGoogle}
               className="flex items-center gap-2"
             >
               <Settings className="h-4 w-4" />
-              Conectar Google Calendar
+              Desconectar
             </Button>
           )}
-          <Button 
-            className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600"
-            disabled={!isGoogleConnected}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Agendamento
-          </Button>
+          {!isConnected ? (
+            <Button 
+              className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600"
+              onClick={connectToGoogle}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Conectar Google Calendar
+            </Button>
+          ) : (
+            <Button 
+              className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600"
+              disabled
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Agendamento
+            </Button>
+          )}
         </div>
       </div>
 
@@ -79,19 +116,19 @@ const Agendamentos = () => {
               <div>
                 <h3 className="font-semibold">Google Calendar</h3>
                 <p className="text-sm text-gray-600">
-                  {isGoogleConnected ? 'Conectado e sincronizado' : 'Não conectado'}
+                  {isConnected ? 'Conectado e sincronizado' : 'Não conectado'}
                 </p>
               </div>
             </div>
-            <Badge variant={isGoogleConnected ? "default" : "secondary"}>
-              {isGoogleConnected ? 'Ativo' : 'Inativo'}
+            <Badge variant={isConnected ? "default" : "secondary"}>
+              {isConnected ? 'Ativo' : 'Inativo'}
             </Badge>
           </div>
         </CardContent>
       </Card>
 
-      {isGoogleConnected ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {isConnected ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Estatísticas */}
           <Card>
             <CardHeader>
@@ -104,89 +141,79 @@ const Agendamentos = () => {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Hoje</span>
-                  <span className="font-bold text-xl">3</span>
+                  <span className="font-bold text-xl">{todayEvents.length}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Esta Semana</span>
-                  <span className="font-bold text-xl">12</span>
+                  <span className="font-bold text-xl">{thisWeekEvents.length}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Este Mês</span>
-                  <span className="font-bold text-xl">45</span>
+                  <span className="font-bold text-xl">{thisMonthEvents.length}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Taxa de Ocupação</span>
-                  <span className="font-bold text-xl text-green-600">78%</span>
+                  <span className="text-sm text-gray-600">Total de Eventos</span>
+                  <span className="font-bold text-xl text-green-600">{events.length}</span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           {/* Próximos agendamentos */}
-          <Card className="md:col-span-2">
+          <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-orange-500" />
+                <Calendar className="h-5 w-5 text-orange-500" />
                 Próximos Agendamentos
+                {isLoadingEvents && <Loader2 className="h-4 w-4 animate-spin" />}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {upcomingAppointments.map((appointment) => (
-                  <div key={appointment.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+                {events.slice(0, 5).map((event) => (
+                  <div key={event.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                         <Users className="h-6 w-6 text-blue-600" />
                       </div>
                       <div>
-                        <p className="font-medium">{appointment.client}</p>
-                        <p className="text-sm text-gray-600">{appointment.service}</p>
+                        <p className="font-medium">{event.summary}</p>
+                        {event.description && (
+                          <p className="text-sm text-gray-600">{event.description}</p>
+                        )}
                         <p className="text-sm text-gray-500 flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {appointment.time}
+                          <Calendar className="h-3 w-3" />
+                          {format(new Date(event.start.dateTime), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
                       <Badge variant="outline" className="mb-2">
-                        {appointment.date}
+                        {format(new Date(event.start.dateTime), 'dd/MM', { locale: ptBR })}
                       </Badge>
                       <p className="text-xs text-gray-500">
-                        Status: {appointment.status}
+                        Status: {event.status}
                       </p>
                     </div>
                   </div>
                 ))}
+                {events.length === 0 && !isLoadingEvents && (
+                  <div className="text-center py-8 text-gray-500">
+                    <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                    <p>Nenhum evento encontrado</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Ações Rápidas */}
-          <Card className="md:col-span-3">
-            <CardHeader>
-              <CardTitle>Ações Rápidas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Button variant="outline" className="flex flex-col items-center gap-2 h-20">
-                  <Plus className="h-6 w-6" />
-                  <span className="text-sm">Novo Agendamento</span>
-                </Button>
-                <Button variant="outline" className="flex flex-col items-center gap-2 h-20">
-                  <Calendar className="h-6 w-6" />
-                  <span className="text-sm">Ver Calendário</span>
-                </Button>
-                <Button variant="outline" className="flex flex-col items-center gap-2 h-20">
-                  <Users className="h-6 w-6" />
-                  <span className="text-sm">Gerenciar Clientes</span>
-                </Button>
-                <Button variant="outline" className="flex flex-col items-center gap-2 h-20">
-                  <Settings className="h-6 w-6" />
-                  <span className="text-sm">Configurações</span>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Visualização do Calendário */}
+          <div className="lg:col-span-3">
+            <CalendarView 
+              events={events} 
+              isLoading={isLoadingEvents}
+            />
+          </div>
         </div>
       ) : (
         <Card>
@@ -200,7 +227,7 @@ const Agendamentos = () => {
               </p>
               <Button 
                 className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600"
-                onClick={handleConnectGoogle}
+                onClick={connectToGoogle}
               >
                 <Settings className="h-4 w-4 mr-2" />
                 Conectar Google Calendar
