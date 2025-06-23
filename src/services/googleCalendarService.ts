@@ -32,21 +32,40 @@ export interface CalendarToken {
 }
 
 class GoogleCalendarService {
+  private getRedirectUri(): string {
+    // Try different possible redirect URIs to handle various deployment scenarios
+    const currentOrigin = window.location.origin;
+    const redirectPath = '/agendamentos';
+    
+    console.log('=== REDIRECT URI DEBUG ===');
+    console.log('Current origin:', currentOrigin);
+    console.log('Full URL:', window.location.href);
+    console.log('Protocol:', window.location.protocol);
+    console.log('Host:', window.location.host);
+    
+    // Build the redirect URI
+    const redirectUri = `${currentOrigin}${redirectPath}`;
+    console.log('Final redirect URI:', redirectUri);
+    console.log('=== END REDIRECT URI DEBUG ===');
+    
+    return redirectUri;
+  }
+
   private getAuthUrl(): string {
     console.log('=== GOOGLE OAUTH CONFIGURATION DEBUG ===');
     
-    const currentUrl = window.location.origin;
-    const redirectUri = `${currentUrl}/agendamentos`;
+    const redirectUri = this.getRedirectUri();
     
-    console.log('Current URL origin:', currentUrl);
-    console.log('Redirect URI:', redirectUri);
     console.log('Google Client ID:', GOOGLE_CLIENT_ID);
+    console.log('Redirect URI:', redirectUri);
+    console.log('Scopes:', SCOPES);
     
-    // Generate a proper state parameter to avoid the OAuth state parameter missing error
+    // Generate a proper state parameter
     const state = btoa(JSON.stringify({
       timestamp: Date.now(),
-      origin: currentUrl,
-      path: '/agendamentos'
+      origin: window.location.origin,
+      path: '/agendamentos',
+      redirectUri: redirectUri
     }));
 
     console.log('Generated state parameter:', state);
@@ -63,6 +82,13 @@ class GoogleCalendarService {
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
     console.log('Complete OAuth URL:', authUrl);
+    
+    // Log individual URL parameters for debugging
+    console.log('URL Parameters breakdown:');
+    params.forEach((value, key) => {
+      console.log(`  ${key}: ${value}`);
+    });
+    
     console.log('=== END DEBUG ===');
     
     return authUrl;
@@ -70,14 +96,27 @@ class GoogleCalendarService {
 
   async initiateAuth(): Promise<void> {
     try {
+      console.log('=== STARTING GOOGLE OAUTH FLOW ===');
+      
+      // Validate current environment
+      const currentUrl = window.location.href;
+      console.log('Current page URL:', currentUrl);
+      
+      if (!currentUrl.includes('/agendamentos')) {
+        console.warn('Not on agendamentos page, but proceeding with OAuth...');
+      }
+      
       const authUrl = this.getAuthUrl();
-      console.log('Iniciating OAuth flow...');
-      console.log('Redirecting to:', authUrl);
+      console.log('Initiating OAuth flow...');
+      console.log('Redirecting to Google OAuth URL...');
       
       // Add a small delay to ensure logs are visible
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 200));
       
+      // Perform the redirect
+      console.log('Performing redirect to:', authUrl);
       window.location.href = authUrl;
+      
     } catch (error) {
       console.error('Error in initiateAuth:', error);
       throw error;
@@ -85,9 +124,10 @@ class GoogleCalendarService {
   }
 
   async exchangeCodeForTokens(code: string): Promise<CalendarToken> {
+    console.log('=== TOKEN EXCHANGE PROCESS ===');
     console.log('Exchanging authorization code for tokens...');
     
-    const redirectUri = window.location.origin + '/agendamentos';
+    const redirectUri = this.getRedirectUri();
     console.log('Using redirect URI for token exchange:', redirectUri);
     
     const requestBody = new URLSearchParams({
@@ -98,44 +138,55 @@ class GoogleCalendarService {
       redirect_uri: redirectUri,
     });
 
-    console.log('Token exchange request body:', {
+    console.log('Token exchange request details:', {
       client_id: GOOGLE_CLIENT_ID,
       grant_type: 'authorization_code',
       redirect_uri: redirectUri,
-      code: code.substring(0, 10) + '...' // Only log first 10 chars for security
+      code_length: code.length,
+      code_preview: code.substring(0, 20) + '...'
     });
     
-    const response = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: requestBody,
-    });
-
-    console.log('Token exchange response status:', response.status);
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Token exchange failed:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorData
+    try {
+      const response = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: requestBody,
       });
-      throw new Error(`Failed to exchange code for tokens: ${response.status} ${errorData}`);
+
+      console.log('Token exchange response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('Token exchange failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+        throw new Error(`Failed to exchange code for tokens: ${response.status} ${errorData}`);
+      }
+
+      const data = await response.json();
+      console.log('Token exchange successful');
+      console.log('Received token data keys:', Object.keys(data));
+      
+      const expiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString();
+
+      const tokens = {
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+        expires_at: expiresAt,
+        scope: data.scope,
+      };
+      
+      console.log('=== END TOKEN EXCHANGE ===');
+      return tokens;
+    } catch (error) {
+      console.error('Token exchange error:', error);
+      throw error;
     }
-
-    const data = await response.json();
-    console.log('Token exchange successful, token data received');
-    
-    const expiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString();
-
-    return {
-      access_token: data.access_token,
-      refresh_token: data.refresh_token,
-      expires_at: expiresAt,
-      scope: data.scope,
-    };
   }
 
   async saveTokens(tokens: CalendarToken): Promise<void> {
