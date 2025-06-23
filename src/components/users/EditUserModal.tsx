@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -59,17 +58,17 @@ const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalPr
     { id: 'dashboard', label: 'Dashboard' },
     { id: 'conversas', label: 'Conversas' },
     { id: 'conectar_whatsapp', label: 'Conectar WhatsApp' },
+    { id: 'agendamentos', label: 'Agendamentos' },
     { id: 'contextualizar', label: 'Contextualizar' },
     { id: 'gestao_usuarios', label: 'Gestão de Usuários' },
-    { id: 'agendamentos', label: 'Agendamentos' },
     { id: 'configuracoes', label: 'Configurações' }
   ];
 
-  // Define permissões por função
+  // Define permissões por função - agendamentos incluído para todas
   const rolePermissions = {
     atendente: ['dashboard', 'conversas', 'conectar_whatsapp', 'agendamentos'],
-    admin: ['dashboard', 'conversas', 'conectar_whatsapp', 'contextualizar', 'gestao_usuarios', 'agendamentos', 'configuracoes'],
-    suporte_lify: ['dashboard', 'conversas', 'conectar_whatsapp', 'contextualizar', 'gestao_usuarios', 'agendamentos', 'configuracoes']
+    admin: ['dashboard', 'conversas', 'conectar_whatsapp', 'agendamentos', 'contextualizar', 'gestao_usuarios', 'configuracoes'],
+    suporte_lify: ['dashboard', 'conversas', 'conectar_whatsapp', 'agendamentos', 'contextualizar', 'gestao_usuarios', 'configuracoes']
   };
 
   useEffect(() => {

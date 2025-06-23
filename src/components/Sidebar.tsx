@@ -64,22 +64,12 @@ const menuItems = [
 
 const Sidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { userPermissions, userRole } = useAuth();
+  const { userPermissions } = useAuth();
   const location = useLocation();
 
-  // Debug logs
-  console.log('Sidebar - User permissions:', userPermissions);
-  console.log('Sidebar - User role:', userRole);
-  console.log('Sidebar - Menu items to check:', menuItems.map(item => item.permission));
-
   const filteredMenuItems = menuItems.filter(item => {
-    const hasPermission = userPermissions.includes(item.permission);
-    console.log(`Menu item ${item.title} (${item.permission}): ${hasPermission ? 'ALLOWED' : 'DENIED'}`);
-    return hasPermission;
+    return userPermissions.includes(item.permission);
   });
-
-  console.log('Filtered menu items count:', filteredMenuItems.length);
-  console.log('Filtered menu items:', filteredMenuItems.map(item => item.title));
 
   return (
     <>
@@ -110,29 +100,11 @@ const Sidebar = () => {
             </div>
           </div>
 
-          {/* Debug info */}
-          <div className="p-4 bg-gray-50 text-xs">
-            <p>Role: {userRole || 'N/A'}</p>
-            <p>Permissions: {userPermissions.length}</p>
-            <p>Available items: {filteredMenuItems.length}</p>
-            <div className="mt-2">
-              <p>All permissions:</p>
-              <ul className="text-xs space-y-1">
-                {userPermissions.map(perm => (
-                  <li key={perm} className="text-green-600">✓ {perm}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-2">
             {filteredMenuItems.length === 0 ? (
               <div className="text-center text-gray-500 text-sm py-4">
                 Nenhum módulo disponível
-                <p className="text-xs mt-2">
-                  Verificando permissões: {userPermissions.join(', ') || 'Nenhuma'}
-                </p>
               </div>
             ) : (
               filteredMenuItems.map((item) => {
