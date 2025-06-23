@@ -18,7 +18,7 @@ interface AppointmentsPieChartProps {
 const AppointmentsPieChart = ({ data }: AppointmentsPieChartProps) => {
   if (data.length === 0) {
     return (
-      <Card className="hover:shadow-2xl transition-all duration-300 border-2 border-lify-pink/20 bg-gradient-to-br from-white via-purple-50/30 to-pink-50/30">
+      <Card className="hover:shadow-2xl transition-all duration-300 border-2 border-lify-pink/20 bg-gradient-to-br from-white via-purple-50/30 to-pink-50/30 h-[280px]">
         <CardHeader className="pb-4 bg-gradient-to-r from-lify-pink/5 to-lify-purple/5">
           <CardTitle className="flex items-center gap-3 text-xl text-gray-800">
             <div className="p-3 rounded-xl bg-gradient-to-br from-lify-pink to-lify-purple border border-lify-pink/30 shadow-lg">
@@ -43,7 +43,7 @@ const AppointmentsPieChart = ({ data }: AppointmentsPieChartProps) => {
   }
 
   return (
-    <Card className="hover:shadow-2xl transition-all duration-300 border-2 border-lify-pink/20 bg-gradient-to-br from-white via-purple-50/30 to-pink-50/30 overflow-hidden group">
+    <Card className="hover:shadow-2xl transition-all duration-300 border-2 border-lify-pink/20 bg-gradient-to-br from-white via-purple-50/30 to-pink-50/30 overflow-hidden group h-[280px]">
       <CardHeader className="pb-4 bg-gradient-to-r from-lify-pink/5 to-lify-purple/5">
         <CardTitle className="flex items-center gap-3 text-xl text-gray-800">
           <div className="p-3 rounded-xl bg-gradient-to-br from-lify-pink to-lify-purple border border-lify-pink/30 shadow-lg">
@@ -54,8 +54,8 @@ const AppointmentsPieChart = ({ data }: AppointmentsPieChartProps) => {
           </span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-4">
-        <div className="h-96">
+      <CardContent className="p-3">
+        <div className="h-48">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <defs>
@@ -69,8 +69,8 @@ const AppointmentsPieChart = ({ data }: AppointmentsPieChartProps) => {
                 data={data}
                 cx="50%"
                 cy="45%"
-                innerRadius={70}
-                outerRadius={120}
+                innerRadius={50}
+                outerRadius={90}
                 paddingAngle={8}
                 dataKey="value"
                 strokeWidth={3}
