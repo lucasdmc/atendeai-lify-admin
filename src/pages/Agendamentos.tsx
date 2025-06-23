@@ -17,6 +17,8 @@ const Agendamentos = () => {
     calendarId,
     refetch,
     createEvent,
+    updateEvent,
+    deleteEvent,
   } = useGoogleServiceAccount();
 
   if (isLoading) {
@@ -42,7 +44,9 @@ const Agendamentos = () => {
 
           <UpcomingAppointments 
             events={events} 
-            isLoadingEvents={isLoadingEvents} 
+            isLoadingEvents={isLoadingEvents}
+            onUpdateEvent={updateEvent}
+            onDeleteEvent={deleteEvent}
           />
 
           <div className="lg:col-span-3">
