@@ -35,7 +35,8 @@ interface ServiceAccountCredentials {
 }
 
 class GoogleServiceAccountService {
-  private readonly calendarId = 'lify-calendar-service@lify-chatbot-v0.iam.gserviceaccount.com';
+  // Use 'primary' calendar for the service account instead of the email
+  private readonly calendarId = 'primary';
   private accessToken: string | null = null;
   private tokenExpiry: number | null = null;
 
@@ -80,6 +81,23 @@ class GoogleServiceAccountService {
   async isConnected(): Promise<boolean> {
     try {
       await this.getAccessToken();
+      // Test the connection by trying to fetch calendar info
+      const accessToken = await this.getAccessToken();
+      const response = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${this.calendarId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+      
+      if (!response.ok) {
+        console.error('Failed to access calendar:', response.status, await response.text());
+        return false;
+      }
+      
+      console.log('Successfully connected to Google Calendar');
       return true;
     } catch (error) {
       console.error('Service account not properly configured:', error);
@@ -93,16 +111,21 @@ class GoogleServiceAccountService {
     try {
       const accessToken = await this.getAccessToken();
       
+      // Set default time range if not provided (next 30 days from now)
+      const defaultTimeMin = timeMin || new Date().toISOString();
+      const defaultTimeMax = timeMax || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      
       const params = new URLSearchParams({
         singleEvents: 'true',
         orderBy: 'startTime',
-        maxResults: '50', // Limit to avoid too many results
-        ...(timeMin && { timeMin }),
-        ...(timeMax && { timeMax }),
+        maxResults: '100', // Increased to get more events
+        timeMin: defaultTimeMin,
+        timeMax: defaultTimeMax,
       });
 
-      const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(this.calendarId)}/events?${params.toString()}`;
-      console.log('Fetching events from:', url);
+      const url = `https://www.googleapis.com/calendar/v3/calendars/${this.calendarId}/events?${params.toString()}`;
+      console.log('Fetching events from URL:', url);
+      console.log('Time range:', { timeMin: defaultTimeMin, timeMax: defaultTimeMax });
 
       const response = await fetch(url, {
         headers: {
@@ -119,23 +142,35 @@ class GoogleServiceAccountService {
         });
         
         if (response.status === 404) {
-          console.log('Calendar not found, returning empty events list');
+          console.log('Calendar not found, this might be expected for a new service account');
           return [];
         }
         
-        throw new Error(`Failed to fetch calendar events: ${response.status}`);
+        throw new Error(`Failed to fetch calendar events: ${response.status} - ${errorData}`);
       }
 
       const data = await response.json();
-      console.log('Events fetched successfully, count:', data.items?.length || 0);
+      console.log('Raw API response:', data);
+      console.log('Total events from API:', data.items?.length || 0);
       
-      // Filter out events without dateTime (all-day events)
-      const events = (data.items || []).filter((event: any) => 
-        event.start?.dateTime && event.end?.dateTime
-      );
+      // Filter out events without dateTime (all-day events) and log what we're filtering
+      const allEvents = data.items || [];
+      const filteredEvents = allEvents.filter((event: any) => {
+        const hasDateTime = event.start?.dateTime && event.end?.dateTime;
+        if (!hasDateTime) {
+          console.log('Filtering out event without dateTime:', event.summary);
+        }
+        return hasDateTime;
+      });
       
-      console.log('Filtered events with dateTime:', events.length);
-      return events;
+      console.log('Events after filtering:', filteredEvents.length);
+      console.log('Filtered events:', filteredEvents.map((e: any) => ({
+        id: e.id,
+        summary: e.summary,
+        start: e.start?.dateTime
+      })));
+      
+      return filteredEvents;
     } catch (error) {
       console.error('Error fetching events:', error);
       throw error;
@@ -143,34 +178,52 @@ class GoogleServiceAccountService {
   }
 
   async createCalendarEvent(event: Omit<GoogleCalendarEvent, 'id' | 'status'>): Promise<GoogleCalendarEvent> {
-    console.log('Creating calendar event...', event);
+    console.log('Creating calendar event in Google Calendar...', event);
     
     try {
       const accessToken = await this.getAccessToken();
 
+      // Ensure the event has proper timezone info
+      const eventData = {
+        ...event,
+        start: {
+          ...event.start,
+          timeZone: event.start.timeZone || 'America/Sao_Paulo'
+        },
+        end: {
+          ...event.end,
+          timeZone: event.end.timeZone || 'America/Sao_Paulo'
+        },
+        status: 'confirmed'
+      };
+
+      console.log('Sending event data to Google Calendar:', eventData);
+
       const response = await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(this.calendarId)}/events`,
+        `https://www.googleapis.com/calendar/v3/calendars/${this.calendarId}/events`,
         {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            ...event,
-            status: 'confirmed'
-          }),
+          body: JSON.stringify(eventData),
         }
       );
 
       if (!response.ok) {
         const errorData = await response.text();
-        console.error('Failed to create calendar event:', errorData);
-        throw new Error(`Failed to create calendar event: ${response.status}`);
+        console.error('Failed to create calendar event:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
+        throw new Error(`Failed to create calendar event: ${response.status} - ${errorData}`);
       }
 
       const createdEvent = await response.json();
-      console.log('Event created successfully:', createdEvent.id);
+      console.log('Event created successfully in Google Calendar:', createdEvent.id);
+      console.log('Created event details:', createdEvent);
       return createdEvent;
     } catch (error) {
       console.error('Error creating event:', error);
@@ -179,34 +232,51 @@ class GoogleServiceAccountService {
   }
 
   async updateCalendarEvent(eventId: string, event: Omit<GoogleCalendarEvent, 'id' | 'status'>): Promise<GoogleCalendarEvent> {
-    console.log('Updating calendar event:', eventId, event);
+    console.log('Updating calendar event in Google Calendar:', eventId, event);
     
     try {
       const accessToken = await this.getAccessToken();
 
+      // Ensure the event has proper timezone info
+      const eventData = {
+        ...event,
+        start: {
+          ...event.start,
+          timeZone: event.start.timeZone || 'America/Sao_Paulo'
+        },
+        end: {
+          ...event.end,
+          timeZone: event.end.timeZone || 'America/Sao_Paulo'
+        },
+        status: 'confirmed'
+      };
+
+      console.log('Sending updated event data to Google Calendar:', eventData);
+
       const response = await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(this.calendarId)}/events/${eventId}`,
+        `https://www.googleapis.com/calendar/v3/calendars/${this.calendarId}/events/${eventId}`,
         {
           method: 'PUT',
           headers: {
             Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            ...event,
-            status: 'confirmed'
-          }),
+          body: JSON.stringify(eventData),
         }
       );
 
       if (!response.ok) {
         const errorData = await response.text();
-        console.error('Failed to update calendar event:', errorData);
-        throw new Error(`Failed to update calendar event: ${response.status}`);
+        console.error('Failed to update calendar event:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
+        throw new Error(`Failed to update calendar event: ${response.status} - ${errorData}`);
       }
 
       const updatedEvent = await response.json();
-      console.log('Event updated successfully:', updatedEvent.id);
+      console.log('Event updated successfully in Google Calendar:', updatedEvent.id);
       return updatedEvent;
     } catch (error) {
       console.error('Error updating event:', error);
@@ -215,13 +285,13 @@ class GoogleServiceAccountService {
   }
 
   async deleteCalendarEvent(eventId: string): Promise<void> {
-    console.log('Deleting calendar event:', eventId);
+    console.log('Deleting calendar event from Google Calendar:', eventId);
     
     try {
       const accessToken = await this.getAccessToken();
 
       const response = await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(this.calendarId)}/events/${eventId}`,
+        `https://www.googleapis.com/calendar/v3/calendars/${this.calendarId}/events/${eventId}`,
         {
           method: 'DELETE',
           headers: {
@@ -232,11 +302,15 @@ class GoogleServiceAccountService {
 
       if (!response.ok) {
         const errorData = await response.text();
-        console.error('Failed to delete calendar event:', errorData);
-        throw new Error(`Failed to delete calendar event: ${response.status}`);
+        console.error('Failed to delete calendar event:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
+        throw new Error(`Failed to delete calendar event: ${response.status} - ${errorData}`);
       }
 
-      console.log('Event deleted successfully:', eventId);
+      console.log('Event deleted successfully from Google Calendar:', eventId);
     } catch (error) {
       console.error('Error deleting event:', error);
       throw error;
