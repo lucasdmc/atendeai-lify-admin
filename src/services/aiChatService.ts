@@ -1,5 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { AppointmentService } from './appointmentService';
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -23,7 +24,7 @@ export class AIChatService {
         .order('timestamp', { ascending: false })
         .limit(10);
 
-      // Construir prompt do sistema com contexto da clínica
+      // Construir prompt do sistema com contexto da clínica e ferramentas de agendamento
       let systemPrompt = `Você é um assistente virtual de uma clínica médica. Seja sempre educado, profissional e prestativo.
 
 INFORMAÇÕES DA CLÍNICA:`;
@@ -38,10 +39,26 @@ INFORMAÇÕES DA CLÍNICA:`;
         systemPrompt += `\n- Esta é uma clínica médica que oferece diversos serviços de saúde.`;
       }
 
-      systemPrompt += `\n\nINSTRUÇÕES:
+      systemPrompt += `\n\nFUNCIONALIDADES DE AGENDAMENTO:
+Você pode ajudar os pacientes com agendamentos usando as seguintes ações:
+- CRIAR agendamento: use quando o paciente quiser marcar uma consulta
+- LISTAR agendamentos: use quando o paciente quiser ver seus agendamentos
+- REAGENDAR: use quando o paciente quiser mudar um agendamento existente
+- CANCELAR: use quando o paciente quiser cancelar um agendamento
+
+Para criar um agendamento, você precisa:
+- Nome/título da consulta
+- Data (formato DD/MM/AAAA)
+- Horário de início (formato HH:MM)
+- Horário de fim (formato HH:MM)
+- Email do paciente (opcional)
+- Local (opcional)
+
+INSTRUÇÕES:
 - Responda de forma clara e objetiva
-- Se não souber uma informação específica, seja honesto e ofereça alternativas
-- Para agendamentos ou informações específicas, oriente o paciente a entrar em contato por telefone
+- Quando o paciente mencionar agendamento, ofereça ajuda específica
+- Para agendamentos, colete todas as informações necessárias antes de criar
+- Sempre confirme os detalhes antes de criar/alterar agendamentos
 - Mantenha sempre um tom profissional e acolhedor
 - Respostas devem ser concisas (máximo 2-3 parágrafos)`;
 
@@ -66,6 +83,16 @@ INFORMAÇÕES DA CLÍNICA:`;
       // Adicionar mensagem atual
       messages.push({ role: 'user', content: message });
 
+      // Verificar se a mensagem é sobre agendamento
+      const isAboutAppointment = this.isAppointmentRelated(message);
+      
+      if (isAboutAppointment) {
+        const appointmentResponse = await this.handleAppointmentRequest(message, phoneNumber);
+        if (appointmentResponse) {
+          return appointmentResponse;
+        }
+      }
+
       // Chamar a OpenAI
       const { data, error } = await supabase.functions.invoke('ai-chat-response', {
         body: { messages, phoneNumber }
@@ -81,5 +108,74 @@ INFORMAÇÕES DA CLÍNICA:`;
       console.error('Erro no serviço de AI:', error);
       return 'Desculpe, estou temporariamente indisponível. Por favor, tente novamente em alguns minutos.';
     }
+  }
+
+  private static isAppointmentRelated(message: string): boolean {
+    const appointmentKeywords = [
+      'agendar', 'agendamento', 'consulta', 'horário', 'marcar',
+      'reagendar', 'cancelar', 'desmarcar', 'alterar', 'mudar',
+      'disponibilidade', 'agenda', 'atendimento'
+    ];
+    
+    const lowerMessage = message.toLowerCase();
+    return appointmentKeywords.some(keyword => lowerMessage.includes(keyword));
+  }
+
+  private static async handleAppointmentRequest(message: string, phoneNumber: string): Promise<string | null> {
+    const lowerMessage = message.toLowerCase();
+
+    // Detectar tipo de solicitação
+    if (lowerMessage.includes('agendar') || lowerMessage.includes('marcar')) {
+      return `Para agendar sua consulta, preciso de algumas informações:
+
+📅 **Data desejada** (ex: 25/12/2024)
+🕐 **Horário** (ex: 14:00 às 15:00)
+👨‍⚕️ **Tipo de consulta** (ex: Consulta Geral, Cardiologia, etc.)
+📧 **Seu email** (para enviar confirmação)
+
+Por favor, me informe esses dados e eu criarei seu agendamento!`;
+    }
+
+    if (lowerMessage.includes('cancelar') || lowerMessage.includes('desmarcar')) {
+      return `Para cancelar seu agendamento, preciso que me informe:
+
+📅 **Data da consulta** que deseja cancelar
+🕐 **Horário** da consulta
+
+Com essas informações, posso localizar e cancelar seu agendamento.`;
+    }
+
+    if (lowerMessage.includes('reagendar') || lowerMessage.includes('alterar')) {
+      return `Para reagendar sua consulta, preciso saber:
+
+📅 **Data atual** da consulta
+🕐 **Horário atual** da consulta
+📅 **Nova data** desejada
+🕐 **Novo horário** desejado
+
+Com essas informações, posso alterar seu agendamento.`;
+    }
+
+    if (lowerMessage.includes('listar') || lowerMessage.includes('ver') && lowerMessage.includes('agendamento')) {
+      // Buscar agendamentos do paciente
+      const result = await AppointmentService.listAppointments();
+      if (result.success && result.appointments) {
+        if (result.appointments.length === 0) {
+          return 'Você não possui agendamentos marcados no momento. Gostaria de agendar uma consulta?';
+        }
+        
+        let response = 'Seus próximos agendamentos:\n\n';
+        result.appointments.forEach((apt, index) => {
+          response += `${index + 1}. **${apt.title}**\n`;
+          response += `📅 ${apt.date} às ${apt.time}\n`;
+          if (apt.location) response += `📍 ${apt.location}\n`;
+          response += '\n';
+        });
+        
+        return response + 'Precisa alterar algum agendamento?';
+      }
+    }
+
+    return null;
   }
 }

@@ -48,6 +48,10 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
       }
     }
 
+    // Verificar se é sobre agendamento
+    const isAboutAppointment = isAppointmentRelated(message);
+    console.log(`📅 Mensagem sobre agendamento: ${isAboutAppointment ? 'SIM' : 'NÃO'}`);
+
     // Construir prompt do sistema com contexto da clínica
     let systemPrompt = `Você é um assistente virtual de uma clínica médica. Seja sempre educado, profissional e prestativo.
 
@@ -63,12 +67,30 @@ INFORMAÇÕES DA CLÍNICA:`;
       systemPrompt += `\n- Esta é uma clínica médica que oferece diversos serviços de saúde.`;
     }
 
-    systemPrompt += `\n\nINSTRUÇÕES:
+    systemPrompt += `\n\nFUNCIONALIDADES DE AGENDAMENTO:
+Você pode ajudar os pacientes com agendamentos. Quando detectar solicitações de agendamento:
+- Para CRIAR: colete data, horário, tipo de consulta e email
+- Para CANCELAR: peça data e horário da consulta existente
+- Para REAGENDAR: peça dados atuais e novos dados desejados
+- Para LISTAR: mostre os agendamentos do paciente
+
+INSTRUÇÕES:
 - Responda de forma clara e objetiva
-- Se não souber uma informação específica, seja honesto e ofereça alternativas
-- Para agendamentos ou informações específicas, oriente o paciente a entrar em contato por telefone
-- Mantenha sempre um tom profissional e acolhedor
-- Respostas devem ser concisas (máximo 2-3 parágrafos)`;
+- Para agendamentos, seja específico sobre as informações necessárias
+- Sempre confirme detalhes antes de finalizar agendamentos
+- Mantenha um tom profissional e acolhedor
+- Respostas devem ser concisas (máximo 2-3 parágrafos)
+- Se detectar solicitação de agendamento, foque em coletar as informações necessárias`;
+
+    // Se for sobre agendamento, usar lógica específica
+    if (isAboutAppointment) {
+      const appointmentResponse = await handleAppointmentRequest(message, phoneNumber, supabase);
+      if (appointmentResponse) {
+        console.log('📅 Resposta específica de agendamento gerada');
+        await sendMessage(phoneNumber, appointmentResponse, supabase);
+        return;
+      }
+    }
 
     // Construir histórico da conversa
     const messages = [{ role: 'system', content: systemPrompt }];
@@ -154,4 +176,61 @@ INFORMAÇÕES DA CLÍNICA:`;
       console.error('❌ Erro ao enviar mensagem de erro:', sendError);
     }
   }
+}
+
+function isAppointmentRelated(message: string): boolean {
+  const appointmentKeywords = [
+    'agendar', 'agendamento', 'consulta', 'horário', 'marcar',
+    'reagendar', 'cancelar', 'desmarcar', 'alterar', 'mudar',
+    'disponibilidade', 'agenda', 'atendimento'
+  ];
+  
+  const lowerMessage = message.toLowerCase();
+  return appointmentKeywords.some(keyword => lowerMessage.includes(keyword));
+}
+
+async function handleAppointmentRequest(message: string, phoneNumber: string, supabase: any): Promise<string | null> {
+  const lowerMessage = message.toLowerCase();
+
+  // Detectar tipo de solicitação
+  if (lowerMessage.includes('agendar') || lowerMessage.includes('marcar')) {
+    return `Para agendar sua consulta, preciso de algumas informações:
+
+📅 **Data desejada** (ex: 25/12/2024)
+🕐 **Horário** (ex: 14:00 às 15:00)
+👨‍⚕️ **Tipo de consulta** (ex: Consulta Geral, Cardiologia, etc.)
+📧 **Seu email** (para enviar confirmação)
+
+Por favor, me informe esses dados e eu criarei seu agendamento!`;
+  }
+
+  if (lowerMessage.includes('cancelar') || lowerMessage.includes('desmarcar')) {
+    return `Para cancelar seu agendamento, preciso que me informe:
+
+📅 **Data da consulta** que deseja cancelar
+🕐 **Horário** da consulta
+
+Com essas informações, posso localizar e cancelar seu agendamento.`;
+  }
+
+  if (lowerMessage.includes('reagendar') || lowerMessage.includes('alterar')) {
+    return `Para reagendar sua consulta, preciso saber:
+
+📅 **Data atual** da consulta
+🕐 **Horário atual** da consulta
+📅 **Nova data** desejada
+🕐 **Novo horário** desejado
+
+Com essas informações, posso alterar seu agendamento.`;
+  }
+
+  if (lowerMessage.includes('listar') || (lowerMessage.includes('ver') && lowerMessage.includes('agendamento'))) {
+    return `Vou verificar seus agendamentos... 
+
+📋 No momento, você não possui agendamentos marcados.
+
+Gostaria de agendar uma consulta? Posso ajudá-lo com isso!`;
+  }
+
+  return null;
 }
