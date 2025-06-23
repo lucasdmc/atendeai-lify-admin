@@ -62,8 +62,16 @@ const GestaoUsuarios = () => {
     { id: 'conectar_whatsapp', label: 'Conectar WhatsApp' },
     { id: 'contextualizar', label: 'Contextualizar' },
     { id: 'gestao_usuarios', label: 'Gestão de Usuários' },
+    { id: 'agendamentos', label: 'Agendamentos' },
     { id: 'configuracoes', label: 'Configurações' }
   ];
+
+  // Define permissões por função
+  const rolePermissions = {
+    atendente: ['dashboard', 'conversas', 'conectar_whatsapp', 'agendamentos'],
+    admin: ['dashboard', 'conversas', 'conectar_whatsapp', 'contextualizar', 'gestao_usuarios', 'agendamentos', 'configuracoes'],
+    suporte_lify: ['dashboard', 'conversas', 'conectar_whatsapp', 'contextualizar', 'gestao_usuarios', 'agendamentos', 'configuracoes']
+  };
 
   useEffect(() => {
     fetchUsers();
@@ -165,15 +173,9 @@ const GestaoUsuarios = () => {
       console.log('Perfil atualizado com sucesso');
 
       // Definir permissões baseadas no role
-      const defaultPermissions = {
-        admin: ['dashboard', 'conversas', 'conectar_whatsapp', 'contextualizar', 'gestao_usuarios', 'configuracoes'],
-        suporte_lify: ['dashboard', 'conversas', 'conectar_whatsapp', 'contextualizar', 'gestao_usuarios', 'configuracoes'],
-        atendente: ['dashboard', 'conversas', 'conectar_whatsapp']
-      };
+      const userPermissions = rolePermissions[newUser.role];
 
-      const userPermissions = defaultPermissions[newUser.role];
-
-      // Atualizar permissões
+      // Atualizar permissões baseadas na função
       for (const permission of permissions) {
         const hasAccess = userPermissions.includes(permission.id);
         
@@ -199,7 +201,7 @@ const GestaoUsuarios = () => {
 
       toast({
         title: "Usuário criado",
-        description: "O usuário foi criado com sucesso.",
+        description: "O usuário foi criado com permissões configuradas automaticamente.",
       });
 
     } catch (error: any) {
@@ -322,6 +324,18 @@ const GestaoUsuarios = () => {
     }
   };
 
+  const getRolePermissionDescription = (role: 'admin' | 'suporte_lify' | 'atendente') => {
+    switch (role) {
+      case 'atendente':
+        return 'Acesso a: Dashboard, Conversas, Conectar WhatsApp e Agendamentos';
+      case 'admin':
+      case 'suporte_lify':
+        return 'Acesso completo a todos os módulos';
+      default:
+        return '';
+    }
+  };
+
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase())
@@ -393,6 +407,9 @@ const GestaoUsuarios = () => {
                     <SelectItem value="suporte_lify">Suporte Lify</SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-gray-600 mt-1">
+                  {getRolePermissionDescription(newUser.role)}
+                </p>
               </div>
               <Button 
                 onClick={handleCreateUser}

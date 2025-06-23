@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocation, Link } from 'react-router-dom';
@@ -12,7 +11,8 @@ import {
   Settings,
   Sparkles,
   Menu,
-  X
+  X,
+  Calendar
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -40,6 +40,12 @@ const menuItems = [
     icon: Brain,
     href: '/contextualizar',
     permission: 'contextualizar'
+  },
+  {
+    title: 'Agendamentos',
+    icon: Calendar,
+    href: '/agendamentos',
+    permission: 'agendamentos'
   },
   {
     title: 'Gestão de Usuários',

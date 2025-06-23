@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -60,8 +61,16 @@ const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalPr
     { id: 'conectar_whatsapp', label: 'Conectar WhatsApp' },
     { id: 'contextualizar', label: 'Contextualizar' },
     { id: 'gestao_usuarios', label: 'Gestão de Usuários' },
+    { id: 'agendamentos', label: 'Agendamentos' },
     { id: 'configuracoes', label: 'Configurações' }
   ];
+
+  // Define permissões por função
+  const rolePermissions = {
+    atendente: ['dashboard', 'conversas', 'conectar_whatsapp', 'agendamentos'],
+    admin: ['dashboard', 'conversas', 'conectar_whatsapp', 'contextualizar', 'gestao_usuarios', 'agendamentos', 'configuracoes'],
+    suporte_lify: ['dashboard', 'conversas', 'conectar_whatsapp', 'contextualizar', 'gestao_usuarios', 'agendamentos', 'configuracoes']
+  };
 
   useEffect(() => {
     if (user && isOpen) {
@@ -91,6 +100,26 @@ const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalPr
     }
   };
 
+  const updateUserPermissions = async (userId: string, role: 'admin' | 'suporte_lify' | 'atendente') => {
+    const allowedPermissions = rolePermissions[role];
+
+    // Atualizar todas as permissões baseadas na função
+    for (const permission of permissions) {
+      const hasAccess = allowedPermissions.includes(permission.id);
+      
+      const { error } = await supabase
+        .from('user_permissions')
+        .update({ can_access: hasAccess })
+        .eq('user_id', userId)
+        .eq('module_name', permission.id);
+
+      if (error) {
+        console.error(`Error updating permission ${permission.id}:`, error);
+        throw error;
+      }
+    }
+  };
+
   const handleUpdateUser = async () => {
     if (!user) return;
 
@@ -108,9 +137,19 @@ const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalPr
 
       if (profileError) throw profileError;
 
+      // Atualizar permissões baseadas na função
+      await updateUserPermissions(user.id, editingUser.role);
+
+      // Atualizar estado local das permissões
+      const allowedPermissions = rolePermissions[editingUser.role];
+      setUserPermissions(permissions.map(p => ({
+        module_name: p.id,
+        can_access: allowedPermissions.includes(p.id)
+      })));
+
       toast({
         title: "Usuário atualizado",
-        description: "As informações do usuário foram atualizadas com sucesso.",
+        description: "As informações e permissões do usuário foram atualizadas com sucesso.",
       });
 
       onUserUpdated();
@@ -127,43 +166,6 @@ const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalPr
     }
   };
 
-  const handleTogglePermission = async (moduleId: string) => {
-    if (!user) return;
-
-    try {
-      const currentPermission = userPermissions.find(p => p.module_name === moduleId);
-      const newAccess = !currentPermission?.can_access;
-
-      const { error } = await supabase
-        .from('user_permissions')
-        .update({ can_access: newAccess })
-        .eq('user_id', user.id)
-        .eq('module_name', moduleId);
-
-      if (error) throw error;
-
-      setUserPermissions(prev => 
-        prev.map(p => 
-          p.module_name === moduleId 
-            ? { ...p, can_access: newAccess }
-            : p
-        )
-      );
-
-      toast({
-        title: "Permissão atualizada",
-        description: `Permissão para ${moduleId} foi ${newAccess ? 'concedida' : 'removida'}.`,
-      });
-    } catch (error) {
-      console.error('Error updating permission:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível atualizar a permissão.",
-        variant: "destructive",
-      });
-    }
-  };
-
   const getRoleLabel = (role: string) => {
     const roleLabels = {
       admin: 'Administrador',
@@ -171,6 +173,18 @@ const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalPr
       atendente: 'Atendente'
     };
     return roleLabels[role as keyof typeof roleLabels] || role;
+  };
+
+  const getRolePermissionDescription = (role: 'admin' | 'suporte_lify' | 'atendente') => {
+    switch (role) {
+      case 'atendente':
+        return 'Acesso a: Dashboard, Conversas, Conectar WhatsApp e Agendamentos';
+      case 'admin':
+      case 'suporte_lify':
+        return 'Acesso completo a todos os módulos';
+      default:
+        return '';
+    }
   };
 
   if (!user) return null;
@@ -218,6 +232,9 @@ const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalPr
                   <SelectItem value="suporte_lify">Suporte Lify</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-gray-600 mt-1">
+                {getRolePermissionDescription(editingUser.role)}
+              </p>
             </div>
             <div className="flex items-center space-x-2">
               <label className="text-sm font-medium">Status</label>
@@ -232,23 +249,26 @@ const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalPr
           </div>
 
           <div>
-            <label className="text-sm font-medium mb-3 block">Permissões</label>
+            <label className="text-sm font-medium mb-3 block">Permissões (configuradas automaticamente pela função)</label>
             <div className="grid grid-cols-2 gap-3">
               {permissions.map((permission) => {
-                const userPermission = userPermissions.find(p => p.module_name === permission.id);
-                const hasAccess = userPermission?.can_access || false;
+                const allowedPermissions = rolePermissions[editingUser.role];
+                const hasAccess = allowedPermissions.includes(permission.id);
                 
                 return (
-                  <div key={permission.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div key={permission.id} className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
                     <span className="text-sm font-medium">{permission.label}</span>
                     <Switch
                       checked={hasAccess}
-                      onCheckedChange={() => handleTogglePermission(permission.id)}
+                      disabled={true}
                     />
                   </div>
                 );
               })}
             </div>
+            <p className="text-xs text-gray-500 mt-2">
+              * As permissões são configuradas automaticamente baseadas na função selecionada
+            </p>
           </div>
 
           <div className="flex justify-end space-x-2">
