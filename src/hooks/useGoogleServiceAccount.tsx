@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { googleServiceAccountService, GoogleCalendarEvent } from '@/services/googleServiceAccountService';
@@ -95,6 +94,46 @@ export const useGoogleServiceAccount = () => {
     }
   };
 
+  const updateEvent = async (eventId: string, eventData: Omit<GoogleCalendarEvent, 'id' | 'status'>) => {
+    try {
+      console.log('Updating calendar event...');
+      await googleServiceAccountService.updateCalendarEvent(eventId, eventData);
+      await fetchEvents(); // Refresh events
+      toast({
+        title: 'Evento atualizado',
+        description: 'Agendamento atualizado com sucesso',
+      });
+    } catch (error) {
+      console.error('Error updating event:', error);
+      toast({
+        title: 'Erro',
+        description: 'Falha ao atualizar evento',
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+
+  const deleteEvent = async (eventId: string) => {
+    try {
+      console.log('Deleting calendar event...');
+      await googleServiceAccountService.deleteCalendarEvent(eventId);
+      await fetchEvents(); // Refresh events
+      toast({
+        title: 'Evento excluído',
+        description: 'Agendamento removido com sucesso',
+      });
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      toast({
+        title: 'Erro',
+        description: 'Falha ao excluir evento',
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+
   useEffect(() => {
     console.log('useGoogleServiceAccount: Checking connection');
     checkConnection();
@@ -114,6 +153,8 @@ export const useGoogleServiceAccount = () => {
     isLoadingEvents,
     fetchEvents,
     createEvent,
+    updateEvent,
+    deleteEvent,
     calendarId: googleServiceAccountService.getCalendarId(),
     refetch: () => {
       console.log('Refetching Google Calendar data');

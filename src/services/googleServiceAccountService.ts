@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface GoogleCalendarEvent {
@@ -157,6 +156,68 @@ class GoogleServiceAccountService {
       return createdEvent;
     } catch (error) {
       console.error('Error creating event:', error);
+      throw error;
+    }
+  }
+
+  async updateCalendarEvent(eventId: string, event: Omit<GoogleCalendarEvent, 'id' | 'status'>): Promise<GoogleCalendarEvent> {
+    console.log('Updating calendar event:', eventId);
+    
+    try {
+      const accessToken = await this.getAccessToken();
+
+      const response = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(this.calendarId)}/events/${eventId}`,
+        {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(event),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('Failed to update calendar event:', errorData);
+        throw new Error('Failed to update calendar event');
+      }
+
+      const updatedEvent = await response.json();
+      console.log('Event updated successfully:', updatedEvent.id);
+      return updatedEvent;
+    } catch (error) {
+      console.error('Error updating event:', error);
+      throw error;
+    }
+  }
+
+  async deleteCalendarEvent(eventId: string): Promise<void> {
+    console.log('Deleting calendar event:', eventId);
+    
+    try {
+      const accessToken = await this.getAccessToken();
+
+      const response = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(this.calendarId)}/events/${eventId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('Failed to delete calendar event:', errorData);
+        throw new Error('Failed to delete calendar event');
+      }
+
+      console.log('Event deleted successfully:', eventId);
+    } catch (error) {
+      console.error('Error deleting event:', error);
       throw error;
     }
   }
