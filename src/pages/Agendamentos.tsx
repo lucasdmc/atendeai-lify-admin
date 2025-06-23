@@ -1,9 +1,9 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar, Plus, Settings, Users, CalendarDays, Loader2 } from 'lucide-react';
+import { Calendar, Plus, Settings, Users, CalendarDays, Loader2, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { useGoogleCalendar } from '@/hooks/useGoogleCalendar';
+import { useGoogleServiceAccount } from '@/hooks/useGoogleServiceAccount';
 import CalendarView from '@/components/calendar/CalendarView';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -14,9 +14,9 @@ const Agendamentos = () => {
     isLoading,
     events,
     isLoadingEvents,
-    connectToGoogle,
-    disconnectFromGoogle,
-  } = useGoogleCalendar();
+    calendarId,
+    refetch,
+  } = useGoogleServiceAccount();
 
   const todayEvents = events.filter(event => {
     if (!event.start?.dateTime) return false;
@@ -53,7 +53,7 @@ const Agendamentos = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Agendamentos</h1>
-            <p className="text-gray-600 mt-2">Gerencie seus agendamentos e integração com Google Calendar</p>
+            <p className="text-gray-600 mt-2">Gerencie seus agendamentos integrados ao Google Calendar</p>
           </div>
         </div>
         
@@ -73,37 +73,25 @@ const Agendamentos = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Agendamentos</h1>
-          <p className="text-gray-600 mt-2">Gerencie seus agendamentos e integração com Google Calendar</p>
+          <p className="text-gray-600 mt-2">Gerencie seus agendamentos integrados ao Google Calendar</p>
         </div>
         
         <div className="flex gap-2">
-          {isConnected && (
-            <Button 
-              variant="outline"
-              onClick={disconnectFromGoogle}
-              className="flex items-center gap-2"
-            >
-              <Settings className="h-4 w-4" />
-              Desconectar
-            </Button>
-          )}
-          {!isConnected ? (
-            <Button 
-              className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600"
-              onClick={connectToGoogle}
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              Conectar Google Calendar
-            </Button>
-          ) : (
-            <Button 
-              className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600"
-              disabled
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Agendamento
-            </Button>
-          )}
+          <Button 
+            variant="outline"
+            onClick={refetch}
+            className="flex items-center gap-2"
+          >
+            <Settings className="h-4 w-4" />
+            Atualizar
+          </Button>
+          <Button 
+            className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600"
+            disabled
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Agendamento
+          </Button>
         </div>
       </div>
 
@@ -114,15 +102,18 @@ const Agendamentos = () => {
             <div className="flex items-center gap-3">
               <Calendar className="h-8 w-8 text-blue-500" />
               <div>
-                <h3 className="font-semibold">Google Calendar</h3>
+                <h3 className="font-semibold">Google Calendar - Service Account</h3>
                 <p className="text-sm text-gray-600">
-                  {isConnected ? 'Conectado e sincronizado' : 'Não conectado'}
+                  {isConnected ? `Conectado ao calendário: ${calendarId}` : 'Não conectado'}
                 </p>
               </div>
             </div>
-            <Badge variant={isConnected ? "default" : "secondary"}>
-              {isConnected ? 'Ativo' : 'Inativo'}
-            </Badge>
+            <div className="flex items-center gap-2">
+              {isConnected && <CheckCircle className="h-5 w-5 text-green-500" />}
+              <Badge variant={isConnected ? "default" : "secondary"}>
+                {isConnected ? 'Ativo' : 'Inativo'}
+              </Badge>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -220,18 +211,14 @@ const Agendamentos = () => {
           <CardContent className="pt-6">
             <div className="text-center py-12">
               <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Google Calendar não configurado</h3>
+              <h3 className="text-xl font-semibold mb-2">Service Account não configurada</h3>
               <p className="text-gray-600 mb-6">
-                Para usar o módulo de agendamentos, você precisa conectar sua conta do Google Calendar.
-                Isso permitirá sincronização automática e gerenciamento integrado dos seus compromissos.
+                A integração com Google Calendar via Service Account não está funcionando.
+                Verifique se as credenciais estão corretas e se o calendário está acessível.
               </p>
-              <Button 
-                className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600"
-                onClick={connectToGoogle}
-              >
-                <Settings className="h-4 w-4 mr-2" />
-                Conectar Google Calendar
-              </Button>
+              <p className="text-sm text-gray-500">
+                Calendário configurado: {calendarId}
+              </p>
             </div>
           </CardContent>
         </Card>
