@@ -1,9 +1,10 @@
 
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CalendarDays, Tag, TrendingUp, Users, Clock } from 'lucide-react';
+import { CalendarDays, Tag, TrendingUp, Users, Clock, ChartPie } from 'lucide-react';
 import { GoogleCalendarEvent } from '@/services/googleServiceAccountService';
 import { getLabelConfig, getLabelFromString, AppointmentLabel, appointmentLabels } from '@/utils/appointmentLabels';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
 interface AgendamentosStatsProps {
   events: GoogleCalendarEvent[];
@@ -55,57 +56,90 @@ const AgendamentosStats = ({ events }: AgendamentosStatsProps) => {
     return acc;
   }, {} as Record<AppointmentLabel, number>);
 
+  // Prepare data for pie chart
+  const pieChartData = Object.entries(appointmentLabels)
+    .map(([key, config]) => ({
+      name: config.name,
+      value: labelCounts[key as AppointmentLabel],
+      color: config.color.includes('green') ? '#10b981' : 
+             config.color.includes('blue') ? '#3b82f6' : '#f59e0b'
+    }))
+    .filter(item => item.value > 0);
+
   const statsCards = [
     {
       title: 'Hoje',
       value: todayEvents.length,
       icon: CalendarDays,
-      color: 'text-blue-500',
-      bgColor: 'bg-gradient-to-br from-blue-50 to-blue-100',
-      borderColor: 'border-blue-200'
+      color: 'text-blue-600',
+      bgColor: 'bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200',
+      borderColor: 'border-blue-300',
+      shadowColor: 'shadow-blue-100'
     },
     {
       title: 'Esta Semana',
       value: thisWeekEvents.length,
       icon: Clock,
-      color: 'text-purple-500',
-      bgColor: 'bg-gradient-to-br from-purple-50 to-purple-100',
-      borderColor: 'border-purple-200'
+      color: 'text-purple-600',
+      bgColor: 'bg-gradient-to-br from-purple-50 via-purple-100 to-purple-200',
+      borderColor: 'border-purple-300',
+      shadowColor: 'shadow-purple-100'
     },
     {
       title: 'Este Mês',
       value: thisMonthEvents.length,
       icon: Users,
-      color: 'text-orange-500',
-      bgColor: 'bg-gradient-to-br from-orange-50 to-orange-100',
-      borderColor: 'border-orange-200'
+      color: 'text-orange-600',
+      bgColor: 'bg-gradient-to-br from-orange-50 via-orange-100 to-orange-200',
+      borderColor: 'border-orange-300',
+      shadowColor: 'shadow-orange-100'
     },
     {
       title: 'Total de Eventos',
       value: events.length,
       icon: TrendingUp,
-      color: 'text-green-500',
-      bgColor: 'bg-gradient-to-br from-green-50 to-green-100',
-      borderColor: 'border-green-200'
+      color: 'text-green-600',
+      bgColor: 'bg-gradient-to-br from-green-50 via-green-100 to-green-200',
+      borderColor: 'border-green-300',
+      shadowColor: 'shadow-green-100'
     }
   ];
 
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+          <p className="font-medium">{`${payload[0].name}: ${payload[0].value}`}</p>
+          <p className="text-sm text-gray-500">
+            {payload[0].value === 1 ? 'agendamento' : 'agendamentos'}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Estatísticas Gerais */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-6">
         {statsCards.map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <Card key={index} className={`hover:shadow-lg transition-all duration-300 border-2 ${stat.borderColor} ${stat.bgColor} hover:scale-105`}>
-              <CardContent className="p-4">
+            <Card key={index} className={`hover:shadow-xl transition-all duration-500 border-2 ${stat.borderColor} ${stat.bgColor} hover:scale-105 ${stat.shadowColor} relative overflow-hidden`}>
+              <div className="absolute top-0 right-0 w-20 h-20 bg-white/20 rounded-full -translate-y-10 translate-x-10"></div>
+              <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/10 rounded-full translate-y-8 -translate-x-8"></div>
+              <CardContent className="p-6 relative z-10">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-700 mb-1">{stat.title}</p>
-                    <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                    <p className="text-sm font-medium text-gray-700 mb-2">{stat.title}</p>
+                    <p className="text-3xl font-bold text-gray-900 mb-1">{stat.value}</p>
+                    <p className="text-xs text-gray-500">
+                      {stat.value === 1 ? 'agendamento' : 'agendamentos'}
+                    </p>
                   </div>
-                  <div className={`p-2 rounded-lg bg-white shadow-sm`}>
-                    <Icon className={`h-5 w-5 ${stat.color}`} />
+                  <div className={`p-4 rounded-2xl bg-white/80 backdrop-blur-sm shadow-lg`}>
+                    <Icon className={`h-7 w-7 ${stat.color}`} />
                   </div>
                 </div>
               </CardContent>
@@ -114,44 +148,97 @@ const AgendamentosStats = ({ events }: AgendamentosStatsProps) => {
         })}
       </div>
 
-      {/* Estatísticas por Tipo */}
-      <Card className="hover:shadow-lg transition-shadow">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Tag className="h-5 w-5 text-indigo-500" />
-            Por Tipo de Consulta
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {Object.entries(appointmentLabels).map(([key, config]) => (
-              <div key={key} className="flex items-center justify-between p-3 rounded-lg border hover:bg-gray-50 transition-colors">
-                <div className="flex items-center gap-3">
-                  <Badge variant="outline" className={config.color}>
-                    <Tag className="h-3 w-3 mr-1" />
-                    {config.name}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl font-bold text-gray-900">
-                    {labelCounts[key as AppointmentLabel]}
-                  </span>
-                  <span className="text-sm text-gray-500">
-                    {labelCounts[key as AppointmentLabel] === 1 ? 'agendamento' : 'agendamentos'}
-                  </span>
-                </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Estatísticas por Tipo */}
+        <Card className="hover:shadow-xl transition-all duration-300 border-2 border-gray-200 bg-gradient-to-br from-white to-gray-50">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-3 text-xl">
+              <div className="p-2 rounded-xl bg-indigo-100">
+                <Tag className="h-6 w-6 text-indigo-600" />
               </div>
-            ))}
-          </div>
-          
-          {events.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              <Tag className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-              <p>Nenhum agendamento encontrado</p>
+              Tipos de Consulta
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {Object.entries(appointmentLabels).map(([key, config]) => (
+                <div key={key} className="flex items-center justify-between p-4 rounded-xl border-2 border-gray-100 hover:border-gray-200 hover:bg-gray-50/50 transition-all duration-300 group">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-4 h-4 rounded-full ${config.color.includes('green') ? 'bg-green-500' : config.color.includes('blue') ? 'bg-blue-500' : 'bg-yellow-500'}`}></div>
+                    <Badge variant="outline" className={`${config.color} font-medium px-3 py-1 group-hover:scale-105 transition-transform`}>
+                      <Tag className="h-3 w-3 mr-2" />
+                      {config.name}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl font-bold text-gray-900">
+                      {labelCounts[key as AppointmentLabel]}
+                    </span>
+                    <span className="text-sm text-gray-500 font-medium">
+                      {labelCounts[key as AppointmentLabel] === 1 ? 'agendamento' : 'agendamentos'}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
-        </CardContent>
-      </Card>
+            
+            {events.length === 0 && (
+              <div className="text-center py-12 text-gray-500">
+                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                  <Tag className="h-10 w-10 text-gray-300" />
+                </div>
+                <p className="text-lg font-medium">Nenhum agendamento encontrado</p>
+                <p className="text-sm mt-1">Crie seu primeiro agendamento para ver as estatísticas</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Gráfico de Pizza */}
+        {pieChartData.length > 0 && (
+          <Card className="hover:shadow-xl transition-all duration-300 border-2 border-gray-200 bg-gradient-to-br from-white to-gray-50">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-3 text-xl">
+                <div className="p-2 rounded-xl bg-emerald-100">
+                  <ChartPie className="h-6 w-6 text-emerald-600" />
+                </div>
+                Distribuição por Tipo
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={pieChartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {pieChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend 
+                      verticalAlign="bottom" 
+                      height={36}
+                      formatter={(value, entry) => (
+                        <span style={{ color: entry.color, fontWeight: 'medium' }}>
+                          {value}
+                        </span>
+                      )}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 };
