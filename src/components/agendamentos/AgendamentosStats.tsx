@@ -1,6 +1,6 @@
 
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { CalendarDays, Clock, Users, TrendingUp, ChartPie } from 'lucide-react';
+import { ChartPie } from 'lucide-react';
 import { GoogleCalendarEvent } from '@/services/googleServiceAccountService';
 import { getLabelFromString, AppointmentLabel, appointmentLabels } from '@/utils/appointmentLabels';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
@@ -10,34 +10,6 @@ interface AgendamentosStatsProps {
 }
 
 const AgendamentosStats = ({ events }: AgendamentosStatsProps) => {
-  const today = new Date();
-  
-  const todayEvents = events.filter(event => {
-    if (!event.start?.dateTime) return false;
-    const eventDate = new Date(event.start.dateTime);
-    return (
-      eventDate.getDate() === today.getDate() &&
-      eventDate.getMonth() === today.getMonth() &&
-      eventDate.getFullYear() === today.getFullYear()
-    );
-  });
-
-  const thisWeekEvents = events.filter(event => {
-    if (!event.start?.dateTime) return false;
-    const weekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const eventDate = new Date(event.start.dateTime);
-    return eventDate >= today && eventDate <= weekFromNow;
-  });
-
-  const thisMonthEvents = events.filter(event => {
-    if (!event.start?.dateTime) return false;
-    const eventDate = new Date(event.start.dateTime);
-    return (
-      eventDate.getMonth() === today.getMonth() &&
-      eventDate.getFullYear() === today.getFullYear()
-    );
-  });
-
   const getEventLabel = (event: GoogleCalendarEvent): AppointmentLabel => {
     if (event.description) {
       const labelMatch = event.description.match(/\[LABEL:(\w+)\]/);
@@ -55,61 +27,24 @@ const AgendamentosStats = ({ events }: AgendamentosStatsProps) => {
     return acc;
   }, {} as Record<AppointmentLabel, number>);
 
-  // Prepare data for pie chart with platform colors
+  // Prepare data for pie chart with Lify brand colors
   const pieChartData = Object.entries(appointmentLabels)
-    .map(([key, config]) => ({
-      name: config.name,
-      value: labelCounts[key as AppointmentLabel],
-      color: config.color.includes('green') ? '#10b981' : 
-             config.color.includes('blue') ? '#3b82f6' : '#f59e0b'
-    }))
+    .map(([key, config], index) => {
+      const lifyColors = ['#e91e63', '#9c27b0', '#673ab7', '#ff5722', '#ff9800'];
+      return {
+        name: config.name,
+        value: labelCounts[key as AppointmentLabel],
+        color: lifyColors[index % lifyColors.length]
+      };
+    })
     .filter(item => item.value > 0);
-
-  const statsCards = [
-    {
-      title: 'Hoje',
-      value: todayEvents.length,
-      icon: CalendarDays,
-      color: 'text-primary',
-      bgColor: 'bg-gradient-to-br from-primary/10 via-primary/20 to-primary/30',
-      borderColor: 'border-primary/40',
-      shadowColor: 'shadow-primary/10'
-    },
-    {
-      title: 'Esta Semana',
-      value: thisWeekEvents.length,
-      icon: Clock,
-      color: 'text-accent-foreground',
-      bgColor: 'bg-gradient-to-br from-accent/10 via-accent/20 to-accent/30',
-      borderColor: 'border-accent/40',
-      shadowColor: 'shadow-accent/10'
-    },
-    {
-      title: 'Este Mês',
-      value: thisMonthEvents.length,
-      icon: Users,
-      color: 'text-secondary-foreground',
-      bgColor: 'bg-gradient-to-br from-secondary/10 via-secondary/20 to-secondary/30',
-      borderColor: 'border-secondary/40',
-      shadowColor: 'shadow-secondary/10'
-    },
-    {
-      title: 'Total de Eventos',
-      value: events.length,
-      icon: TrendingUp,
-      color: 'text-primary',
-      bgColor: 'bg-gradient-to-br from-muted/10 via-muted/20 to-muted/30',
-      borderColor: 'border-muted/40',
-      shadowColor: 'shadow-muted/10'
-    }
-  ];
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-card p-3 border border-border rounded-lg shadow-lg">
-          <p className="font-medium text-card-foreground">{`${payload[0].name}: ${payload[0].value}`}</p>
-          <p className="text-sm text-muted-foreground">
+        <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-xl backdrop-blur-sm">
+          <p className="font-semibold text-gray-800 text-base">{`${payload[0].name}: ${payload[0].value}`}</p>
+          <p className="text-sm text-gray-600 mt-1">
             {payload[0].value === 1 ? 'agendamento' : 'agendamentos'}
           </p>
         </div>
@@ -120,71 +55,62 @@ const AgendamentosStats = ({ events }: AgendamentosStatsProps) => {
 
   return (
     <div className="space-y-8">
-      {/* Estatísticas Gerais */}
-      <div className="grid grid-cols-2 gap-6">
-        {statsCards.map((stat, index) => {
-          const Icon = stat.icon;
-          return (
-            <Card key={index} className={`hover:shadow-xl transition-all duration-500 border-2 ${stat.borderColor} ${stat.bgColor} hover:scale-105 ${stat.shadowColor} relative overflow-hidden`}>
-              <div className="absolute top-0 right-0 w-20 h-20 bg-white/20 rounded-full -translate-y-10 translate-x-10"></div>
-              <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/10 rounded-full translate-y-8 -translate-x-8"></div>
-              <CardContent className="p-6 relative z-10">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground mb-2">{stat.title}</p>
-                    <p className="text-3xl font-bold text-foreground mb-1">{stat.value}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {stat.value === 1 ? 'agendamento' : 'agendamentos'}
-                    </p>
-                  </div>
-                  <div className={`p-4 rounded-2xl bg-background/80 backdrop-blur-sm shadow-lg border border-border/40`}>
-                    <Icon className={`h-7 w-7 ${stat.color}`} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
         {/* Gráfico de Pizza */}
         {pieChartData.length > 0 ? (
-          <Card className="hover:shadow-xl transition-all duration-300 border-2 border-border bg-gradient-to-br from-card to-muted/20">
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-3 text-xl text-card-foreground">
-                <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
-                  <ChartPie className="h-6 w-6 text-primary" />
+          <Card className="hover:shadow-2xl transition-all duration-500 border-0 bg-white/90 backdrop-blur-sm shadow-lg">
+            <CardHeader className="pb-6">
+              <CardTitle className="flex items-center gap-4 text-2xl font-bold">
+                <div className="p-3 rounded-2xl bg-gradient-to-br from-lify-pink/20 to-lify-purple/20 border border-lify-pink/30">
+                  <ChartPie className="h-8 w-8 text-lify-purple" />
                 </div>
-                Tipos de Consulta
+                <span className="bg-gradient-to-r from-lify-pink to-lify-purple bg-clip-text text-transparent">
+                  Tipos de Consulta
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-80">
+              <div className="h-96">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={pieChartData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={5}
+                      innerRadius={80}
+                      outerRadius={140}
+                      paddingAngle={8}
                       dataKey="value"
+                      stroke="none"
                     >
                       {pieChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={entry.color}
+                          style={{
+                            filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.1))',
+                          }}
+                        />
                       ))}
                     </Pie>
                     <Tooltip content={<CustomTooltip />} />
                     <Legend 
                       verticalAlign="bottom" 
-                      height={36}
+                      height={60}
                       formatter={(value, entry) => (
-                        <span style={{ color: entry.color, fontWeight: 'medium' }}>
+                        <span 
+                          style={{ 
+                            color: entry.color, 
+                            fontWeight: '600',
+                            fontSize: '14px'
+                          }}
+                        >
                           {value}
                         </span>
                       )}
+                      wrapperStyle={{
+                        paddingTop: '20px'
+                      }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -192,22 +118,24 @@ const AgendamentosStats = ({ events }: AgendamentosStatsProps) => {
             </CardContent>
           </Card>
         ) : (
-          <Card className="hover:shadow-xl transition-all duration-300 border-2 border-border bg-gradient-to-br from-card to-muted/20">
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-3 text-xl text-card-foreground">
-                <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
-                  <ChartPie className="h-6 w-6 text-primary" />
+          <Card className="hover:shadow-2xl transition-all duration-500 border-0 bg-white/90 backdrop-blur-sm shadow-lg">
+            <CardHeader className="pb-6">
+              <CardTitle className="flex items-center gap-4 text-2xl font-bold">
+                <div className="p-3 rounded-2xl bg-gradient-to-br from-lify-pink/20 to-lify-purple/20 border border-lify-pink/30">
+                  <ChartPie className="h-8 w-8 text-lify-purple" />
                 </div>
-                Tipos de Consulta
+                <span className="bg-gradient-to-r from-lify-pink to-lify-purple bg-clip-text text-transparent">
+                  Tipos de Consulta
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-12 text-muted-foreground">
-                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-                  <ChartPie className="h-10 w-10 text-muted-foreground/50" />
+              <div className="text-center py-16">
+                <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-lify-pink/10 to-lify-purple/10 flex items-center justify-center border border-lify-pink/20">
+                  <ChartPie className="h-12 w-12 text-lify-purple/60" />
                 </div>
-                <p className="text-lg font-medium">Nenhum agendamento encontrado</p>
-                <p className="text-sm mt-1">Crie seu primeiro agendamento para ver as estatísticas</p>
+                <p className="text-xl font-semibold text-gray-700 mb-2">Nenhum agendamento encontrado</p>
+                <p className="text-gray-500">Crie seu primeiro agendamento para ver as estatísticas</p>
               </div>
             </CardContent>
           </Card>
