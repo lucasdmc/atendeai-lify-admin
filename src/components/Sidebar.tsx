@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocation, Link } from 'react-router-dom';
@@ -36,16 +37,16 @@ const menuItems = [
     permission: 'conectar_whatsapp'
   },
   {
-    title: 'Contextualizar',
-    icon: Brain,
-    href: '/contextualizar',
-    permission: 'contextualizar'
-  },
-  {
     title: 'Agendamentos',
     icon: Calendar,
     href: '/agendamentos',
     permission: 'agendamentos'
+  },
+  {
+    title: 'Contextualizar',
+    icon: Brain,
+    href: '/contextualizar',
+    permission: 'contextualizar'
   },
   {
     title: 'Gestão de Usuários',
@@ -69,14 +70,16 @@ const Sidebar = () => {
   // Debug logs
   console.log('Sidebar - User permissions:', userPermissions);
   console.log('Sidebar - User role:', userRole);
+  console.log('Sidebar - Menu items to check:', menuItems.map(item => item.permission));
 
   const filteredMenuItems = menuItems.filter(item => {
     const hasPermission = userPermissions.includes(item.permission);
-    console.log(`Menu item ${item.title} (${item.permission}): ${hasPermission}`);
+    console.log(`Menu item ${item.title} (${item.permission}): ${hasPermission ? 'ALLOWED' : 'DENIED'}`);
     return hasPermission;
   });
 
-  console.log('Filtered menu items:', filteredMenuItems);
+  console.log('Filtered menu items count:', filteredMenuItems.length);
+  console.log('Filtered menu items:', filteredMenuItems.map(item => item.title));
 
   return (
     <>
@@ -111,31 +114,38 @@ const Sidebar = () => {
           <div className="p-4 bg-gray-50 text-xs">
             <p>Role: {userRole || 'N/A'}</p>
             <p>Permissions: {userPermissions.length}</p>
+            <p>Available items: {filteredMenuItems.length}</p>
           </div>
 
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-2">
-            {filteredMenuItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.href;
-              
-              return (
-                <Link
-                  key={item.href}
-                  to={item.href}
-                  onClick={() => setIsOpen(false)}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-gradient-to-r from-orange-100 to-pink-100 text-orange-600 border border-orange-200"
-                      : "text-gray-600 hover:bg-gray-100"
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                  {item.title}
-                </Link>
-              );
-            })}
+            {filteredMenuItems.length === 0 ? (
+              <div className="text-center text-gray-500 text-sm py-4">
+                Nenhum módulo disponível
+              </div>
+            ) : (
+              filteredMenuItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.href;
+                
+                return (
+                  <Link
+                    key={item.href}
+                    to={item.href}
+                    onClick={() => setIsOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-gradient-to-r from-orange-100 to-pink-100 text-orange-600 border border-orange-200"
+                        : "text-gray-600 hover:bg-gray-100"
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                    {item.title}
+                  </Link>
+                );
+              })
+            )}
           </nav>
         </div>
       </div>
