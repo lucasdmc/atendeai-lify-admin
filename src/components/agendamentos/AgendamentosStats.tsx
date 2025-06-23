@@ -1,9 +1,8 @@
 
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { CalendarDays, Tag, TrendingUp, Users, Clock, ChartPie } from 'lucide-react';
+import { CalendarDays, Clock, Users, TrendingUp, ChartPie } from 'lucide-react';
 import { GoogleCalendarEvent } from '@/services/googleServiceAccountService';
-import { getLabelConfig, getLabelFromString, AppointmentLabel, appointmentLabels } from '@/utils/appointmentLabels';
+import { getLabelFromString, AppointmentLabel, appointmentLabels } from '@/utils/appointmentLabels';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
 interface AgendamentosStatsProps {
@@ -148,61 +147,16 @@ const AgendamentosStats = ({ events }: AgendamentosStatsProps) => {
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Estatísticas por Tipo */}
-        <Card className="hover:shadow-xl transition-all duration-300 border-2 border-gray-200 bg-gradient-to-br from-white to-gray-50">
-          <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-3 text-xl">
-              <div className="p-2 rounded-xl bg-indigo-100">
-                <Tag className="h-6 w-6 text-indigo-600" />
-              </div>
-              Tipos de Consulta
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {Object.entries(appointmentLabels).map(([key, config]) => (
-                <div key={key} className="flex items-center justify-between p-4 rounded-xl border-2 border-gray-100 hover:border-gray-200 hover:bg-gray-50/50 transition-all duration-300 group">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-4 h-4 rounded-full ${config.color.includes('green') ? 'bg-green-500' : config.color.includes('blue') ? 'bg-blue-500' : 'bg-yellow-500'}`}></div>
-                    <Badge variant="outline" className={`${config.color} font-medium px-3 py-1 group-hover:scale-105 transition-transform`}>
-                      <Tag className="h-3 w-3 mr-2" />
-                      {config.name}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-3xl font-bold text-gray-900">
-                      {labelCounts[key as AppointmentLabel]}
-                    </span>
-                    <span className="text-sm text-gray-500 font-medium">
-                      {labelCounts[key as AppointmentLabel] === 1 ? 'agendamento' : 'agendamentos'}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            {events.length === 0 && (
-              <div className="text-center py-12 text-gray-500">
-                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
-                  <Tag className="h-10 w-10 text-gray-300" />
-                </div>
-                <p className="text-lg font-medium">Nenhum agendamento encontrado</p>
-                <p className="text-sm mt-1">Crie seu primeiro agendamento para ver as estatísticas</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
         {/* Gráfico de Pizza */}
-        {pieChartData.length > 0 && (
+        {pieChartData.length > 0 ? (
           <Card className="hover:shadow-xl transition-all duration-300 border-2 border-gray-200 bg-gradient-to-br from-white to-gray-50">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-3 text-xl">
                 <div className="p-2 rounded-xl bg-emerald-100">
                   <ChartPie className="h-6 w-6 text-emerald-600" />
                 </div>
-                Distribuição por Tipo
+                Tipos de Consulta
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -234,6 +188,26 @@ const AgendamentosStats = ({ events }: AgendamentosStatsProps) => {
                     />
                   </PieChart>
                 </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="hover:shadow-xl transition-all duration-300 border-2 border-gray-200 bg-gradient-to-br from-white to-gray-50">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-3 text-xl">
+                <div className="p-2 rounded-xl bg-emerald-100">
+                  <ChartPie className="h-6 w-6 text-emerald-600" />
+                </div>
+                Tipos de Consulta
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-12 text-gray-500">
+                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                  <ChartPie className="h-10 w-10 text-gray-300" />
+                </div>
+                <p className="text-lg font-medium">Nenhum agendamento encontrado</p>
+                <p className="text-sm mt-1">Crie seu primeiro agendamento para ver as estatísticas</p>
               </div>
             </CardContent>
           </Card>
