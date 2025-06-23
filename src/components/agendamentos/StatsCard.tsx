@@ -14,21 +14,19 @@ interface StatsCardProps {
 
 const StatsCard = ({ title, value, icon: Icon, color, bgColor, borderColor, shadowColor }: StatsCardProps) => {
   return (
-    <Card className={`hover:shadow-2xl transition-all duration-500 border-2 ${borderColor} ${bgColor} hover:scale-105 ${shadowColor} relative overflow-hidden group`}>
-      <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-10 translate-x-10 group-hover:scale-150 transition-transform duration-500"></div>
-      <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-8 -translate-x-8 group-hover:scale-125 transition-transform duration-500"></div>
-      <CardContent className="p-6 relative z-10">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-white/90 mb-2">{title}</p>
-            <p className="text-3xl font-bold text-white mb-1">{value}</p>
-            <p className="text-xs text-white/80">
-              {value === 1 ? 'agendamento' : 'agendamentos'}
-            </p>
-          </div>
-          <div className="p-4 rounded-2xl bg-white/20 backdrop-blur-sm shadow-lg border border-white/30 group-hover:bg-white/30 transition-all duration-300">
-            <Icon className={`h-7 w-7 ${color}`} />
-          </div>
+    <Card className={`h-full hover:shadow-lg transition-all duration-300 border ${borderColor} ${bgColor} hover:scale-102 ${shadowColor} relative overflow-hidden group`}>
+      <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -translate-y-8 translate-x-8 group-hover:scale-125 transition-transform duration-300"></div>
+      <div className="absolute bottom-0 left-0 w-12 h-12 bg-white/5 rounded-full translate-y-6 -translate-x-6 group-hover:scale-110 transition-transform duration-300"></div>
+      <CardContent className="p-4 relative z-10 h-full flex items-center justify-between">
+        <div className="flex-1">
+          <p className="text-xs font-medium text-white/90 mb-1">{title}</p>
+          <p className="text-2xl font-bold text-white mb-0.5">{value}</p>
+          <p className="text-xs text-white/80">
+            {value === 1 ? 'agendamento' : 'agendamentos'}
+          </p>
+        </div>
+        <div className="p-3 rounded-xl bg-white/20 backdrop-blur-sm shadow-md border border-white/30 group-hover:bg-white/30 transition-all duration-300">
+          <Icon className={`h-5 w-5 ${color}`} />
         </div>
       </CardContent>
     </Card>
