@@ -37,21 +37,25 @@ export const useGoogleCalendar = () => {
     const error = urlParams.get('error');
 
     if (error) {
+      console.error('OAuth error:', error);
       toast({
         title: 'Erro na autenticação',
         description: 'Falha ao conectar com o Google Calendar',
         variant: 'destructive',
       });
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
       return;
     }
 
     if (code) {
       try {
         setIsLoading(true);
+        console.log('Processing authorization code...');
         const tokens = await googleCalendarService.exchangeCodeForTokens(code);
         await googleCalendarService.saveTokens(tokens);
         
-        // Remove the code from URL
+        // Remove the code from URL immediately
         window.history.replaceState({}, document.title, window.location.pathname);
         
         setIsConnected(true);
@@ -69,6 +73,8 @@ export const useGoogleCalendar = () => {
           description: 'Falha ao processar autenticação do Google',
           variant: 'destructive',
         });
+        // Clean up URL on error
+        window.history.replaceState({}, document.title, window.location.pathname);
       } finally {
         setIsLoading(false);
       }
@@ -174,7 +180,10 @@ export const useGoogleCalendar = () => {
   }, [user]);
 
   useEffect(() => {
-    handleAuthRedirect();
+    // Only handle auth redirect if we're on the agendamentos page
+    if (window.location.pathname === '/agendamentos') {
+      handleAuthRedirect();
+    }
   }, []);
 
   useEffect(() => {

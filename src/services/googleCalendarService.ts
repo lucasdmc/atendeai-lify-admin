@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 const GOOGLE_CLIENT_ID = '367439444210-2p0lde4fmerq4jlraojguku3dt3l5d70.apps.googleusercontent.com';
@@ -35,13 +34,21 @@ export interface CalendarToken {
 
 class GoogleCalendarService {
   private getAuthUrl(): string {
+    // Generate a proper state parameter to avoid the OAuth state parameter missing error
+    const state = btoa(JSON.stringify({
+      timestamp: Date.now(),
+      origin: window.location.origin,
+      path: window.location.pathname
+    }));
+
     const params = new URLSearchParams({
       client_id: GOOGLE_CLIENT_ID,
-      redirect_uri: REDIRECT_URI,
+      redirect_uri: window.location.origin + '/agendamentos',
       scope: SCOPES,
       response_type: 'code',
       access_type: 'offline',
       prompt: 'consent',
+      state: state,
     });
 
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
@@ -49,10 +56,13 @@ class GoogleCalendarService {
 
   async initiateAuth(): Promise<void> {
     const authUrl = this.getAuthUrl();
+    console.log('Redirecting to Google auth:', authUrl);
     window.location.href = authUrl;
   }
 
   async exchangeCodeForTokens(code: string): Promise<CalendarToken> {
+    console.log('Exchanging code for tokens...');
+    
     const response = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: {
@@ -63,11 +73,13 @@ class GoogleCalendarService {
         client_secret: GOOGLE_CLIENT_SECRET,
         code,
         grant_type: 'authorization_code',
-        redirect_uri: REDIRECT_URI,
+        redirect_uri: window.location.origin + '/agendamentos',
       }),
     });
 
     if (!response.ok) {
+      const errorData = await response.text();
+      console.error('Token exchange failed:', errorData);
       throw new Error('Failed to exchange code for tokens');
     }
 
