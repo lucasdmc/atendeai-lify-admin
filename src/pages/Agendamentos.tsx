@@ -2,7 +2,6 @@
 import { useGoogleServiceAccount } from '@/hooks/useGoogleServiceAccount';
 import CalendarView from '@/components/calendar/CalendarView';
 import AgendamentosHeader from '@/components/agendamentos/AgendamentosHeader';
-import ConnectionStatusCard from '@/components/agendamentos/ConnectionStatusCard';
 import AgendamentosStats from '@/components/agendamentos/AgendamentosStats';
 import UpcomingAppointments from '@/components/agendamentos/UpcomingAppointments';
 import EmptyConnectionState from '@/components/agendamentos/EmptyConnectionState';
@@ -31,11 +30,6 @@ const Agendamentos = () => {
         onRefetch={refetch} 
         isConnected={isConnected}
         onCreateEvent={createEvent}
-      />
-
-      <ConnectionStatusCard 
-        isConnected={isConnected} 
-        calendarId={calendarId} 
       />
 
       {isConnected ? (
