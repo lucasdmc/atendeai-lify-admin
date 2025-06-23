@@ -19,6 +19,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Check } from 'lucide-react';
 
 interface User {
   id: string;
@@ -51,7 +52,6 @@ const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalPr
     role: 'atendente',
     status: true
   });
-  const [userPermissions, setUserPermissions] = useState<Permission[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -79,26 +79,8 @@ const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalPr
         role: user.role,
         status: user.status
       });
-      fetchUserPermissions();
     }
   }, [user, isOpen]);
-
-  const fetchUserPermissions = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('user_permissions')
-        .select('module_name, can_access')
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      setUserPermissions(data || []);
-    } catch (error) {
-      console.error('Error fetching user permissions:', error);
-    }
-  };
 
   const updateUserPermissions = async (userId: string, role: 'admin' | 'suporte_lify' | 'atendente') => {
     const allowedPermissions = rolePermissions[role];
@@ -139,13 +121,6 @@ const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalPr
 
       // Atualizar permissões baseadas na função
       await updateUserPermissions(user.id, editingUser.role);
-
-      // Atualizar estado local das permissões
-      const allowedPermissions = rolePermissions[editingUser.role];
-      setUserPermissions(permissions.map(p => ({
-        module_name: p.id,
-        can_access: allowedPermissions.includes(p.id)
-      })));
 
       toast({
         title: "Usuário atualizado",
@@ -249,19 +224,20 @@ const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalPr
           </div>
 
           <div>
-            <label className="text-sm font-medium mb-3 block">Permissões (configuradas automaticamente pela função)</label>
+            <label className="text-sm font-medium mb-3 block">Permissões de Acesso</label>
             <div className="grid grid-cols-2 gap-3">
               {permissions.map((permission) => {
                 const allowedPermissions = rolePermissions[editingUser.role];
                 const hasAccess = allowedPermissions.includes(permission.id);
                 
                 return (
-                  <div key={permission.id} className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
-                    <span className="text-sm font-medium">{permission.label}</span>
-                    <Switch
-                      checked={hasAccess}
-                      disabled={true}
-                    />
+                  <div key={permission.id} className={`flex items-center justify-between p-3 border rounded-lg ${hasAccess ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                    <span className={`text-sm font-medium ${hasAccess ? 'text-green-700' : 'text-gray-500'}`}>
+                      {permission.label}
+                    </span>
+                    {hasAccess && (
+                      <Check className="h-4 w-4 text-green-600" />
+                    )}
                   </div>
                 );
               })}
