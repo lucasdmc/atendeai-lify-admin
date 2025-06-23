@@ -7,6 +7,7 @@ import AgendamentosStats from '@/components/agendamentos/AgendamentosStats';
 import UpcomingAppointments from '@/components/agendamentos/UpcomingAppointments';
 import EmptyConnectionState from '@/components/agendamentos/EmptyConnectionState';
 import LoadingState from '@/components/agendamentos/LoadingState';
+import GoogleCalendarEmbed from '@/components/agendamentos/GoogleCalendarEmbed';
 
 const Agendamentos = () => {
   const {
@@ -56,6 +57,10 @@ const Agendamentos = () => {
               onUpdateEvent={updateEvent}
               onDeleteEvent={deleteEvent}
             />
+          </div>
+
+          <div className="lg:col-span-3">
+            <GoogleCalendarEmbed />
           </div>
         </div>
       ) : (
