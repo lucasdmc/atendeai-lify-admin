@@ -115,6 +115,14 @@ const Sidebar = () => {
             <p>Role: {userRole || 'N/A'}</p>
             <p>Permissions: {userPermissions.length}</p>
             <p>Available items: {filteredMenuItems.length}</p>
+            <div className="mt-2">
+              <p>All permissions:</p>
+              <ul className="text-xs space-y-1">
+                {userPermissions.map(perm => (
+                  <li key={perm} className="text-green-600">✓ {perm}</li>
+                ))}
+              </ul>
+            </div>
           </div>
 
           {/* Navigation */}
@@ -122,6 +130,9 @@ const Sidebar = () => {
             {filteredMenuItems.length === 0 ? (
               <div className="text-center text-gray-500 text-sm py-4">
                 Nenhum módulo disponível
+                <p className="text-xs mt-2">
+                  Verificando permissões: {userPermissions.join(', ') || 'Nenhuma'}
+                </p>
               </div>
             ) : (
               filteredMenuItems.map((item) => {
