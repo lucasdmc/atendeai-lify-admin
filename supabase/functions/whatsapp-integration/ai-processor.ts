@@ -48,10 +48,23 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
       }
     }
 
-    // Verificar se é sobre agendamento
+    // Verificar se é sobre agendamento e tentar processar
     const isAboutAppointment = isAppointmentRelated(message);
     console.log(`📅 Mensagem sobre agendamento: ${isAboutAppointment ? 'SIM' : 'NÃO'}`);
 
+    if (isAboutAppointment) {
+      console.log('🔄 Processando solicitação de agendamento...');
+      const appointmentResponse = await handleAppointmentRequest(message, phoneNumber, supabase);
+      if (appointmentResponse) {
+        console.log('📅 Resposta de agendamento gerada:', appointmentResponse.substring(0, 100) + '...');
+        await sendMessage(phoneNumber, appointmentResponse, supabase);
+        return;
+      }
+    }
+
+    // Se não conseguiu processar agendamento, usar IA para resposta
+    console.log('🤖 Processando com IA...');
+    
     // Construir prompt do sistema com contexto da clínica
     let systemPrompt = `Você é um assistente virtual de uma clínica médica. Seja sempre educado, profissional e prestativo.
 
@@ -68,10 +81,10 @@ INFORMAÇÕES DA CLÍNICA:`;
     }
 
     systemPrompt += `\n\nFUNCIONALIDADES DE AGENDAMENTO:
-Você pode ajudar os pacientes com agendamentos. Quando detectar solicitações de agendamento:
-- Para CRIAR: colete data, horário, tipo de consulta e email
-- Para CANCELAR: peça data e horário da consulta existente
-- Para REAGENDAR: peça dados atuais e novos dados desejados
+Você pode ajudar os pacientes com agendamentos. Quando detectar solicitações de agendamento completas:
+- Para CRIAR: precisa de data, horário, tipo de consulta e email
+- Para CANCELAR: precisa de data e horário da consulta existente
+- Para REAGENDAR: precisa de dados atuais e novos dados desejados
 - Para LISTAR: mostre os agendamentos do paciente
 
 INSTRUÇÕES:
@@ -80,17 +93,7 @@ INSTRUÇÕES:
 - Sempre confirme detalhes antes de finalizar agendamentos
 - Mantenha um tom profissional e acolhedor
 - Respostas devem ser concisas (máximo 2-3 parágrafos)
-- Se detectar solicitação de agendamento, foque em coletar as informações necessárias`;
-
-    // Se for sobre agendamento, usar lógica específica
-    if (isAboutAppointment) {
-      const appointmentResponse = await handleAppointmentRequest(message, phoneNumber, supabase);
-      if (appointmentResponse) {
-        console.log('📅 Resposta específica de agendamento gerada');
-        await sendMessage(phoneNumber, appointmentResponse, supabase);
-        return;
-      }
-    }
+- Quando tiver todas as informações necessárias, confirme que o agendamento foi criado`;
 
     // Construir histórico da conversa
     const messages = [{ role: 'system', content: systemPrompt }];
@@ -101,7 +104,7 @@ INSTRUÇÕES:
         .reverse()
         .slice(0, 8)
         .forEach((msg) => {
-          if (msg.content && msg.content !== message) { // Evitar duplicar a mensagem atual
+          if (msg.content && msg.content !== message) {
             messages.push({
               role: msg.message_type === 'received' ? 'user' : 'assistant',
               content: msg.content
@@ -190,9 +193,60 @@ function isAppointmentRelated(message: string): boolean {
 }
 
 async function handleAppointmentRequest(message: string, phoneNumber: string, supabase: any): Promise<string | null> {
+  console.log('🏥 Processando solicitação de agendamento...');
+  console.log('📝 Mensagem:', message);
+  
   const lowerMessage = message.toLowerCase();
 
-  // Detectar tipo de solicitação
+  // Tentar extrair informações de agendamento da mensagem
+  const appointmentData = extractAppointmentData(message);
+  console.log('📋 Dados extraídos:', appointmentData);
+
+  // Se temos informações suficientes, criar o agendamento
+  if (appointmentData.hasRequiredData) {
+    console.log('✅ Dados suficientes encontrados, criando agendamento...');
+    
+    try {
+      // Chamar a função de agendamento
+      const { data, error } = await supabase.functions.invoke('appointment-manager', {
+        body: {
+          action: 'create',
+          appointmentData: {
+            title: appointmentData.title,
+            description: appointmentData.description,
+            date: appointmentData.date,
+            startTime: appointmentData.startTime,
+            endTime: appointmentData.endTime,
+            patientEmail: appointmentData.email,
+            location: appointmentData.location
+          }
+        }
+      });
+
+      if (error) {
+        console.error('❌ Erro ao criar agendamento:', error);
+        return `Desculpe, houve um erro ao criar seu agendamento. Tente novamente ou entre em contato por telefone.`;
+      }
+
+      console.log('✅ Agendamento criado com sucesso!');
+      return `✅ **Agendamento confirmado!**
+
+📅 **Data:** ${appointmentData.displayDate}
+🕐 **Horário:** ${appointmentData.startTime} às ${appointmentData.endTime}
+👨‍⚕️ **Consulta:** ${appointmentData.title}
+📧 **Email:** ${appointmentData.email}
+
+Seu agendamento foi criado com sucesso! Você receberá uma confirmação por email em breve.
+
+Se precisar cancelar ou reagendar, me avise!`;
+
+    } catch (error) {
+      console.error('❌ Erro ao processar agendamento:', error);
+      return `Desculpe, houve um erro técnico. Tente novamente em alguns minutos.`;
+    }
+  }
+
+  // Se não temos dados suficientes, solicitar mais informações
   if (lowerMessage.includes('agendar') || lowerMessage.includes('marcar')) {
     return `Para agendar sua consulta, preciso de algumas informações:
 
@@ -233,4 +287,121 @@ Gostaria de agendar uma consulta? Posso ajudá-lo com isso!`;
   }
 
   return null;
+}
+
+function extractAppointmentData(message: string): any {
+  console.log('🔍 Extraindo dados de agendamento da mensagem...');
+  
+  const result = {
+    hasRequiredData: false,
+    title: '',
+    description: '',
+    date: '',
+    displayDate: '',
+    startTime: '',
+    endTime: '',
+    email: '',
+    location: 'Clínica'
+  };
+
+  const lowerMessage = message.toLowerCase();
+  
+  // Extrair email
+  const emailRegex = /[\w\.-]+@[\w\.-]+\.\w+/g;
+  const emailMatch = message.match(emailRegex);
+  if (emailMatch) {
+    result.email = emailMatch[0];
+    console.log('📧 Email encontrado:', result.email);
+  }
+
+  // Extrair data (formatos: DD/MM/YYYY, DD/MM, DD de MMMM)
+  const dateRegex = /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/;
+  const dateMatch = message.match(dateRegex);
+  if (dateMatch) {
+    const day = dateMatch[1].padStart(2, '0');
+    const month = dateMatch[2].padStart(2, '0');
+    const year = dateMatch[3];
+    result.date = `${year}-${month}-${day}`;
+    result.displayDate = `${day}/${month}/${year}`;
+    console.log('📅 Data encontrada:', result.date);
+  } else {
+    // Tentar formato "DD de MMMM"
+    const monthNames = {
+      'janeiro': '01', 'fevereiro': '02', 'março': '03', 'abril': '04',
+      'maio': '05', 'junho': '06', 'julho': '07', 'agosto': '08',
+      'setembro': '09', 'outubro': '10', 'novembro': '11', 'dezembro': '12'
+    };
+    
+    const textDateRegex = /(\d{1,2})\s+de\s+(\w+)/i;
+    const textDateMatch = message.match(textDateRegex);
+    if (textDateMatch) {
+      const day = textDateMatch[1].padStart(2, '0');
+      const monthName = textDateMatch[2].toLowerCase();
+      const monthNum = monthNames[monthName];
+      if (monthNum) {
+        const currentYear = new Date().getFullYear();
+        result.date = `${currentYear}-${monthNum}-${day}`;
+        result.displayDate = `${day}/${monthNum}/${currentYear}`;
+        console.log('📅 Data em texto encontrada:', result.date);
+      }
+    }
+  }
+
+  // Extrair horário
+  const timeRegex = /(\d{1,2}):?(\d{0,2})\s*h?(?:oras?)?(?:\s*(?:às?|até)\s*(\d{1,2}):?(\d{0,2})\s*h?(?:oras?)?)?/g;
+  const timeMatches = [...message.matchAll(timeRegex)];
+  
+  if (timeMatches.length > 0) {
+    const firstTime = timeMatches[0];
+    const startHour = firstTime[1].padStart(2, '0');
+    const startMin = (firstTime[2] || '00').padStart(2, '0');
+    result.startTime = `${startHour}:${startMin}`;
+    
+    // Se há horário de fim especificado
+    if (firstTime[3]) {
+      const endHour = firstTime[3].padStart(2, '0');
+      const endMin = (firstTime[4] || '00').padStart(2, '0');
+      result.endTime = `${endHour}:${endMin}`;
+    } else {
+      // Assumir 1 hora de duração
+      const endHour = (parseInt(startHour) + 1).toString().padStart(2, '0');
+      result.endTime = `${endHour}:${startMin}`;
+    }
+    
+    console.log('🕐 Horário encontrado:', result.startTime, '-', result.endTime);
+  }
+
+  // Extrair tipo de consulta
+  const consultationTypes = [
+    'dermatologia', 'cardiologia', 'neurologia', 'ortopedia',
+    'ginecologia', 'pediatria', 'consulta geral', 'retorno',
+    'check-up', 'exame'
+  ];
+  
+  for (const type of consultationTypes) {
+    if (lowerMessage.includes(type)) {
+      result.title = type.charAt(0).toUpperCase() + type.slice(1);
+      console.log('👨‍⚕️ Tipo de consulta encontrado:', result.title);
+      break;
+    }
+  }
+
+  // Se não encontrou tipo específico, usar padrão
+  if (!result.title) {
+    result.title = 'Consulta Médica';
+  }
+
+  // Verificar se temos dados suficientes
+  result.hasRequiredData = !!(result.date && result.startTime && result.endTime && result.email);
+  
+  console.log('✅ Dados extraídos:', {
+    hasRequiredData: result.hasRequiredData,
+    title: result.title,
+    date: result.date,
+    startTime: result.startTime,
+    endTime: result.endTime,
+    email: result.email
+  });
+
+  return result;
 }
