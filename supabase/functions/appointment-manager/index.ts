@@ -10,7 +10,6 @@ const corsHeaders = {
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const googleServiceAccountKey = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_KEY');
 
 interface AppointmentRequest {
   title: string;
@@ -21,64 +20,6 @@ interface AppointmentRequest {
   patientEmail?: string;
   location?: string;
   label?: string;
-}
-
-async function getGoogleAccessToken() {
-  if (!googleServiceAccountKey) {
-    throw new Error('Google Service Account key not configured');
-  }
-
-  const serviceAccount = JSON.parse(googleServiceAccountKey);
-  
-  // Create JWT for Google Service Account
-  const now = Math.floor(Date.now() / 1000);
-  const header = { alg: 'RS256', typ: 'JWT' };
-  const payload = {
-    iss: serviceAccount.client_email,
-    scope: 'https://www.googleapis.com/auth/calendar',
-    aud: 'https://oauth2.googleapis.com/token',
-    iat: now,
-    exp: now + 3600
-  };
-
-  // For simplicity, using a mock token - in production, implement proper JWT signing
-  const mockToken = 'mock_access_token';
-  return mockToken;
-}
-
-async function createGoogleCalendarEvent(appointmentData: AppointmentRequest, accessToken: string) {
-  const startDateTime = new Date(`${appointmentData.date}T${appointmentData.startTime}:00`);
-  const endDateTime = new Date(`${appointmentData.date}T${appointmentData.endTime}:00`);
-
-  const event = {
-    summary: appointmentData.title,
-    description: appointmentData.description || '',
-    start: {
-      dateTime: startDateTime.toISOString(),
-      timeZone: 'America/Sao_Paulo',
-    },
-    end: {
-      dateTime: endDateTime.toISOString(),
-      timeZone: 'America/Sao_Paulo',
-    },
-    location: appointmentData.location || '',
-    attendees: appointmentData.patientEmail ? [{ email: appointmentData.patientEmail }] : [],
-  };
-
-  const response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(event),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to create calendar event: ${response.status}`);
-  }
-
-  return await response.json();
 }
 
 serve(async (req) => {
@@ -97,12 +38,38 @@ serve(async (req) => {
         console.log('Creating appointment:', appointmentData);
         
         try {
-          const accessToken = await getGoogleAccessToken();
-          const calendarEvent = await createGoogleCalendarEvent(appointmentData, accessToken);
+          // Criar evento diretamente no banco de dados para demonstração
+          // Em produção, aqui seria feita a integração com Google Calendar
+          const startDateTime = new Date(`${appointmentData.date}T${appointmentData.startTime}:00`);
+          const endDateTime = new Date(`${appointmentData.date}T${appointmentData.endTime}:00`);
+          
+          const { data: eventData, error: eventError } = await supabase
+            .from('calendar_events')
+            .insert({
+              google_event_id: `local_${Date.now()}`,
+              user_id: '00000000-0000-0000-0000-000000000000', // Sistema
+              calendar_id: 'primary',
+              title: appointmentData.title,
+              description: appointmentData.description || '',
+              start_time: startDateTime.toISOString(),
+              end_time: endDateTime.toISOString(),
+              location: appointmentData.location || 'Clínica',
+              status: 'confirmed',
+              attendees: appointmentData.patientEmail ? JSON.stringify([{ email: appointmentData.patientEmail }]) : null
+            })
+            .select()
+            .single();
+
+          if (eventError) {
+            console.error('Erro ao salvar no banco:', eventError);
+            throw new Error('Falha ao salvar agendamento');
+          }
+
+          console.log('Agendamento salvo no banco:', eventData);
           
           return new Response(JSON.stringify({
             success: true,
-            eventId: calendarEvent.id,
+            eventId: eventData.google_event_id,
             message: 'Agendamento criado com sucesso'
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -111,7 +78,7 @@ serve(async (req) => {
           console.error('Error creating appointment:', error);
           return new Response(JSON.stringify({
             success: false,
-            message: 'Erro ao criar agendamento no Google Calendar'
+            message: 'Erro ao criar agendamento: ' + error.message
           }), {
             status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -138,13 +105,37 @@ serve(async (req) => {
 
       case 'list':
         console.log('Listing appointments for date:', date);
-        return new Response(JSON.stringify({
-          success: true,
-          appointments: [],
-          message: 'Agendamentos carregados'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        
+        try {
+          const { data: appointments, error } = await supabase
+            .from('calendar_events')
+            .select('*')
+            .gte('start_time', new Date().toISOString())
+            .order('start_time', { ascending: true });
+
+          if (error) {
+            console.error('Erro ao buscar agendamentos:', error);
+            throw new Error('Falha ao buscar agendamentos');
+          }
+
+          return new Response(JSON.stringify({
+            success: true,
+            appointments: appointments || [],
+            message: 'Agendamentos carregados'
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        } catch (error) {
+          console.error('Error listing appointments:', error);
+          return new Response(JSON.stringify({
+            success: false,
+            appointments: [],
+            message: 'Erro ao buscar agendamentos'
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
 
       default:
         return new Response(JSON.stringify({

@@ -3,15 +3,33 @@ export function isAppointmentRelated(message: string): boolean {
   const appointmentKeywords = [
     'agendar', 'agendamento', 'consulta', 'horário', 'marcar',
     'reagendar', 'cancelar', 'desmarcar', 'alterar', 'mudar',
-    'disponibilidade', 'agenda', 'atendimento'
+    'disponibilidade', 'agenda', 'atendimento', 'médico', 'doutor',
+    'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo',
+    'hoje', 'amanhã', 'próxima', 'próximo'
   ];
   
   const lowerMessage = message.toLowerCase();
-  return appointmentKeywords.some(keyword => lowerMessage.includes(keyword));
+  const hasKeyword = appointmentKeywords.some(keyword => lowerMessage.includes(keyword));
+  
+  // Verificar se tem padrões de data ou hora
+  const hasDatePattern = /\d{1,2}[\/\-]\d{1,2}([\/\-]\d{2,4})?/.test(message);
+  const hasTimePattern = /\d{1,2}:?\d{0,2}\s*(h|hora|horas)?/i.test(message);
+  const hasEmailPattern = /[\w\.-]+@[\w\.-]+\.\w+/.test(message);
+  
+  console.log('🔍 Análise de agendamento:', {
+    message: message.substring(0, 50),
+    hasKeyword,
+    hasDatePattern,
+    hasTimePattern,
+    hasEmailPattern,
+    isRelated: hasKeyword || (hasDatePattern && hasTimePattern)
+  });
+  
+  return hasKeyword || (hasDatePattern && hasTimePattern);
 }
 
 export function extractAppointmentData(message: string): any {
-  console.log('🔍 Extraindo dados de agendamento da mensagem...');
+  console.log('🔍 Extraindo dados de agendamento da mensagem:', message);
   
   const result = {
     hasRequiredData: false,
@@ -35,18 +53,24 @@ export function extractAppointmentData(message: string): any {
     console.log('📧 Email encontrado:', result.email);
   }
 
-  // Extrair data (formatos: DD/MM/YYYY, DD/MM, DD de MMMM)
-  const dateRegex = /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/;
+  // Extrair data - formatos mais flexíveis
+  let dateFound = false;
+  
+  // Formato DD/MM/YYYY ou DD/MM
+  const dateRegex = /(\d{1,2})[\/\-](\d{1,2})([\/\-](\d{2,4}))?/;
   const dateMatch = message.match(dateRegex);
   if (dateMatch) {
     const day = dateMatch[1].padStart(2, '0');
     const month = dateMatch[2].padStart(2, '0');
-    const year = dateMatch[3];
+    const year = dateMatch[4] || new Date().getFullYear();
     result.date = `${year}-${month}-${day}`;
     result.displayDate = `${day}/${month}/${year}`;
-    console.log('📅 Data encontrada:', result.date);
-  } else {
-    // Tentar formato "DD de MMMM"
+    dateFound = true;
+    console.log('📅 Data encontrada (formato numérico):', result.date);
+  }
+  
+  // Se não encontrou data numérica, tentar formato "DD de MMMM"
+  if (!dateFound) {
     const monthNames = {
       'janeiro': '01', 'fevereiro': '02', 'março': '03', 'abril': '04',
       'maio': '05', 'junho': '06', 'julho': '07', 'agosto': '08',
@@ -63,13 +87,14 @@ export function extractAppointmentData(message: string): any {
         const currentYear = new Date().getFullYear();
         result.date = `${currentYear}-${monthNum}-${day}`;
         result.displayDate = `${day}/${monthNum}/${currentYear}`;
-        console.log('📅 Data em texto encontrada:', result.date);
+        dateFound = true;
+        console.log('📅 Data encontrada (formato texto):', result.date);
       }
     }
   }
 
-  // Extrair horário
-  const timeRegex = /(\d{1,2}):?(\d{0,2})\s*h?(?:oras?)?(?:\s*(?:às?|até)\s*(\d{1,2}):?(\d{0,2})\s*h?(?:oras?)?)?/g;
+  // Extrair horário - mais flexível
+  const timeRegex = /(\d{1,2}):?(\d{0,2})\s*h?(?:oras?)?(?:\s*(?:às?|até|-)?\s*(\d{1,2}):?(\d{0,2})\s*h?(?:oras?)?)?/gi;
   const timeMatches = [...message.matchAll(timeRegex)];
   
   if (timeMatches.length > 0) {
@@ -92,11 +117,13 @@ export function extractAppointmentData(message: string): any {
     console.log('🕐 Horário encontrado:', result.startTime, '-', result.endTime);
   }
 
-  // Extrair tipo de consulta
+  // Extrair tipo de consulta - mais abrangente
   const consultationTypes = [
-    'dermatologia', 'cardiologia', 'neurologia', 'ortopedia',
-    'ginecologia', 'pediatria', 'consulta geral', 'retorno',
-    'check-up', 'exame'
+    'dermatologia', 'cardiologia', 'neurologia', 'ortopedia', 'ortopedista',
+    'ginecologia', 'ginecologista', 'pediatria', 'pediatra', 'clínico geral',
+    'consulta geral', 'retorno', 'check-up', 'exame', 'avaliação',
+    'oftalmologia', 'oftalmologista', 'psiquiatria', 'psiquiatra',
+    'endocrinologia', 'endocrinologista', 'urologia', 'urologista'
   ];
   
   for (const type of consultationTypes) {
@@ -112,8 +139,13 @@ export function extractAppointmentData(message: string): any {
     result.title = 'Consulta Médica';
   }
 
-  // Verificar se temos dados suficientes
-  result.hasRequiredData = !!(result.date && result.startTime && result.endTime && result.email);
+  // Verificar se temos dados suficientes - mais flexível
+  result.hasRequiredData = !!(result.date && result.startTime && result.endTime);
+  
+  // Se tem email, é ainda melhor
+  if (result.email) {
+    result.hasRequiredData = result.hasRequiredData && !!result.email;
+  }
   
   console.log('✅ Dados extraídos:', {
     hasRequiredData: result.hasRequiredData,
@@ -121,7 +153,7 @@ export function extractAppointmentData(message: string): any {
     date: result.date,
     startTime: result.startTime,
     endTime: result.endTime,
-    email: result.email
+    email: result.email || 'não informado'
   });
 
   return result;
