@@ -29,6 +29,7 @@ import {
 import { UserPlus, Search, Edit, Trash2, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import EditUserModal from '@/components/users/EditUserModal';
 
 interface User {
   id: string;
@@ -39,17 +40,13 @@ interface User {
   created_at: string;
 }
 
-interface Permission {
-  module_name: string;
-  can_access: boolean;
-}
-
 const GestaoUsuarios = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [newUser, setNewUser] = useState({
     name: '',
@@ -226,6 +223,20 @@ const GestaoUsuarios = () => {
     } finally {
       setIsCreatingUser(false);
     }
+  };
+
+  const handleEditUser = (user: User) => {
+    setEditingUser(user);
+    setIsEditModalOpen(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setEditingUser(null);
+    setIsEditModalOpen(false);
+  };
+
+  const handleUserUpdated = () => {
+    fetchUsers();
   };
 
   const handleToggleUserStatus = async (userId: string) => {
@@ -423,7 +434,6 @@ const GestaoUsuarios = () => {
                 <TableHead>Email</TableHead>
                 <TableHead>Função</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Permissões</TableHead>
                 <TableHead>Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -444,30 +454,11 @@ const GestaoUsuarios = () => {
                     />
                   </TableCell>
                   <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {permissions.slice(0, 3).map((permission) => (
-                        <Badge
-                          key={permission.id}
-                          variant="outline"
-                          className="text-xs cursor-pointer hover:bg-gray-100"
-                          onClick={() => handleTogglePermission(user.id, permission.id)}
-                        >
-                          {permission.label}
-                        </Badge>
-                      ))}
-                      {permissions.length > 3 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{permissions.length - 3}
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
                     <div className="flex items-center gap-2">
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setEditingUser(user)}
+                        onClick={() => handleEditUser(user)}
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -486,6 +477,13 @@ const GestaoUsuarios = () => {
           </Table>
         </CardContent>
       </Card>
+
+      <EditUserModal
+        user={editingUser}
+        isOpen={isEditModalOpen}
+        onClose={handleCloseEditModal}
+        onUserUpdated={handleUserUpdated}
+      />
     </div>
   );
 };

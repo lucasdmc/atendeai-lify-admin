@@ -13,6 +13,7 @@ import ConversaIndividual from "./pages/ConversaIndividual";
 import ConectarWhatsApp from "./pages/ConectarWhatsApp";
 import Contextualizar from "./pages/Contextualizar";
 import GestaoUsuarios from "./pages/GestaoUsuarios";
+import Agendamentos from "./pages/Agendamentos";
 import Configuracoes from "./pages/Configuracoes";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -88,6 +89,14 @@ const App = () => {
                   element={
                     <Layout>
                       <GestaoUsuarios />
+                    </Layout>
+                  }
+                />
+                <Route
+                  path="/agendamentos"
+                  element={
+                    <Layout>
+                      <Agendamentos />
                     </Layout>
                   }
                 />
