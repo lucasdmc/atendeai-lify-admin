@@ -8,7 +8,7 @@ import { GoogleCalendarEvent } from '@/services/googleServiceAccountService';
 interface AgendamentosHeaderProps {
   onRefetch: () => void;
   isConnected: boolean;
-  onCreateEvent: (eventData: Omit<GoogleCalendarEvent, 'id' | 'status'>) => Promise<void>;
+  onCreateEvent: (eventData: Omit<GoogleCalendarEvent, 'id' | 'status'>) => Promise<GoogleCalendarEvent>;
 }
 
 const AgendamentosHeader = ({ onRefetch, isConnected, onCreateEvent }: AgendamentosHeaderProps) => {
