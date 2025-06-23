@@ -24,6 +24,8 @@ interface AppointmentRequest {
 
 function createDateTime(date: string, time: string): string {
   try {
+    console.log(`🔧 Criando datetime com data: ${date}, hora: ${time}`);
+    
     // Validar formato de data (YYYY-MM-DD)
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!dateRegex.test(date)) {
@@ -46,15 +48,18 @@ function createDateTime(date: string, time: string): string {
       throw new Error(`Minuto inválido: ${minute}`);
     }
     
-    const dateTime = new Date(`${date}T${time}:00`);
+    // Criar datetime no formato ISO
+    const dateTime = new Date(`${date}T${time}:00.000Z`);
     
     if (isNaN(dateTime.getTime())) {
       throw new Error(`Data/hora inválida: ${date} ${time}`);
     }
     
-    return dateTime.toISOString();
+    const isoString = dateTime.toISOString();
+    console.log(`✅ DateTime criado: ${isoString}`);
+    return isoString;
   } catch (error) {
-    console.error('Erro ao criar datetime:', error);
+    console.error('❌ Erro ao criar datetime:', error);
     throw error;
   }
 }
@@ -68,11 +73,11 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { action, appointmentData, eventId, date } = await req.json();
 
-    console.log(`Appointment Manager - Action: ${action}`);
+    console.log(`📞 Appointment Manager - Action: ${action}`);
 
     switch (action) {
       case 'create':
-        console.log('Creating appointment:', appointmentData);
+        console.log('📝 Creating appointment:', appointmentData);
         
         try {
           // Validar dados obrigatórios
@@ -93,16 +98,17 @@ serve(async (req) => {
           const startDateTime = createDateTime(appointmentData.date, appointmentData.startTime);
           const endDateTime = createDateTime(appointmentData.date, appointmentData.endTime);
           
-          console.log('Datetimes criados:', { startDateTime, endDateTime });
+          console.log('📅 Datetimes criados:', { startDateTime, endDateTime });
           
+          // Inserir no banco de dados
           const { data: eventData, error: eventError } = await supabase
             .from('calendar_events')
             .insert({
-              google_event_id: `local_${Date.now()}`,
+              google_event_id: `whatsapp_${Date.now()}`,
               user_id: '00000000-0000-0000-0000-000000000000', // Sistema
               calendar_id: 'primary',
               title: appointmentData.title,
-              description: appointmentData.description || '',
+              description: appointmentData.description || 'Agendamento via WhatsApp',
               start_time: startDateTime,
               end_time: endDateTime,
               location: appointmentData.location || 'Clínica',
@@ -113,21 +119,22 @@ serve(async (req) => {
             .single();
 
           if (eventError) {
-            console.error('Erro ao salvar no banco:', eventError);
+            console.error('❌ Erro ao salvar no banco:', eventError);
             throw new Error(`Falha ao salvar agendamento: ${eventError.message}`);
           }
 
-          console.log('Agendamento salvo no banco:', eventData);
+          console.log('✅ Agendamento salvo no banco:', eventData);
           
           return new Response(JSON.stringify({
             success: true,
             eventId: eventData.google_event_id,
-            message: 'Agendamento criado com sucesso'
+            message: 'Agendamento criado com sucesso',
+            appointment: eventData
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         } catch (error) {
-          console.error('Error creating appointment:', error);
+          console.error('❌ Error creating appointment:', error);
           return new Response(JSON.stringify({
             success: false,
             message: 'Erro ao criar agendamento: ' + error.message
@@ -137,26 +144,8 @@ serve(async (req) => {
           });
         }
 
-      case 'update':
-        console.log('Updating appointment:', eventId, appointmentData);
-        return new Response(JSON.stringify({
-          success: true,
-          message: 'Agendamento atualizado com sucesso'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-
-      case 'delete':
-        console.log('Deleting appointment:', eventId);
-        return new Response(JSON.stringify({
-          success: true,
-          message: 'Agendamento cancelado com sucesso'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-
       case 'list':
-        console.log('Listing appointments for date:', date);
+        console.log('📋 Listing appointments for date:', date);
         
         try {
           const { data: appointments, error } = await supabase
@@ -166,7 +155,7 @@ serve(async (req) => {
             .order('start_time', { ascending: true });
 
           if (error) {
-            console.error('Erro ao buscar agendamentos:', error);
+            console.error('❌ Erro ao buscar agendamentos:', error);
             throw new Error('Falha ao buscar agendamentos');
           }
 
@@ -178,7 +167,7 @@ serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         } catch (error) {
-          console.error('Error listing appointments:', error);
+          console.error('❌ Error listing appointments:', error);
           return new Response(JSON.stringify({
             success: false,
             appointments: [],
@@ -188,6 +177,24 @@ serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
+
+      case 'update':
+        console.log('📝 Updating appointment:', eventId, appointmentData);
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'Agendamento atualizado com sucesso'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+
+      case 'delete':
+        console.log('🗑️ Deleting appointment:', eventId);
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'Agendamento cancelado com sucesso'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
 
       default:
         return new Response(JSON.stringify({
@@ -199,10 +206,10 @@ serve(async (req) => {
         });
     }
   } catch (error) {
-    console.error('Error in appointment-manager:', error);
+    console.error('❌ Error in appointment-manager:', error);
     return new Response(JSON.stringify({
       success: false,
-      message: 'Erro interno do servidor'
+      message: 'Erro interno do servidor: ' + error.message
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

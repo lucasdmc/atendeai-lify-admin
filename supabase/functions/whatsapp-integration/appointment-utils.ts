@@ -55,6 +55,7 @@ export function extractAppointmentData(message: string): any {
 
   // Extrair data - formatos mais flexíveis
   let dateFound = false;
+  const currentYear = new Date().getFullYear();
   
   // Formato DD/MM/YYYY ou DD/MM
   const dateRegex = /(\d{1,2})[\/\-](\d{1,2})([\/\-](\d{2,4}))?/;
@@ -62,11 +63,23 @@ export function extractAppointmentData(message: string): any {
   if (dateMatch) {
     const day = dateMatch[1].padStart(2, '0');
     const month = dateMatch[2].padStart(2, '0');
-    const year = dateMatch[4] || new Date().getFullYear();
-    result.date = `${year}-${month}-${day}`;
-    result.displayDate = `${day}/${month}/${year}`;
-    dateFound = true;
-    console.log('📅 Data encontrada (formato numérico):', result.date);
+    let year = dateMatch[4] ? parseInt(dateMatch[4]) : currentYear;
+    
+    // Se ano com 2 dígitos, assumir 20XX
+    if (year < 100) {
+      year = 2000 + year;
+    }
+    
+    // Validar data
+    const testDate = new Date(year, parseInt(month) - 1, parseInt(day));
+    if (testDate.getFullYear() === year && 
+        testDate.getMonth() === parseInt(month) - 1 && 
+        testDate.getDate() === parseInt(day)) {
+      result.date = `${year}-${month}-${day}`;
+      result.displayDate = `${day}/${month}/${year}`;
+      dateFound = true;
+      console.log('📅 Data encontrada (formato numérico):', result.date);
+    }
   }
   
   // Se não encontrou data numérica, tentar formato "DD de MMMM"
@@ -84,7 +97,6 @@ export function extractAppointmentData(message: string): any {
       const monthName = textDateMatch[2].toLowerCase();
       const monthNum = monthNames[monthName];
       if (monthNum) {
-        const currentYear = new Date().getFullYear();
         result.date = `${currentYear}-${monthNum}-${day}`;
         result.displayDate = `${day}/${monthNum}/${currentYear}`;
         dateFound = true;
@@ -93,46 +105,41 @@ export function extractAppointmentData(message: string): any {
     }
   }
 
-  // Extrair horário - versão corrigida para formato 24h
+  // Extrair horário - melhorado
   const timeRegex = /(\d{1,2}):?(\d{0,2})\s*h?(?:oras?)?(?:\s*(?:às?|até|-)?\s*(\d{1,2}):?(\d{0,2})\s*h?(?:oras?)?)?/gi;
   const timeMatches = [...message.matchAll(timeRegex)];
   
   if (timeMatches.length > 0) {
     const firstTime = timeMatches[0];
     let startHour = parseInt(firstTime[1]);
-    const startMin = parseInt(firstTime[2] || '0');
+    const startMin = firstTime[2] ? parseInt(firstTime[2]) : 0;
     
-    // Validar e corrigir horário se necessário
-    if (startHour > 23) {
-      startHour = startHour % 24; // Se for 26h, converte para 2h
-    }
-    
-    result.startTime = `${startHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`;
-    
-    // Se há horário de fim especificado
-    if (firstTime[3]) {
-      let endHour = parseInt(firstTime[3]);
-      const endMin = parseInt(firstTime[4] || '0');
+    // Validar horário
+    if (startHour >= 0 && startHour <= 23 && startMin >= 0 && startMin <= 59) {
+      result.startTime = `${startHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`;
       
-      // Validar e corrigir horário de fim
-      if (endHour > 23) {
-        endHour = endHour % 24;
+      // Se há horário de fim especificado
+      if (firstTime[3]) {
+        let endHour = parseInt(firstTime[3]);
+        const endMin = firstTime[4] ? parseInt(firstTime[4]) : 0;
+        
+        if (endHour >= 0 && endHour <= 23 && endMin >= 0 && endMin <= 59) {
+          result.endTime = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
+        }
       }
       
-      result.endTime = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
-    } else {
-      // Assumir 1 hora de duração
-      let endHour = startHour + 1;
-      if (endHour > 23) {
-        endHour = endHour % 24;
+      // Se não tem horário de fim, assumir 1 hora de duração
+      if (!result.endTime) {
+        let endHour = startHour + 1;
+        if (endHour > 23) endHour = 23;
+        result.endTime = `${endHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`;
       }
-      result.endTime = `${endHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`;
+      
+      console.log('🕐 Horário encontrado:', result.startTime, '-', result.endTime);
     }
-    
-    console.log('🕐 Horário encontrado e corrigido:', result.startTime, '-', result.endTime);
   }
 
-  // Extrair tipo de consulta - mais abrangente
+  // Extrair tipo de consulta
   const consultationTypes = [
     'dermatologia', 'cardiologia', 'neurologia', 'ortopedia', 'ortopedista',
     'ginecologia', 'ginecologista', 'pediatria', 'pediatra', 'clínico geral',
@@ -154,13 +161,8 @@ export function extractAppointmentData(message: string): any {
     result.title = 'Consulta Médica';
   }
 
-  // Verificar se temos dados suficientes - mais flexível
+  // Verificar se temos dados suficientes
   result.hasRequiredData = !!(result.date && result.startTime && result.endTime);
-  
-  // Se tem email, é ainda melhor
-  if (result.email) {
-    result.hasRequiredData = result.hasRequiredData && !!result.email;
-  }
   
   console.log('✅ Dados extraídos:', {
     hasRequiredData: result.hasRequiredData,
