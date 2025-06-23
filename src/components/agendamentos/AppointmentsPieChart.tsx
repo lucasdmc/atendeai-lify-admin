@@ -18,11 +18,11 @@ interface AppointmentsPieChartProps {
 const AppointmentsPieChart = ({ data }: AppointmentsPieChartProps) => {
   if (data.length === 0) {
     return (
-      <Card className="hover:shadow-2xl transition-all duration-300 border-2 border-lify-pink/20 bg-gradient-to-br from-white via-purple-50/30 to-pink-50/30">
-        <CardHeader className="pb-4 bg-gradient-to-r from-lify-pink/5 to-lify-purple/5">
+      <Card className="hover:shadow-xl transition-all duration-300 bg-white/95 backdrop-blur-sm border border-white/20">
+        <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-3 text-xl text-gray-800">
-            <div className="p-3 rounded-xl bg-gradient-to-br from-lify-pink to-lify-purple border border-lify-pink/30 shadow-lg">
-              <ChartPie className="h-6 w-6 text-white" />
+            <div className="p-3 rounded-xl bg-gradient-to-br from-lify-pink/10 to-lify-purple/10 border border-lify-pink/20 shadow-lg">
+              <ChartPie className="h-6 w-6 text-lify-pink" />
             </div>
             <span className="bg-gradient-to-r from-lify-pink to-lify-purple bg-clip-text text-transparent font-bold">
               Tipos de Consulta
@@ -31,7 +31,7 @@ const AppointmentsPieChart = ({ data }: AppointmentsPieChartProps) => {
         </CardHeader>
         <CardContent>
           <div className="text-center py-12 text-gray-600">
-            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-lify-pink/20 to-lify-purple/20 flex items-center justify-center border-2 border-lify-pink/30">
+            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-lify-pink/10 to-lify-purple/10 flex items-center justify-center border-2 border-lify-pink/20">
               <ChartPie className="h-10 w-10 text-lify-pink" />
             </div>
             <p className="text-lg font-medium bg-gradient-to-r from-lify-pink to-lify-purple bg-clip-text text-transparent">Nenhum agendamento encontrado</p>
@@ -43,11 +43,11 @@ const AppointmentsPieChart = ({ data }: AppointmentsPieChartProps) => {
   }
 
   return (
-    <Card className="hover:shadow-2xl transition-all duration-300 border-2 border-lify-pink/20 bg-gradient-to-br from-white via-purple-50/30 to-pink-50/30 overflow-hidden group">
-      <CardHeader className="pb-4 bg-gradient-to-r from-lify-pink/5 to-lify-purple/5">
+    <Card className="hover:shadow-xl transition-all duration-300 bg-white/95 backdrop-blur-sm border border-white/20 overflow-hidden group">
+      <CardHeader className="pb-4">
         <CardTitle className="flex items-center gap-3 text-xl text-gray-800">
-          <div className="p-3 rounded-xl bg-gradient-to-br from-lify-pink to-lify-purple border border-lify-pink/30 shadow-lg">
-            <ChartPie className="h-6 w-6 text-white" />
+          <div className="p-3 rounded-xl bg-gradient-to-br from-lify-pink/10 to-lify-purple/10 border border-lify-pink/20 shadow-lg">
+            <ChartPie className="h-6 w-6 text-lify-pink" />
           </div>
           <span className="bg-gradient-to-r from-lify-pink to-lify-purple bg-clip-text text-transparent font-bold">
             Tipos de Consulta

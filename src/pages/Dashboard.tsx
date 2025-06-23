@@ -11,21 +11,17 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 p-6">
-        <div className="max-w-7xl mx-auto">
-          <LoadingSkeletons />
-        </div>
+      <div className="space-y-8">
+        <LoadingSkeletons />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
-        <DashboardHeader onRefresh={refreshMetrics} />
-        <MetricsCards metrics={metrics} />
-        <TopicsChart topicsData={topicsData} />
-      </div>
+    <div className="space-y-8">
+      <DashboardHeader onRefresh={refreshMetrics} />
+      <MetricsCards metrics={metrics} />
+      <TopicsChart topicsData={topicsData} />
     </div>
   );
 };

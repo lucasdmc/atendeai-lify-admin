@@ -29,10 +29,10 @@ const Header = () => {
   };
 
   return (
-    <header className="bg-white shadow-sm border-b px-6 py-4">
+    <header className="bg-white/10 backdrop-blur-md shadow-sm border-b border-white/20 px-6 py-4">
       <div className="flex items-center justify-between">
         <div className="flex-1">
-          <h2 className="text-xl font-semibold text-gray-900">
+          <h2 className="text-xl font-semibold text-white">
             Painel Administrativo
           </h2>
         </div>
@@ -40,30 +40,30 @@ const Header = () => {
         <div className="flex items-center gap-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+              <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:bg-white/20">
                 <Avatar className="h-10 w-10">
-                  <AvatarFallback className="bg-gradient-to-r from-orange-400 to-pink-400 text-white">
+                  <AvatarFallback className="bg-white/20 backdrop-blur-sm text-white border border-white/30">
                     {user?.email ? getUserInitials(user.email) : 'U'}
                   </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
+            <DropdownMenuContent className="w-56 bg-white/95 backdrop-blur-md border border-white/20" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">{user?.email}</p>
-                  <p className="text-xs leading-none text-muted-foreground">
+                  <p className="text-sm font-medium leading-none text-gray-800">{user?.email}</p>
+                  <p className="text-xs leading-none text-gray-600">
                     {userRole ? getRoleLabel(userRole) : 'Carregando...'}
                   </p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              <DropdownMenuItem className="hover:bg-lify-pink/10">
                 <User className="mr-2 h-4 w-4" />
                 <span>Perfil</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={signOut}>
+              <DropdownMenuItem onClick={signOut} className="hover:bg-red-50">
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Sair</span>
               </DropdownMenuItem>

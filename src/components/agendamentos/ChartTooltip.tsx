@@ -7,7 +7,7 @@ interface ChartTooltipProps {
 const ChartTooltip = ({ active, payload }: ChartTooltipProps) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white p-4 border-2 border-lify-pink/20 rounded-xl shadow-2xl backdrop-blur-sm">
+      <div className="bg-white/95 backdrop-blur-md p-4 border border-lify-pink/20 rounded-xl shadow-2xl">
         <p className="font-bold text-gray-800 text-lg">{`${payload[0].name}: ${payload[0].value}`}</p>
         <p className="text-sm text-gray-600 mt-1">
           {payload[0].value === 1 ? 'agendamento' : 'agendamentos'}

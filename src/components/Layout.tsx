@@ -14,8 +14,8 @@ const Layout = ({ children }: LayoutProps) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-orange-500"></div>
+      <div className="min-h-screen flex items-center justify-center bg-lify-gradient">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-white"></div>
       </div>
     );
   }
@@ -25,12 +25,14 @@ const Layout = ({ children }: LayoutProps) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-lify-pink via-lify-purple to-lify-deep-purple">
       <Sidebar />
       <div className="lg:ml-64">
         <Header />
         <main className="p-6">
-          {children}
+          <div className="backdrop-blur-sm bg-white/5 rounded-2xl p-6 border border-white/10">
+            {children}
+          </div>
         </main>
       </div>
     </div>
