@@ -54,7 +54,7 @@ const AppointmentsPieChart = ({ data }: AppointmentsPieChartProps) => {
           </span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-6">
+      <CardContent className="p-4">
         <div className="h-96">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
