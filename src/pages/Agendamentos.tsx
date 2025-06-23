@@ -53,6 +53,8 @@ const Agendamentos = () => {
             <CalendarView 
               events={events} 
               isLoading={isLoadingEvents}
+              onUpdateEvent={updateEvent}
+              onDeleteEvent={deleteEvent}
             />
           </div>
         </div>

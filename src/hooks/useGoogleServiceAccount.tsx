@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { googleServiceAccountService, GoogleCalendarEvent } from '@/services/googleServiceAccountService';
@@ -35,7 +36,12 @@ export const useGoogleServiceAccount = () => {
     try {
       setIsLoadingEvents(true);
       console.log('Fetching calendar events...');
-      const fetchedEvents = await googleServiceAccountService.fetchCalendarEvents(timeMin, timeMax);
+      
+      // Set default time range if not provided (next 30 days)
+      const defaultTimeMin = timeMin || new Date().toISOString();
+      const defaultTimeMax = timeMax || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      
+      const fetchedEvents = await googleServiceAccountService.fetchCalendarEvents(defaultTimeMin, defaultTimeMax);
       console.log('Events fetched successfully:', fetchedEvents.length);
       setEvents(fetchedEvents);
 
@@ -75,19 +81,23 @@ export const useGoogleServiceAccount = () => {
 
   const createEvent = async (eventData: Omit<GoogleCalendarEvent, 'id' | 'status'>) => {
     try {
-      console.log('Creating calendar event...');
+      console.log('Creating calendar event...', eventData);
       const newEvent = await googleServiceAccountService.createCalendarEvent(eventData);
-      await fetchEvents(); // Refresh events
+      console.log('Event created successfully:', newEvent);
+      
+      // Refresh events to show the new one
+      await fetchEvents();
+      
       toast({
         title: 'Evento criado',
-        description: 'Evento adicionado ao calendário',
+        description: 'Evento adicionado ao Google Calendar',
       });
       return newEvent;
     } catch (error) {
       console.error('Error creating event:', error);
       toast({
         title: 'Erro',
-        description: 'Falha ao criar evento',
+        description: 'Falha ao criar evento no Google Calendar',
         variant: 'destructive',
       });
       throw error;
@@ -96,18 +106,21 @@ export const useGoogleServiceAccount = () => {
 
   const updateEvent = async (eventId: string, eventData: Omit<GoogleCalendarEvent, 'id' | 'status'>) => {
     try {
-      console.log('Updating calendar event...');
+      console.log('Updating calendar event...', eventId, eventData);
       await googleServiceAccountService.updateCalendarEvent(eventId, eventData);
-      await fetchEvents(); // Refresh events
+      
+      // Refresh events to show the updated one
+      await fetchEvents();
+      
       toast({
         title: 'Evento atualizado',
-        description: 'Agendamento atualizado com sucesso',
+        description: 'Agendamento atualizado no Google Calendar',
       });
     } catch (error) {
       console.error('Error updating event:', error);
       toast({
         title: 'Erro',
-        description: 'Falha ao atualizar evento',
+        description: 'Falha ao atualizar evento no Google Calendar',
         variant: 'destructive',
       });
       throw error;
@@ -116,18 +129,21 @@ export const useGoogleServiceAccount = () => {
 
   const deleteEvent = async (eventId: string) => {
     try {
-      console.log('Deleting calendar event...');
+      console.log('Deleting calendar event...', eventId);
       await googleServiceAccountService.deleteCalendarEvent(eventId);
-      await fetchEvents(); // Refresh events
+      
+      // Refresh events to remove the deleted one
+      await fetchEvents();
+      
       toast({
         title: 'Evento excluído',
-        description: 'Agendamento removido com sucesso',
+        description: 'Agendamento removido do Google Calendar',
       });
     } catch (error) {
       console.error('Error deleting event:', error);
       toast({
         title: 'Erro',
-        description: 'Falha ao excluir evento',
+        description: 'Falha ao excluir evento do Google Calendar',
         variant: 'destructive',
       });
       throw error;
@@ -143,6 +159,8 @@ export const useGoogleServiceAccount = () => {
     if (isConnected) {
       console.log('Connected to Google Calendar via Service Account, fetching events');
       fetchEvents();
+    } else {
+      setEvents([]);
     }
   }, [isConnected]);
 

@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface GoogleCalendarEvent {
@@ -95,6 +96,7 @@ class GoogleServiceAccountService {
       const params = new URLSearchParams({
         singleEvents: 'true',
         orderBy: 'startTime',
+        maxResults: '50', // Limit to avoid too many results
         ...(timeMin && { timeMin }),
         ...(timeMax && { timeMax }),
       });
@@ -115,12 +117,25 @@ class GoogleServiceAccountService {
           statusText: response.statusText,
           error: errorData
         });
-        throw new Error('Failed to fetch calendar events');
+        
+        if (response.status === 404) {
+          console.log('Calendar not found, returning empty events list');
+          return [];
+        }
+        
+        throw new Error(`Failed to fetch calendar events: ${response.status}`);
       }
 
       const data = await response.json();
       console.log('Events fetched successfully, count:', data.items?.length || 0);
-      return data.items || [];
+      
+      // Filter out events without dateTime (all-day events)
+      const events = (data.items || []).filter((event: any) => 
+        event.start?.dateTime && event.end?.dateTime
+      );
+      
+      console.log('Filtered events with dateTime:', events.length);
+      return events;
     } catch (error) {
       console.error('Error fetching events:', error);
       throw error;
@@ -128,7 +143,7 @@ class GoogleServiceAccountService {
   }
 
   async createCalendarEvent(event: Omit<GoogleCalendarEvent, 'id' | 'status'>): Promise<GoogleCalendarEvent> {
-    console.log('Creating calendar event...');
+    console.log('Creating calendar event...', event);
     
     try {
       const accessToken = await this.getAccessToken();
@@ -141,14 +156,17 @@ class GoogleServiceAccountService {
             Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(event),
+          body: JSON.stringify({
+            ...event,
+            status: 'confirmed'
+          }),
         }
       );
 
       if (!response.ok) {
         const errorData = await response.text();
         console.error('Failed to create calendar event:', errorData);
-        throw new Error('Failed to create calendar event');
+        throw new Error(`Failed to create calendar event: ${response.status}`);
       }
 
       const createdEvent = await response.json();
@@ -161,7 +179,7 @@ class GoogleServiceAccountService {
   }
 
   async updateCalendarEvent(eventId: string, event: Omit<GoogleCalendarEvent, 'id' | 'status'>): Promise<GoogleCalendarEvent> {
-    console.log('Updating calendar event:', eventId);
+    console.log('Updating calendar event:', eventId, event);
     
     try {
       const accessToken = await this.getAccessToken();
@@ -174,14 +192,17 @@ class GoogleServiceAccountService {
             Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(event),
+          body: JSON.stringify({
+            ...event,
+            status: 'confirmed'
+          }),
         }
       );
 
       if (!response.ok) {
         const errorData = await response.text();
         console.error('Failed to update calendar event:', errorData);
-        throw new Error('Failed to update calendar event');
+        throw new Error(`Failed to update calendar event: ${response.status}`);
       }
 
       const updatedEvent = await response.json();
@@ -212,7 +233,7 @@ class GoogleServiceAccountService {
       if (!response.ok) {
         const errorData = await response.text();
         console.error('Failed to delete calendar event:', errorData);
-        throw new Error('Failed to delete calendar event');
+        throw new Error(`Failed to delete calendar event: ${response.status}`);
       }
 
       console.log('Event deleted successfully:', eventId);
