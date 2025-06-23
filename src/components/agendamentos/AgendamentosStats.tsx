@@ -12,15 +12,18 @@ const AgendamentosStats = ({ events }: AgendamentosStatsProps) => {
   const { statsCards, pieChartData } = useAgendamentosStats(events);
 
   return (
-    <div className="space-y-8">
-      {/* Estatísticas Gerais */}
-      <div className="grid grid-cols-2 gap-6">
+    <div className="space-y-4">
+      {/* KPIs Compactos */}
+      <div className="grid grid-cols-4 gap-4">
         {statsCards.map((stat, index) => (
-          <StatsCard key={index} {...stat} />
+          <div key={index} className="scale-75 origin-top">
+            <StatsCard {...stat} />
+          </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
+      {/* Gráfico reduzido */}
+      <div className="scale-75 origin-top">
         <AppointmentsPieChart data={pieChartData} />
       </div>
     </div>
