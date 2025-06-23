@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 const GOOGLE_CLIENT_ID = '367439444210-2p0lde4fmerq4jlraojguku3dt3l5d70.apps.googleusercontent.com';
@@ -34,17 +33,23 @@ export interface CalendarToken {
 
 class GoogleCalendarService {
   private getAuthUrl(): string {
-    console.log('Generating Google OAuth URL...');
+    console.log('=== GOOGLE OAUTH CONFIGURATION DEBUG ===');
+    
+    const currentUrl = window.location.origin;
+    const redirectUri = `${currentUrl}/agendamentos`;
+    
+    console.log('Current URL origin:', currentUrl);
+    console.log('Redirect URI:', redirectUri);
+    console.log('Google Client ID:', GOOGLE_CLIENT_ID);
     
     // Generate a proper state parameter to avoid the OAuth state parameter missing error
     const state = btoa(JSON.stringify({
       timestamp: Date.now(),
-      origin: window.location.origin,
-      path: window.location.pathname
+      origin: currentUrl,
+      path: '/agendamentos'
     }));
 
-    const redirectUri = window.location.origin + '/agendamentos';
-    console.log('Using redirect URI:', redirectUri);
+    console.log('Generated state parameter:', state);
 
     const params = new URLSearchParams({
       client_id: GOOGLE_CLIENT_ID,
@@ -57,15 +62,26 @@ class GoogleCalendarService {
     });
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-    console.log('Generated auth URL:', authUrl);
+    console.log('Complete OAuth URL:', authUrl);
+    console.log('=== END DEBUG ===');
     
     return authUrl;
   }
 
   async initiateAuth(): Promise<void> {
-    const authUrl = this.getAuthUrl();
-    console.log('Redirecting to Google auth:', authUrl);
-    window.location.href = authUrl;
+    try {
+      const authUrl = this.getAuthUrl();
+      console.log('Iniciating OAuth flow...');
+      console.log('Redirecting to:', authUrl);
+      
+      // Add a small delay to ensure logs are visible
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      window.location.href = authUrl;
+    } catch (error) {
+      console.error('Error in initiateAuth:', error);
+      throw error;
+    }
   }
 
   async exchangeCodeForTokens(code: string): Promise<CalendarToken> {
@@ -159,24 +175,34 @@ class GoogleCalendarService {
 
     console.log('Fetching stored tokens for user:', user.id);
 
-    const { data, error } = await supabase
-      .from('google_calendar_tokens')
-      .select('*')
-      .eq('user_id', user.id)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('google_calendar_tokens')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle(); // Using maybeSingle instead of single to avoid 406 errors
 
-    if (error || !data) {
-      console.log('No stored tokens found:', error?.message || 'No data');
+      if (error) {
+        console.log('Error fetching stored tokens:', error);
+        return null;
+      }
+
+      if (!data) {
+        console.log('No stored tokens found');
+        return null;
+      }
+
+      console.log('Stored tokens found successfully');
+      return {
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+        expires_at: data.expires_at,
+        scope: data.scope,
+      };
+    } catch (error) {
+      console.error('Unexpected error getting stored tokens:', error);
       return null;
     }
-
-    console.log('Stored tokens found');
-    return {
-      access_token: data.access_token,
-      refresh_token: data.refresh_token,
-      expires_at: data.expires_at,
-      scope: data.scope,
-    };
   }
 
   async refreshTokens(refreshToken: string): Promise<CalendarToken> {

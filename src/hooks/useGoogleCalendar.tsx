@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { googleCalendarService, GoogleCalendarEvent } from '@/services/googleCalendarService';
@@ -35,21 +34,32 @@ export const useGoogleCalendar = () => {
   };
 
   const handleAuthRedirect = async () => {
-    console.log('Handling auth redirect, current URL:', window.location.href);
+    console.log('=== HANDLING AUTH REDIRECT ===');
+    console.log('Current URL:', window.location.href);
+    
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     const error = urlParams.get('error');
     const state = urlParams.get('state');
 
-    console.log('URL params:', { code: !!code, error, state });
+    console.log('URL params:', { 
+      hasCode: !!code, 
+      error, 
+      hasState: !!state,
+      codeLength: code?.length || 0
+    });
 
     if (error) {
       console.error('OAuth error received:', error);
+      const errorDescription = urlParams.get('error_description') || 'Erro desconhecido';
+      console.error('Error description:', errorDescription);
+      
       toast({
-        title: 'Erro na autenticação',
-        description: `Falha ao conectar com o Google Calendar: ${error}`,
+        title: 'Erro na autenticação Google',
+        description: `${error}: ${errorDescription}`,
         variant: 'destructive',
       });
+      
       // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname);
       return;
@@ -58,7 +68,7 @@ export const useGoogleCalendar = () => {
     if (code) {
       try {
         setIsLoading(true);
-        console.log('Processing authorization code:', code.substring(0, 10) + '...');
+        console.log('Processing authorization code of length:', code.length);
         
         if (!user) {
           console.error('No user found when processing OAuth code');
@@ -94,9 +104,10 @@ export const useGoogleCalendar = () => {
         await fetchEvents();
       } catch (error) {
         console.error('Error handling auth redirect:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
         toast({
           title: 'Erro',
-          description: `Falha ao processar autenticação do Google: ${error.message}`,
+          description: `Falha ao processar autenticação: ${errorMessage}`,
           variant: 'destructive',
         });
         // Clean up URL on error
@@ -105,11 +116,13 @@ export const useGoogleCalendar = () => {
         setIsLoading(false);
       }
     }
+    
+    console.log('=== END AUTH REDIRECT HANDLING ===');
   };
 
   const connectToGoogle = async () => {
     try {
-      console.log('Initiating Google Calendar connection...');
+      console.log('=== INITIATING GOOGLE CONNECTION ===');
       if (!user) {
         console.error('No user found when trying to connect to Google');
         toast({
@@ -120,12 +133,14 @@ export const useGoogleCalendar = () => {
         return;
       }
       
+      console.log('User authenticated, proceeding with OAuth...');
       await googleCalendarService.initiateAuth();
     } catch (error) {
       console.error('Error initiating Google auth:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       toast({
         title: 'Erro',
-        description: 'Falha ao iniciar conexão com Google Calendar',
+        description: `Falha ao iniciar conexão: ${errorMessage}`,
         variant: 'destructive',
       });
     }
