@@ -40,20 +40,17 @@ class GoogleServiceAccountService {
   private tokenExpiry: number | null = null;
 
   private async getServiceAccountCredentials(): Promise<ServiceAccountCredentials> {
-    const credentials = {
-      "type": "service_account",
-      "project_id": "lify-chatbot-v0",
-      "private_key_id": "545154e8e5e90bb0d216ffdc9d2039ae7f52acd9",
-      "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC8yFzqoQJKP7wH\n0QrUzGxVfE5J8nQwQkK7L3pF1mN9xPKdW6sR4fJ8tV2nE3mH5lP9dR7qS8zX4nO1\n6yV3kT2pM4fG8hJ9xW1nL5rE6qP3sD9fK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO1\n6yV3kT2pM4fG8hJ9xW1nL5rE6qP3sD9fK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO1\n6yV3kT2pM4fG8hJ9xW1nL5rE6qP3sD9fK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO1\n6yV3kT2pM4fG8hJ9xW1nL5rE6qP3sD9fK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO1\n6yV3kT2pM4fG8hJ9xW1nL5rE6qP3sD9fK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO1\n6yV3kT2pM4fG8hJ9xW1nL5rE6qP3sD9fK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO1\nAgMBAAECggEAK8fJ9xW1nL5rE6qP3sD9fK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO1\n6yV3kT2pM4fG8hJ9xW1nL5rE6qP3sD9fK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO1\n6yV3kT2pM4fG8hJ9xW1nL5rE6qP3sD9fK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO1\n6yV3kT2pM4fG8hJ9xW1nL5rE6qP3sD9fK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO1\n6yV3kT2pM4fG8hJ9xW1nL5rE6qP3sD9fK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO1\n6yV3kT2pM4fG8hJ9xW1nL5rE6qP3sD9fK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO1\n6yV3kT2pM4fG8hJ9xW1nL5rE6qP3sD9fK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO1\nQKBgQDpK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO16yV3kT2pM4fG8hJ9xW1nL5rE\n6qP3sD9fK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO16yV3kT2pM4fG8hJ9xW1nL5rE\n6qP3sD9fK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO16yV3kT2pM4fG8hJ9xW1nL5rE\nQKBgQDOK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO16yV3kT2pM4fG8hJ9xW1nL5rE\n6qP3sD9fK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO16yV3kT2pM4fG8hJ9xW1nL5rE\n6qP3sD9fK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO16yV3kT2pM4fG8hJ9xW1nL5rE\nwKBgFnP1dR7qS8zX4nO16yV3kT2pM4fG8hJ9xW1nL5rE6qP3sD9fK2mH8tV7nR4q\nS6zX9nP1dR7qS8zX4nO16yV3kT2pM4fG8hJ9xW1nL5rE6qP3sD9fK2mH8tV7nR4q\nS6zX9nP1dR7qS8zX4nO16yV3kT2pM4fG8hJ9xW1nL5rE6qP3sD9fK2mH8tV7nR4q\nAoGAK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO16yV3kT2pM4fG8hJ9xW1nL5rE6qP3\nsD9fK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO16yV3kT2pM4fG8hJ9xW1nL5rE6qP3\nsD9fK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO16yV3kT2pM4fG8hJ9xW1nL5rE6qP3\nAoGBAJxW1nL5rE6qP3sD9fK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO16yV3kT2pM4\nfG8hJ9xW1nL5rE6qP3sD9fK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO16yV3kT2pM4\nfG8hJ9xW1nL5rE6qP3sD9fK2mH8tV7nR4qS6zX9nP1dR7qS8zX4nO16yV3kT2pM4\n-----END PRIVATE KEY-----\n",
-      "client_email": "lify-calendar-service@lify-chatbot-v0.iam.gserviceaccount.com",
-      "client_id": "115670288875875320758",
-      "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-      "token_uri": "https://oauth2.googleapis.com/token",
-      "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-      "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/lify-calendar-service%40lify-chatbot-v0.iam.gserviceaccount.com"
-    };
-    
-    return credentials;
+    // Get credentials from Supabase secrets via edge function
+    const { data, error } = await supabase.functions.invoke('google-service-auth', {
+      body: { action: 'get-credentials' }
+    });
+
+    if (error) {
+      console.error('Failed to get service account credentials:', error);
+      throw new Error('Failed to get service account credentials');
+    }
+
+    return data.credentials;
   }
 
   private async getAccessToken(): Promise<string> {
@@ -62,68 +59,22 @@ class GoogleServiceAccountService {
     }
 
     console.log('Getting new access token for service account...');
-    const credentials = await this.getServiceAccountCredentials();
     
-    // Create JWT assertion
-    const now = Math.floor(Date.now() / 1000);
-    const payload = {
-      iss: credentials.client_email,
-      scope: 'https://www.googleapis.com/auth/calendar',
-      aud: credentials.token_uri,
-      exp: now + 3600,
-      iat: now,
-    };
-
-    const header = {
-      alg: 'RS256',
-      typ: 'JWT',
-    };
-
-    // For simplicity, we'll use the Google OAuth endpoint directly
-    // In production, you'd want to implement proper JWT signing
-    const assertion = await this.createJWT(header, payload, credentials.private_key);
-
-    const response = await fetch(credentials.token_uri, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-        assertion: assertion,
-      }),
+    // Use the edge function to handle JWT creation and token exchange
+    const { data, error } = await supabase.functions.invoke('google-service-auth', {
+      body: { action: 'get-access-token' }
     });
 
-    if (!response.ok) {
-      const error = await response.text();
+    if (error) {
       console.error('Failed to get access token:', error);
       throw new Error('Failed to authenticate service account');
     }
 
-    const tokenData = await response.json();
-    this.accessToken = tokenData.access_token;
-    this.tokenExpiry = Date.now() + (tokenData.expires_in * 1000);
+    this.accessToken = data.access_token;
+    this.tokenExpiry = Date.now() + (data.expires_in * 1000);
 
     console.log('Access token obtained successfully');
     return this.accessToken;
-  }
-
-  private async createJWT(header: any, payload: any, privateKey: string): Promise<string> {
-    // This is a simplified implementation
-    // In production, use a proper JWT library
-    const headerEncoded = btoa(JSON.stringify(header));
-    const payloadEncoded = btoa(JSON.stringify(payload));
-    
-    // For now, we'll make a call to our edge function to handle JWT signing
-    const { data, error } = await supabase.functions.invoke('google-service-auth', {
-      body: { header, payload, privateKey }
-    });
-
-    if (error) {
-      throw new Error('Failed to create JWT');
-    }
-
-    return data.jwt;
   }
 
   async isConnected(): Promise<boolean> {
