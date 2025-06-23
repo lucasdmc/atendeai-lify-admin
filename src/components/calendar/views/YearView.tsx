@@ -3,9 +3,7 @@ import { startOfYear, endOfYear, eachMonthOfInterval, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { GoogleCalendarEvent } from '@/services/googleServiceAccountService';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { LineChart, Line, ResponsiveContainer, XAxis, YAxis } from 'recharts';
-import { TrendingUp, Calendar } from 'lucide-react';
+import { Calendar, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface YearViewProps {
   currentDate: Date;
@@ -18,18 +16,43 @@ const YearView = ({ currentDate, events }: YearViewProps) => {
   const yearEnd = endOfYear(currentDate);
   const monthsInYear = eachMonthOfInterval({ start: yearStart, end: yearEnd });
 
-  // Preparar dados para o gráfico de tendência
-  const monthlyData = monthsInYear.map((month) => {
+  // Preparar dados mensais com comparação
+  const monthlyData = monthsInYear.map((month, index) => {
     const monthEvents = events.filter(event => {
       if (!event.start?.dateTime) return false;
       const eventDate = new Date(event.start.dateTime);
       return eventDate.getMonth() === month.getMonth() && eventDate.getFullYear() === month.getFullYear();
     });
 
+    let changePercentage = 0;
+    let isIncrease = null;
+
+    if (index > 0) {
+      const previousMonth = monthsInYear[index - 1];
+      const previousMonthEvents = events.filter(event => {
+        if (!event.start?.dateTime) return false;
+        const eventDate = new Date(event.start.dateTime);
+        return eventDate.getMonth() === previousMonth.getMonth() && eventDate.getFullYear() === previousMonth.getFullYear();
+      });
+
+      const currentCount = monthEvents.length;
+      const previousCount = previousMonthEvents.length;
+
+      if (previousCount > 0) {
+        changePercentage = Math.round(((currentCount - previousCount) / previousCount) * 100);
+        isIncrease = currentCount >= previousCount;
+      } else if (currentCount > 0) {
+        changePercentage = 100;
+        isIncrease = true;
+      }
+    }
+
     return {
-      month: format(month, 'MMM', { locale: ptBR }),
+      month,
       count: monthEvents.length,
-      fullMonth: format(month, 'MMMM', { locale: ptBR })
+      changePercentage,
+      isIncrease,
+      showChange: index > 0
     };
   });
 
@@ -39,93 +62,66 @@ const YearView = ({ currentDate, events }: YearViewProps) => {
     return eventDate.getFullYear() === currentDate.getFullYear();
   }).length;
 
-  const chartConfig = {
-    count: {
-      label: "Agendamentos",
-      color: "hsl(var(--chart-1))",
-    },
-  };
-
   return (
     <div className="space-y-6">
-      {/* Gráfico de tendência anual */}
+      {/* Resumo do ano */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-orange-500" />
-            Tendência de Agendamentos - {currentDate.getFullYear()}
+            <Calendar className="h-5 w-5 text-orange-500" />
+            Resumo do Ano - {currentDate.getFullYear()}
             <span className="text-sm font-normal text-gray-500">
               ({totalEvents} {totalEvents === 1 ? 'agendamento' : 'agendamentos'} no ano)
             </span>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <ChartContainer config={chartConfig} className="h-[200px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={monthlyData}>
-                <XAxis 
-                  dataKey="month" 
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 12 }}
-                />
-                <YAxis 
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 12 }}
-                />
-                <ChartTooltip 
-                  content={<ChartTooltipContent 
-                    labelFormatter={(value, payload) => {
-                      const item = payload?.[0]?.payload;
-                      return item?.fullMonth || value;
-                    }}
-                    formatter={(value, name) => [
-                      `${value} ${value === 1 ? 'agendamento' : 'agendamentos'}`,
-                      'Total'
-                    ]}
-                  />}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="count" 
-                  stroke="var(--color-count)" 
-                  strokeWidth={2}
-                  dot={{ fill: "var(--color-count)", strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </ChartContainer>
-        </CardContent>
       </Card>
 
-      {/* Grid de meses com contadores */}
+      {/* Grid de meses com indicadores de tendência */}
       <div className="grid grid-cols-3 gap-4">
-        {monthsInYear.map((month) => {
-          const monthEvents = events.filter(event => {
-            if (!event.start?.dateTime) return false;
-            const eventDate = new Date(event.start.dateTime);
-            return eventDate.getMonth() === month.getMonth() && eventDate.getFullYear() === month.getFullYear();
-          });
-
+        {monthlyData.map((monthData) => {
           return (
-            <Card key={month.toString()} className="hover:shadow-md transition-shadow cursor-pointer">
+            <Card key={monthData.month.toString()} className="hover:shadow-md transition-shadow cursor-pointer">
               <CardContent className="p-4 text-center">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <Calendar className="h-4 w-4 text-gray-500" />
                   <h4 className="font-semibold text-gray-800">
-                    {format(month, 'MMMM', { locale: ptBR })}
+                    {format(monthData.month, 'MMMM', { locale: ptBR })}
                   </h4>
                 </div>
                 
                 <div className="text-center">
                   <div className="text-3xl font-bold text-orange-600 mb-1">
-                    {monthEvents.length}
+                    {monthData.count}
                   </div>
-                  <div className="text-sm text-gray-500">
-                    {monthEvents.length === 1 ? 'agendamento' : 'agendamentos'}
+                  <div className="text-sm text-gray-500 mb-2">
+                    {monthData.count === 1 ? 'agendamento' : 'agendamentos'}
                   </div>
+
+                  {/* Indicador de tendência */}
+                  {monthData.showChange && (
+                    <div className="flex items-center justify-center gap-1">
+                      {monthData.isIncrease !== null && (
+                        <>
+                          {monthData.isIncrease ? (
+                            <ArrowUp className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <ArrowDown className="h-4 w-4 text-red-600" />
+                          )}
+                          <span className={`text-sm font-medium ${
+                            monthData.isIncrease ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {Math.abs(monthData.changePercentage)}%
+                          </span>
+                        </>
+                      )}
+                      {monthData.isIncrease === null && monthData.changePercentage === 0 && (
+                        <span className="text-sm text-gray-400">
+                          --
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
