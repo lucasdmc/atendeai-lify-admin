@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { googleServiceAccountService, GoogleCalendarEvent } from '@/services/googleServiceAccountService';
@@ -212,9 +211,92 @@ export const useGoogleServiceAccount = () => {
     events,
     isLoadingEvents,
     fetchEvents,
-    createEvent,
-    updateEvent,
-    deleteEvent,
+    createEvent: async (eventData: Omit<GoogleCalendarEvent, 'id' | 'status'>) => {
+      try {
+        console.log('Creating calendar event...', eventData);
+        
+        if (!isConnected) {
+          throw new Error('Google Calendar não está conectado');
+        }
+        
+        const newEvent = await googleServiceAccountService.createCalendarEvent(eventData);
+        console.log('Event created successfully:', newEvent);
+        
+        // Refresh events to show the new one
+        await fetchEvents();
+        
+        toast({
+          title: 'Evento criado',
+          description: 'Evento adicionado ao Google Calendar com sucesso',
+        });
+        return newEvent;
+      } catch (error) {
+        console.error('Error creating event:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+        toast({
+          title: 'Erro',
+          description: `Falha ao criar evento: ${errorMessage}`,
+          variant: 'destructive',
+        });
+        throw error;
+      }
+    },
+    updateEvent: async (eventId: string, eventData: Omit<GoogleCalendarEvent, 'id' | 'status'>) => {
+      try {
+        console.log('Updating calendar event...', eventId, eventData);
+        
+        if (!isConnected) {
+          throw new Error('Google Calendar não está conectado');
+        }
+        
+        await googleServiceAccountService.updateCalendarEvent(eventId, eventData);
+        
+        // Refresh events to show the updated one
+        await fetchEvents();
+        
+        toast({
+          title: 'Evento atualizado',
+          description: 'Agendamento atualizado no Google Calendar',
+        });
+      } catch (error) {
+        console.error('Error updating event:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+        toast({
+          title: 'Erro',
+          description: `Falha ao atualizar evento: ${errorMessage}`,
+          variant: 'destructive',
+        });
+        throw error;
+      }
+    },
+    deleteEvent: async (eventId: string) => {
+      try {
+        console.log('Deleting calendar event...', eventId);
+        
+        if (!isConnected) {
+          throw new Error('Google Calendar não está conectado');
+        }
+        
+        await googleServiceAccountService.deleteCalendarEvent(eventId);
+        
+        // Refresh events to remove the deleted one
+        await fetchEvents();
+        
+        toast({
+          title: 'Evento excluído',
+          description: 'Agendamento removido do Google Calendar',
+        });
+      } catch (error) {
+        console.error('Error deleting event:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+        toast({
+          title: 'Erro',
+          description: `Falha ao excluir evento: ${errorMessage}`,
+          variant: 'destructive',
+        });
+        throw error;
+      }
+    },
     calendarId: googleServiceAccountService.getCalendarId(),
     refetch: () => {
       console.log('Refetching Google Calendar data');

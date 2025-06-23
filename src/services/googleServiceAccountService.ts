@@ -35,8 +35,8 @@ interface ServiceAccountCredentials {
 }
 
 class GoogleServiceAccountService {
-  // Use 'primary' calendar for the service account instead of the email
-  private readonly calendarId = 'primary';
+  // Use the specific calendar ID provided by the user
+  private readonly calendarId = '115670288875875320758';
   private accessToken: string | null = null;
   private tokenExpiry: number | null = null;
 
@@ -97,7 +97,7 @@ class GoogleServiceAccountService {
         return false;
       }
       
-      console.log('Successfully connected to Google Calendar');
+      console.log('Successfully connected to Google Calendar with ID:', this.calendarId);
       return true;
     } catch (error) {
       console.error('Service account not properly configured:', error);
@@ -106,7 +106,7 @@ class GoogleServiceAccountService {
   }
 
   async fetchCalendarEvents(timeMin?: string, timeMax?: string): Promise<GoogleCalendarEvent[]> {
-    console.log('Fetching calendar events from service account...');
+    console.log('Fetching calendar events from calendar ID:', this.calendarId);
     
     try {
       const accessToken = await this.getAccessToken();
@@ -118,7 +118,7 @@ class GoogleServiceAccountService {
       const params = new URLSearchParams({
         singleEvents: 'true',
         orderBy: 'startTime',
-        maxResults: '100', // Increased to get more events
+        maxResults: '100',
         timeMin: defaultTimeMin,
         timeMax: defaultTimeMax,
       });
@@ -138,11 +138,12 @@ class GoogleServiceAccountService {
         console.error('Failed to fetch calendar events:', {
           status: response.status,
           statusText: response.statusText,
-          error: errorData
+          error: errorData,
+          calendarId: this.calendarId
         });
         
         if (response.status === 404) {
-          console.log('Calendar not found, this might be expected for a new service account');
+          console.log('Calendar not found, this might be expected for a new calendar or wrong ID');
           return [];
         }
         
@@ -150,7 +151,7 @@ class GoogleServiceAccountService {
       }
 
       const data = await response.json();
-      console.log('Raw API response:', data);
+      console.log('Raw API response for calendar', this.calendarId, ':', data);
       console.log('Total events from API:', data.items?.length || 0);
       
       // Filter out events without dateTime (all-day events) and log what we're filtering
@@ -178,7 +179,7 @@ class GoogleServiceAccountService {
   }
 
   async createCalendarEvent(event: Omit<GoogleCalendarEvent, 'id' | 'status'>): Promise<GoogleCalendarEvent> {
-    console.log('Creating calendar event in Google Calendar...', event);
+    console.log('Creating calendar event in calendar ID:', this.calendarId, event);
     
     try {
       const accessToken = await this.getAccessToken();
@@ -216,7 +217,8 @@ class GoogleServiceAccountService {
         console.error('Failed to create calendar event:', {
           status: response.status,
           statusText: response.statusText,
-          error: errorData
+          error: errorData,
+          calendarId: this.calendarId
         });
         throw new Error(`Failed to create calendar event: ${response.status} - ${errorData}`);
       }
@@ -232,7 +234,7 @@ class GoogleServiceAccountService {
   }
 
   async updateCalendarEvent(eventId: string, event: Omit<GoogleCalendarEvent, 'id' | 'status'>): Promise<GoogleCalendarEvent> {
-    console.log('Updating calendar event in Google Calendar:', eventId, event);
+    console.log('Updating calendar event in calendar ID:', this.calendarId, eventId, event);
     
     try {
       const accessToken = await this.getAccessToken();
@@ -270,7 +272,8 @@ class GoogleServiceAccountService {
         console.error('Failed to update calendar event:', {
           status: response.status,
           statusText: response.statusText,
-          error: errorData
+          error: errorData,
+          calendarId: this.calendarId
         });
         throw new Error(`Failed to update calendar event: ${response.status} - ${errorData}`);
       }
@@ -285,7 +288,7 @@ class GoogleServiceAccountService {
   }
 
   async deleteCalendarEvent(eventId: string): Promise<void> {
-    console.log('Deleting calendar event from Google Calendar:', eventId);
+    console.log('Deleting calendar event from calendar ID:', this.calendarId, eventId);
     
     try {
       const accessToken = await this.getAccessToken();
@@ -305,7 +308,8 @@ class GoogleServiceAccountService {
         console.error('Failed to delete calendar event:', {
           status: response.status,
           statusText: response.statusText,
-          error: errorData
+          error: errorData,
+          calendarId: this.calendarId
         });
         throw new Error(`Failed to delete calendar event: ${response.status} - ${errorData}`);
       }
@@ -319,6 +323,44 @@ class GoogleServiceAccountService {
 
   getCalendarId(): string {
     return this.calendarId;
+  }
+
+  private async getServiceAccountCredentials(): Promise<ServiceAccountCredentials> {
+    // Get credentials from Supabase secrets via edge function
+    const { data, error } = await supabase.functions.invoke('google-service-auth', {
+      body: { action: 'get-credentials' }
+    });
+
+    if (error) {
+      console.error('Failed to get service account credentials:', error);
+      throw new Error('Failed to get service account credentials');
+    }
+
+    return data.credentials;
+  }
+
+  private async getAccessToken(): Promise<string> {
+    if (this.accessToken && this.tokenExpiry && Date.now() < this.tokenExpiry) {
+      return this.accessToken;
+    }
+
+    console.log('Getting new access token for service account...');
+    
+    // Use the edge function to handle JWT creation and token exchange
+    const { data, error } = await supabase.functions.invoke('google-service-auth', {
+      body: { action: 'get-access-token' }
+    });
+
+    if (error) {
+      console.error('Failed to get access token:', error);
+      throw new Error('Failed to authenticate service account');
+    }
+
+    this.accessToken = data.access_token;
+    this.tokenExpiry = Date.now() + (data.expires_in * 1000);
+
+    console.log('Access token obtained successfully');
+    return this.accessToken;
   }
 }
 
