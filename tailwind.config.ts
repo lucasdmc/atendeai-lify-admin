@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,12 +62,23 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				// Lify Brand Colors
+				'lify-pink': '#e91e63',
+				'lify-purple': '#9c27b0',
+				'lify-deep-purple': '#673ab7',
+				'lify-orange': '#ff5722',
+				'lify-amber': '#ff9800'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)'
+			},
+			backgroundImage: {
+				'lify-gradient': 'linear-gradient(135deg, #e91e63 0%, #9c27b0 50%, #673ab7 100%)',
+				'lify-gradient-orange': 'linear-gradient(135deg, #ff5722 0%, #ff9800 100%)',
+				'lify-gradient-accent': 'linear-gradient(135deg, #e91e63 0%, #ff5722 100%)'
 			},
 			keyframes: {
 				'accordion-down': {

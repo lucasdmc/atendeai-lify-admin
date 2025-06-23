@@ -11,8 +11,8 @@ const Index = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-orange-500"></div>
+      <div className="min-h-screen flex items-center justify-center bg-lify-gradient">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-white"></div>
       </div>
     );
   }
@@ -22,7 +22,7 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-400 via-pink-500 to-purple-600">
+    <div className="min-h-screen bg-lify-gradient">
       <div className="container mx-auto px-4 py-16">
         {/* Header */}
         <div className="text-center mb-16">
@@ -43,7 +43,7 @@ const Index = () => {
 
         {/* Features */}
         <div className="grid md:grid-cols-3 gap-8 mb-16">
-          <Card className="bg-white/10 backdrop-blur border-white/20">
+          <Card className="bg-white/10 backdrop-blur border-white/20 hover:bg-white/20 transition-all duration-300">
             <CardHeader>
               <BarChart3 className="h-8 w-8 text-white mb-2" />
               <CardTitle className="text-white">Dashboard Completo</CardTitle>
@@ -55,7 +55,7 @@ const Index = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-white/10 backdrop-blur border-white/20">
+          <Card className="bg-white/10 backdrop-blur border-white/20 hover:bg-white/20 transition-all duration-300">
             <CardHeader>
               <MessageSquare className="h-8 w-8 text-white mb-2" />
               <CardTitle className="text-white">Gestão de Conversas</CardTitle>
@@ -67,7 +67,7 @@ const Index = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-white/10 backdrop-blur border-white/20">
+          <Card className="bg-white/10 backdrop-blur border-white/20 hover:bg-white/20 transition-all duration-300">
             <CardHeader>
               <Bot className="h-8 w-8 text-white mb-2" />
               <CardTitle className="text-white">IA Contextualizada</CardTitle>
@@ -83,7 +83,7 @@ const Index = () => {
         {/* CTA */}
         <div className="text-center">
           <Link to="/auth">
-            <Button size="lg" className="bg-white text-purple-600 hover:bg-gray-100 px-8 py-3 text-lg">
+            <Button size="lg" className="bg-white text-lify-purple hover:bg-gray-100 px-8 py-3 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300">
               Acessar Painel
             </Button>
           </Link>
