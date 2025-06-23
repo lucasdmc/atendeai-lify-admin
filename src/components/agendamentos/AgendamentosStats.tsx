@@ -55,7 +55,7 @@ const AgendamentosStats = ({ events }: AgendamentosStatsProps) => {
     return acc;
   }, {} as Record<AppointmentLabel, number>);
 
-  // Prepare data for pie chart
+  // Prepare data for pie chart with platform colors
   const pieChartData = Object.entries(appointmentLabels)
     .map(([key, config]) => ({
       name: config.name,
@@ -70,46 +70,46 @@ const AgendamentosStats = ({ events }: AgendamentosStatsProps) => {
       title: 'Hoje',
       value: todayEvents.length,
       icon: CalendarDays,
-      color: 'text-blue-600',
-      bgColor: 'bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200',
-      borderColor: 'border-blue-300',
-      shadowColor: 'shadow-blue-100'
+      color: 'text-primary',
+      bgColor: 'bg-gradient-to-br from-primary/10 via-primary/20 to-primary/30',
+      borderColor: 'border-primary/40',
+      shadowColor: 'shadow-primary/10'
     },
     {
       title: 'Esta Semana',
       value: thisWeekEvents.length,
       icon: Clock,
-      color: 'text-purple-600',
-      bgColor: 'bg-gradient-to-br from-purple-50 via-purple-100 to-purple-200',
-      borderColor: 'border-purple-300',
-      shadowColor: 'shadow-purple-100'
+      color: 'text-accent-foreground',
+      bgColor: 'bg-gradient-to-br from-accent/10 via-accent/20 to-accent/30',
+      borderColor: 'border-accent/40',
+      shadowColor: 'shadow-accent/10'
     },
     {
       title: 'Este Mês',
       value: thisMonthEvents.length,
       icon: Users,
-      color: 'text-orange-600',
-      bgColor: 'bg-gradient-to-br from-orange-50 via-orange-100 to-orange-200',
-      borderColor: 'border-orange-300',
-      shadowColor: 'shadow-orange-100'
+      color: 'text-secondary-foreground',
+      bgColor: 'bg-gradient-to-br from-secondary/10 via-secondary/20 to-secondary/30',
+      borderColor: 'border-secondary/40',
+      shadowColor: 'shadow-secondary/10'
     },
     {
       title: 'Total de Eventos',
       value: events.length,
       icon: TrendingUp,
-      color: 'text-green-600',
-      bgColor: 'bg-gradient-to-br from-green-50 via-green-100 to-green-200',
-      borderColor: 'border-green-300',
-      shadowColor: 'shadow-green-100'
+      color: 'text-primary',
+      bgColor: 'bg-gradient-to-br from-muted/10 via-muted/20 to-muted/30',
+      borderColor: 'border-muted/40',
+      shadowColor: 'shadow-muted/10'
     }
   ];
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-medium">{`${payload[0].name}: ${payload[0].value}`}</p>
-          <p className="text-sm text-gray-500">
+        <div className="bg-card p-3 border border-border rounded-lg shadow-lg">
+          <p className="font-medium text-card-foreground">{`${payload[0].name}: ${payload[0].value}`}</p>
+          <p className="text-sm text-muted-foreground">
             {payload[0].value === 1 ? 'agendamento' : 'agendamentos'}
           </p>
         </div>
@@ -131,13 +131,13 @@ const AgendamentosStats = ({ events }: AgendamentosStatsProps) => {
               <CardContent className="p-6 relative z-10">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-700 mb-2">{stat.title}</p>
-                    <p className="text-3xl font-bold text-gray-900 mb-1">{stat.value}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm font-medium text-muted-foreground mb-2">{stat.title}</p>
+                    <p className="text-3xl font-bold text-foreground mb-1">{stat.value}</p>
+                    <p className="text-xs text-muted-foreground">
                       {stat.value === 1 ? 'agendamento' : 'agendamentos'}
                     </p>
                   </div>
-                  <div className={`p-4 rounded-2xl bg-white/80 backdrop-blur-sm shadow-lg`}>
+                  <div className={`p-4 rounded-2xl bg-background/80 backdrop-blur-sm shadow-lg border border-border/40`}>
                     <Icon className={`h-7 w-7 ${stat.color}`} />
                   </div>
                 </div>
@@ -150,11 +150,11 @@ const AgendamentosStats = ({ events }: AgendamentosStatsProps) => {
       <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
         {/* Gráfico de Pizza */}
         {pieChartData.length > 0 ? (
-          <Card className="hover:shadow-xl transition-all duration-300 border-2 border-gray-200 bg-gradient-to-br from-white to-gray-50">
+          <Card className="hover:shadow-xl transition-all duration-300 border-2 border-border bg-gradient-to-br from-card to-muted/20">
             <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-3 text-xl">
-                <div className="p-2 rounded-xl bg-emerald-100">
-                  <ChartPie className="h-6 w-6 text-emerald-600" />
+              <CardTitle className="flex items-center gap-3 text-xl text-card-foreground">
+                <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
+                  <ChartPie className="h-6 w-6 text-primary" />
                 </div>
                 Tipos de Consulta
               </CardTitle>
@@ -192,19 +192,19 @@ const AgendamentosStats = ({ events }: AgendamentosStatsProps) => {
             </CardContent>
           </Card>
         ) : (
-          <Card className="hover:shadow-xl transition-all duration-300 border-2 border-gray-200 bg-gradient-to-br from-white to-gray-50">
+          <Card className="hover:shadow-xl transition-all duration-300 border-2 border-border bg-gradient-to-br from-card to-muted/20">
             <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-3 text-xl">
-                <div className="p-2 rounded-xl bg-emerald-100">
-                  <ChartPie className="h-6 w-6 text-emerald-600" />
+              <CardTitle className="flex items-center gap-3 text-xl text-card-foreground">
+                <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
+                  <ChartPie className="h-6 w-6 text-primary" />
                 </div>
                 Tipos de Consulta
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-12 text-gray-500">
-                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
-                  <ChartPie className="h-10 w-10 text-gray-300" />
+              <div className="text-center py-12 text-muted-foreground">
+                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+                  <ChartPie className="h-10 w-10 text-muted-foreground/50" />
                 </div>
                 <p className="text-lg font-medium">Nenhum agendamento encontrado</p>
                 <p className="text-sm mt-1">Crie seu primeiro agendamento para ver as estatísticas</p>
