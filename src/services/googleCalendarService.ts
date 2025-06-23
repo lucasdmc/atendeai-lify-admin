@@ -1,7 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-const GOOGLE_CLIENT_ID = '367439444210-inbslmqpfc8l3kj10nh36f67g5hnq1be.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = '367439444210-2p0lde4fmerq4jlraojguku3dt3l5d70.apps.googleusercontent.com';
 const GOOGLE_CLIENT_SECRET = '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';
 const REDIRECT_URI = 'https://niakqdolcdwxtrkbqmdi.supabase.co/auth/v1/callback';
 const SCOPES = 'https://www.googleapis.com/auth/calendar';
