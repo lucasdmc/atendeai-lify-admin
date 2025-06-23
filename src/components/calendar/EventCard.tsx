@@ -1,10 +1,11 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Clock, MapPin, Users, Edit } from 'lucide-react';
+import { Clock, MapPin, Users, Edit, Tag } from 'lucide-react';
 import { GoogleCalendarEvent } from '@/services/googleServiceAccountService';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { getLabelConfig, getLabelFromString, AppointmentLabel } from '@/utils/appointmentLabels';
 
 interface EventCardProps {
   event: GoogleCalendarEvent;
@@ -27,14 +28,32 @@ const EventCard = ({ event, onEdit, size = 'md', showDate = false }: EventCardPr
     }
   };
 
+  // Extrair label da descrição do evento
+  const getEventLabel = (): AppointmentLabel => {
+    if (event.description) {
+      const labelMatch = event.description.match(/\[LABEL:(\w+)\]/);
+      if (labelMatch) {
+        return getLabelFromString(labelMatch[1]);
+      }
+    }
+    return 'consulta'; // Default
+  };
+
+  const eventLabel = getEventLabel();
+  const labelConfig = getLabelConfig(eventLabel);
+
   if (size === 'sm') {
     return (
       <div
-        className={`p-2 rounded-lg cursor-pointer transition-all hover:shadow-md group ${getStatusColor(event.status)}`}
+        className={`p-2 rounded-lg cursor-pointer transition-all hover:shadow-md group border ${labelConfig.color}`}
         onClick={() => onEdit(event)}
       >
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1 mb-1">
+              <Tag className="h-3 w-3" />
+              <span className="text-xs font-medium">{labelConfig.name}</span>
+            </div>
             <p className="font-medium text-xs truncate">{event.summary}</p>
             <p className="text-xs opacity-75">
               {formatEventTime(event.start.dateTime)} - {formatEventTime(event.end.dateTime)}
@@ -52,6 +71,10 @@ const EventCard = ({ event, onEdit, size = 'md', showDate = false }: EventCardPr
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">
             <h4 className="font-semibold text-gray-900">{event.summary}</h4>
+            <Badge variant="outline" className={labelConfig.color}>
+              <Tag className="h-3 w-3 mr-1" />
+              {labelConfig.name}
+            </Badge>
             <Badge variant="outline" className={getStatusColor(event.status)}>
               {event.status}
             </Badge>
@@ -82,7 +105,9 @@ const EventCard = ({ event, onEdit, size = 'md', showDate = false }: EventCardPr
           </div>
           
           {event.description && (
-            <p className="text-sm text-gray-600 mt-2 line-clamp-2">{event.description}</p>
+            <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+              {event.description.replace(/\[LABEL:\w+\]/, '').trim()}
+            </p>
           )}
         </div>
         

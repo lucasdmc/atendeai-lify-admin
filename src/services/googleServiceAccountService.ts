@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface GoogleCalendarEvent {
@@ -19,6 +20,7 @@ export interface GoogleCalendarEvent {
     responseStatus?: string;
   }>;
   status: string;
+  colorId?: string;
 }
 
 class GoogleServiceAccountService {

@@ -22,11 +22,13 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Clock } from 'lucide-react';
+import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { useForm } from 'react-hook-form';
 import { cn } from '@/lib/utils';
 import { GoogleCalendarEvent } from '@/services/googleServiceAccountService';
+import { AppointmentLabel, getLabelConfig } from '@/utils/appointmentLabels';
+import LabelSelector from './LabelSelector';
 
 interface NewAppointmentModalProps {
   isOpen: boolean;
@@ -42,6 +44,7 @@ interface FormData {
   endTime: string;
   location: string;
   attendeeEmail: string;
+  label: AppointmentLabel;
 }
 
 const NewAppointmentModal = ({ isOpen, onClose, onCreateEvent }: NewAppointmentModalProps) => {
@@ -56,6 +59,7 @@ const NewAppointmentModal = ({ isOpen, onClose, onCreateEvent }: NewAppointmentM
       endTime: '10:00',
       location: '',
       attendeeEmail: '',
+      label: 'consulta',
     },
   });
 
@@ -70,9 +74,11 @@ const NewAppointmentModal = ({ isOpen, onClose, onCreateEvent }: NewAppointmentM
       const [endHour, endMinute] = data.endTime.split(':');
       endDateTime.setHours(parseInt(endHour), parseInt(endMinute), 0, 0);
 
+      const labelConfig = getLabelConfig(data.label);
+      
       const eventData: Omit<GoogleCalendarEvent, 'id' | 'status'> = {
         summary: data.title,
-        description: data.description,
+        description: `${data.description}\n[LABEL:${data.label}]`,
         start: {
           dateTime: startDateTime.toISOString(),
           timeZone: 'America/Sao_Paulo',
@@ -83,6 +89,7 @@ const NewAppointmentModal = ({ isOpen, onClose, onCreateEvent }: NewAppointmentM
         },
         location: data.location,
         attendees: data.attendeeEmail ? [{ email: data.attendeeEmail }] : undefined,
+        colorId: labelConfig.googleCalendarColorId,
       };
 
       const createdEvent = await onCreateEvent(eventData);
@@ -108,6 +115,8 @@ const NewAppointmentModal = ({ isOpen, onClose, onCreateEvent }: NewAppointmentM
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <LabelSelector control={form.control} name="label" />
+
             <FormField
               control={form.control}
               name="title"

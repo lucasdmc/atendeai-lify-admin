@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -37,6 +36,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { AppointmentLabel, getLabelConfig, getLabelFromString } from '@/utils/appointmentLabels';
+import LabelSelector from './LabelSelector';
 
 interface EditAppointmentModalProps {
   isOpen: boolean;
@@ -54,6 +55,7 @@ interface FormData {
   endTime: string;
   location: string;
   attendeeEmail: string;
+  label: AppointmentLabel;
 }
 
 const EditAppointmentModal = ({ 
@@ -75,6 +77,7 @@ const EditAppointmentModal = ({
       endTime: '10:00',
       location: '',
       attendeeEmail: '',
+      label: 'consulta',
     },
   });
 
@@ -83,14 +86,25 @@ const EditAppointmentModal = ({
       const startDate = new Date(event.start.dateTime);
       const endDate = new Date(event.end.dateTime);
       
+      // Extrair label da descrição
+      let description = event.description || '';
+      let label: AppointmentLabel = 'consulta';
+      
+      const labelMatch = description.match(/\[LABEL:(\w+)\]/);
+      if (labelMatch) {
+        label = getLabelFromString(labelMatch[1]);
+        description = description.replace(/\[LABEL:\w+\]/, '').trim();
+      }
+      
       form.reset({
         title: event.summary || '',
-        description: event.description || '',
+        description,
         date: startDate,
         startTime: format(startDate, 'HH:mm'),
         endTime: format(endDate, 'HH:mm'),
         location: event.location || '',
         attendeeEmail: event.attendees?.[0]?.email || '',
+        label,
       });
     }
   }, [event, isOpen, form]);
@@ -108,9 +122,11 @@ const EditAppointmentModal = ({
       const [endHour, endMinute] = data.endTime.split(':');
       endDateTime.setHours(parseInt(endHour), parseInt(endMinute), 0, 0);
 
+      const labelConfig = getLabelConfig(data.label);
+
       const eventData: Omit<GoogleCalendarEvent, 'id' | 'status'> = {
         summary: data.title,
-        description: data.description,
+        description: `${data.description}\n[LABEL:${data.label}]`,
         start: {
           dateTime: startDateTime.toISOString(),
           timeZone: 'America/Sao_Paulo',
@@ -121,6 +137,7 @@ const EditAppointmentModal = ({
         },
         location: data.location,
         attendees: data.attendeeEmail ? [{ email: data.attendeeEmail }] : undefined,
+        colorId: labelConfig.googleCalendarColorId,
       };
 
       await onUpdateEvent(event.id, eventData);
@@ -162,6 +179,8 @@ const EditAppointmentModal = ({
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <LabelSelector control={form.control} name="label" />
+
               <FormField
                 control={form.control}
                 name="title"
