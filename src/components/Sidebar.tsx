@@ -77,7 +77,7 @@ const Sidebar = () => {
       <Button
         variant="ghost"
         size="icon"
-        className="lg:hidden fixed top-4 left-4 z-50 text-white hover:bg-white/20"
+        className="lg:hidden fixed top-4 left-4 z-50 text-gray-800 hover:bg-gray-100"
         onClick={() => setIsOpen(!isOpen)}
       >
         {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -85,7 +85,7 @@ const Sidebar = () => {
 
       {/* Sidebar */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-40 w-64 bg-white/95 backdrop-blur-md shadow-2xl border-r border-white/20 transform transition-transform duration-300 ease-in-out lg:translate-x-0",
+        "fixed inset-y-0 left-0 z-40 w-64 bg-white/90 backdrop-blur-md shadow-lg border-r border-gray-200/50 transform transition-transform duration-300 ease-in-out lg:translate-x-0",
         isOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="flex flex-col h-full">
@@ -119,7 +119,7 @@ const Sidebar = () => {
                     className={cn(
                       "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200",
                       isActive
-                        ? "bg-gradient-to-r from-lify-orange to-lify-pink text-white shadow-lg shadow-lify-orange/30"
+                        ? "bg-gradient-to-r from-lify-orange/20 to-lify-pink/20 text-lify-pink border border-lify-pink/20"
                         : "text-gray-700 hover:bg-gray-50 hover:text-lify-orange"
                     )}
                   >

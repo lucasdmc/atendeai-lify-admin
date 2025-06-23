@@ -18,10 +18,10 @@ interface AppointmentsPieChartProps {
 const AppointmentsPieChart = ({ data }: AppointmentsPieChartProps) => {
   if (data.length === 0) {
     return (
-      <Card className="hover:shadow-xl transition-all duration-300 bg-white/95 backdrop-blur-sm border border-white/20">
+      <Card className="hover:shadow-lg transition-all duration-300 bg-white border border-gray-200">
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-3 text-xl text-gray-800">
-            <div className="p-3 rounded-xl bg-gradient-to-br from-lify-pink/10 to-lify-purple/10 border border-lify-pink/20 shadow-lg">
+            <div className="p-3 rounded-xl bg-gradient-to-br from-lify-pink/10 to-lify-purple/10 border border-lify-pink/20">
               <ChartPie className="h-6 w-6 text-lify-pink" />
             </div>
             <span className="bg-gradient-to-r from-lify-pink to-lify-purple bg-clip-text text-transparent font-bold">
@@ -43,10 +43,10 @@ const AppointmentsPieChart = ({ data }: AppointmentsPieChartProps) => {
   }
 
   return (
-    <Card className="hover:shadow-xl transition-all duration-300 bg-white/95 backdrop-blur-sm border border-white/20 overflow-hidden group">
+    <Card className="hover:shadow-lg transition-all duration-300 bg-white border border-gray-200 overflow-hidden group">
       <CardHeader className="pb-4">
         <CardTitle className="flex items-center gap-3 text-xl text-gray-800">
-          <div className="p-3 rounded-xl bg-gradient-to-br from-lify-pink/10 to-lify-purple/10 border border-lify-pink/20 shadow-lg">
+          <div className="p-3 rounded-xl bg-gradient-to-br from-lify-pink/10 to-lify-purple/10 border border-lify-pink/20">
             <ChartPie className="h-6 w-6 text-lify-pink" />
           </div>
           <span className="bg-gradient-to-r from-lify-pink to-lify-purple bg-clip-text text-transparent font-bold">
@@ -61,7 +61,7 @@ const AppointmentsPieChart = ({ data }: AppointmentsPieChartProps) => {
               <defs>
                 {data.map((entry, index) => (
                   <filter key={`shadow-${index}`} id={`shadow-${index}`}>
-                    <feDropShadow dx="0" dy="4" stdDeviation="8" floodColor={entry.color} floodOpacity="0.3"/>
+                    <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor={entry.color} floodOpacity="0.2"/>
                   </filter>
                 ))}
               </defs>
@@ -71,9 +71,9 @@ const AppointmentsPieChart = ({ data }: AppointmentsPieChartProps) => {
                 cy="45%"
                 innerRadius={70}
                 outerRadius={120}
-                paddingAngle={8}
+                paddingAngle={5}
                 dataKey="value"
-                strokeWidth={3}
+                strokeWidth={2}
                 stroke="#ffffff"
               >
                 {data.map((entry, index) => (

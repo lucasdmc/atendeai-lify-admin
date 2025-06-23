@@ -48,7 +48,7 @@ const UpcomingAppointments = ({
 
   return (
     <>
-      <Card className="bg-white/95 backdrop-blur-sm border border-white/20 hover:shadow-xl transition-all duration-300">
+      <Card className="bg-white border border-gray-200 hover:shadow-lg transition-all duration-300">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-gray-800">
             <Calendar className="h-5 w-5 text-lify-orange" />
@@ -63,7 +63,7 @@ const UpcomingAppointments = ({
               const labelConfig = getLabelConfig(eventLabel);
               
               return (
-                <div key={event.id} className="flex items-center justify-between p-4 bg-white/60 backdrop-blur-sm border border-gray-100 rounded-lg hover:shadow-md hover:bg-white/80 transition-all">
+                <div key={event.id} className="flex items-center justify-between p-4 bg-gray-50/50 border border-gray-100 rounded-lg hover:shadow-md hover:bg-gray-50 transition-all">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-full flex items-center justify-center bg-gradient-to-br from-lify-pink/10 to-lify-purple/10 border border-lify-pink/20">
                       <Tag className="h-6 w-6 text-lify-pink" />
