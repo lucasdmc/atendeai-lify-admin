@@ -33,27 +33,22 @@ const Agendamentos = () => {
 
       {isConnected ? (
         <div className="space-y-6">
-          {/* Layout principal: Calendário e Próximos Agendamentos */}
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            {/* Calendário principal */}
-            <div className="xl:col-span-2">
-              <CalendarView 
-                events={events} 
-                isLoading={isLoadingEvents}
-                onUpdateEvent={updateEvent}
-                onDeleteEvent={deleteEvent}
-              />
-            </div>
+          {/* Próximos agendamentos no topo */}
+          <UpcomingAppointments 
+            events={events} 
+            isLoadingEvents={isLoadingEvents}
+            onUpdateEvent={updateEvent}
+            onDeleteEvent={deleteEvent}
+          />
 
-            {/* Próximos agendamentos na lateral direita */}
-            <div className="xl:col-span-1">
-              <UpcomingAppointments 
-                events={events} 
-                isLoadingEvents={isLoadingEvents}
-                onUpdateEvent={updateEvent}
-                onDeleteEvent={deleteEvent}
-              />
-            </div>
+          {/* Calendário principal ocupando toda a largura */}
+          <div className="w-full">
+            <CalendarView 
+              events={events} 
+              isLoading={isLoadingEvents}
+              onUpdateEvent={updateEvent}
+              onDeleteEvent={deleteEvent}
+            />
           </div>
         </div>
       ) : (
