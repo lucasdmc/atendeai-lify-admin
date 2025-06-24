@@ -5,7 +5,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import { corsHeaders } from './config.ts';
 import { initializeWhatsApp, getConnectionStatus, disconnectWhatsApp } from './whatsapp-client.ts';
-import { sendMessage, handleWebhook } from './message-handler.ts';
+import { sendMessage } from './message-sender.ts';
+import { handleWebhook } from './webhook-processor.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
