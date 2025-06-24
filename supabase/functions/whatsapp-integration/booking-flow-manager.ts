@@ -1,4 +1,3 @@
-
 export interface BookingSession {
   phoneNumber: string;
   currentStep: 'service' | 'slots' | 'confirmation' | 'contact_info' | 'completed';

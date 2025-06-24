@@ -1,185 +1,183 @@
 
+// Função para detectar se a mensagem é sobre agendamento
 export function isAppointmentRelated(message: string): boolean {
+  console.log('🔍 Verificando se mensagem é sobre agendamento:', message);
+  
   const appointmentKeywords = [
-    'agendar', 'agendamento', 'consulta', 'horário', 'marcar',
-    'reagendar', 'cancelar', 'desmarcar', 'alterar', 'mudar',
-    'disponibilidade', 'agenda', 'atendimento', 'médico', 'doutor',
-    'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo',
-    'hoje', 'amanhã', 'próxima', 'próximo'
+    // Agendamento/Marcação
+    'agendar', 'marcar', 'consulta', 'horário', 'agenda', 'atendimento',
+    'disponibilidade', 'vaga', 'hora', 'data', 'médico', 'doutor', 'doutora',
+    
+    // Cancelamento
+    'cancelar', 'desmarcar', 'cancela', 'desmarca',
+    
+    // Reagendamento
+    'reagendar', 'alterar', 'mudar', 'trocar', 'remarcar',
+    
+    // Especialidades médicas
+    'cardiologia', 'dermatologia', 'ginecologia', 'ortopedia', 'pediatria',
+    'clínico geral', 'neurologista', 'oftalmologista', 'psiquiatra',
+    
+    // Contexto médico
+    'especialidade', 'especialista', 'clínica', 'hospital', 'posto',
+    'exame', 'retorno', 'primeira vez', 'emergência', 'urgente'
+  ];
+
+  const lowerMessage = message.toLowerCase();
+  
+  // Verificar palavras-chave diretas
+  const hasDirectKeyword = appointmentKeywords.some(keyword => 
+    lowerMessage.includes(keyword)
+  );
+  
+  // Verificar padrões de horário (ex: 14:00, 2:30, meio-dia)
+  const timePatterns = [
+    /\d{1,2}:\d{2}/, // 14:30, 9:15
+    /\d{1,2}h\d{0,2}/, // 14h30, 9h
+    /meio[- ]?dia/, // meio-dia, meio dia
+    /manhã/, // manhã
+    /tarde/, // tarde
+    /noite/, // noite
   ];
   
-  const lowerMessage = message.toLowerCase();
-  const hasKeyword = appointmentKeywords.some(keyword => lowerMessage.includes(keyword));
+  const hasTimePattern = timePatterns.some(pattern => 
+    pattern.test(lowerMessage)
+  );
   
-  // Verificar se tem padrões de data ou hora
-  const hasDatePattern = /\d{1,2}[\/\-]\d{1,2}([\/\-]\d{2,4})?/.test(message);
-  const hasTimePattern = /\d{1,2}:?\d{0,2}\s*(h|hora|horas)?/i.test(message);
-  const hasEmailPattern = /[\w\.-]+@[\w\.-]+\.\w+/.test(message);
+  // Verificar padrões de data
+  const datePatterns = [
+    /\d{1,2}\/\d{1,2}/, // 25/12, 1/3
+    /\d{1,2}\/\d{1,2}\/\d{2,4}/, // 25/12/2024
+    /(segunda|terça|quarta|quinta|sexta|sábado|domingo)/, // dias da semana
+    /(hoje|amanhã|depois|próxim)/, // referências temporais
+    /(janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)/, // meses
+  ];
   
-  console.log('🔍 Análise de agendamento:', {
-    message: message.substring(0, 50),
-    hasKeyword,
-    hasDatePattern,
+  const hasDatePattern = datePatterns.some(pattern => 
+    pattern.test(lowerMessage)
+  );
+
+  // Verificar números (possivelmente escolhendo opção do menu)
+  const hasNumber = /^[1-7]$/.test(message.trim());
+
+  // Verificar confirmações (sim/não)
+  const isConfirmation = /^(sim|não|nao|ok|confirmo|correto)$/i.test(message.trim());
+
+  const isRelated = hasDirectKeyword || hasTimePattern || hasDatePattern || hasNumber || isConfirmation;
+  
+  console.log(`📝 Análise de agendamento:`, {
+    hasDirectKeyword,
     hasTimePattern,
-    hasEmailPattern,
-    isRelated: hasKeyword || (hasDatePattern && hasTimePattern)
+    hasDatePattern,
+    hasNumber,
+    isConfirmation,
+    isRelated
   });
   
-  return hasKeyword || (hasDatePattern && hasTimePattern);
+  return isRelated;
 }
 
-export function extractAppointmentData(message: string): any {
-  console.log('🔍 Extraindo dados de agendamento da mensagem:', message);
-  
-  const result = {
-    hasRequiredData: false,
-    title: '',
-    description: '',
-    date: '',
-    displayDate: '',
-    startTime: '',
-    endTime: '',
-    email: '',
-    location: 'Clínica'
+// Função para extrair informações de agendamento da mensagem
+export function extractAppointmentInfo(message: string): {
+  service?: string;
+  date?: string;
+  time?: string;
+  email?: string;
+  name?: string;
+} {
+  const lowerMessage = message.toLowerCase();
+  const info: any = {};
+
+  // Extrair especialidades
+  const services = {
+    'cardiologia': ['cardio', 'coração', 'cardiologia', 'cardiologista'],
+    'dermatologia': ['derma', 'pele', 'dermatologia', 'dermatologista'],
+    'ginecologia': ['gineco', 'ginecologia', 'ginecologista', 'mulher'],
+    'ortopedia': ['orto', 'osso', 'ortopedia', 'ortopedista'],
+    'pediatria': ['pediatra', 'criança', 'pediatria', 'infantil'],
+    'clínico geral': ['geral', 'clínico', 'clinico geral', 'consulta geral']
   };
 
-  const lowerMessage = message.toLowerCase();
-  
-  // Extrair email
-  const emailRegex = /[\w\.-]+@[\w\.-]+\.\w+/g;
-  const emailMatch = message.match(emailRegex);
-  if (emailMatch) {
-    result.email = emailMatch[0];
-    console.log('📧 Email encontrado:', result.email);
-  }
-
-  // Extrair data - formatos mais flexíveis
-  let dateFound = false;
-  const currentYear = new Date().getFullYear();
-  
-  // Formato DD/MM/YYYY ou DD/MM
-  const dateRegex = /(\d{1,2})[\/\-](\d{1,2})([\/\-](\d{2,4}))?/;
-  const dateMatch = message.match(dateRegex);
-  if (dateMatch) {
-    const day = dateMatch[1].padStart(2, '0');
-    const month = dateMatch[2].padStart(2, '0');
-    let year = dateMatch[4] ? parseInt(dateMatch[4]) : currentYear;
-    
-    // Se ano com 2 dígitos, assumir 20XX
-    if (year < 100) {
-      year = 2000 + year;
-    }
-    
-    // Validar data
-    const testDate = new Date(year, parseInt(month) - 1, parseInt(day));
-    if (testDate.getFullYear() === year && 
-        testDate.getMonth() === parseInt(month) - 1 && 
-        testDate.getDate() === parseInt(day)) {
-      result.date = `${year}-${month}-${day}`;
-      result.displayDate = `${day}/${month}/${year}`;
-      dateFound = true;
-      console.log('📅 Data encontrada (formato numérico):', result.date);
-    }
-  }
-  
-  // Se não encontrou data numérica, tentar formato "DD de MMMM"
-  if (!dateFound) {
-    const monthNames = {
-      'janeiro': '01', 'fevereiro': '02', 'março': '03', 'abril': '04',
-      'maio': '05', 'junho': '06', 'julho': '07', 'agosto': '08',
-      'setembro': '09', 'outubro': '10', 'novembro': '11', 'dezembro': '12'
-    };
-    
-    const textDateRegex = /(\d{1,2})\s+de\s+(\w+)/i;
-    const textDateMatch = message.match(textDateRegex);
-    if (textDateMatch) {
-      const day = textDateMatch[1].padStart(2, '0');
-      const monthName = textDateMatch[2].toLowerCase();
-      const monthNum = monthNames[monthName];
-      if (monthNum) {
-        result.date = `${currentYear}-${monthNum}-${day}`;
-        result.displayDate = `${day}/${monthNum}/${currentYear}`;
-        dateFound = true;
-        console.log('📅 Data encontrada (formato texto):', result.date);
-      }
-    }
-  }
-
-  // Extrair horário - melhorado para capturar formatos mais flexíveis
-  const timePatterns = [
-    // Padrão HH:MM
-    /(\d{1,2}):(\d{2})/g,
-    // Padrão HH:MM com h
-    /(\d{1,2}):(\d{2})h/g,
-    // Padrão HHh ou HH h
-    /(\d{1,2})\s*h(?:oras?)?/g,
-    // Padrão apenas números seguidos de h
-    /(\d{1,2})h/g
-  ];
-  
-  let timeFound = false;
-  
-  for (const pattern of timePatterns) {
-    const timeMatches = [...message.matchAll(pattern)];
-    
-    if (timeMatches.length > 0) {
-      const firstTime = timeMatches[0];
-      let startHour = parseInt(firstTime[1]);
-      let startMin = firstTime[2] ? parseInt(firstTime[2]) : 0;
-      
-      // Validar horário
-      if (startHour >= 0 && startHour <= 23 && startMin >= 0 && startMin <= 59) {
-        result.startTime = `${startHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`;
-        
-        // Assumir 1 hora de duração
-        let endHour = startHour + 1;
-        if (endHour > 23) endHour = 23;
-        result.endTime = `${endHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`;
-        
-        timeFound = true;
-        console.log('🕐 Horário encontrado:', result.startTime, '-', result.endTime);
-        break;
-      }
-    }
-  }
-
-  // Extrair tipo de consulta
-  const consultationTypes = [
-    'dermatologia', 'cardiologia', 'cardiologista', 'neurologia', 'ortopedia', 'ortopedista',
-    'ginecologia', 'ginecologista', 'pediatria', 'pediatra', 'clínico geral',
-    'consulta geral', 'retorno', 'check-up', 'exame', 'avaliação',
-    'oftalmologia', 'oftalmologista', 'psiquiatria', 'psiquiatra',
-    'endocrinologia', 'endocrinologista', 'urologia', 'urologista'
-  ];
-  
-  for (const type of consultationTypes) {
-    if (lowerMessage.includes(type)) {
-      if (type === 'cardiologista') {
-        result.title = 'Cardiologia';
-      } else {
-        result.title = type.charAt(0).toUpperCase() + type.slice(1);
-      }
-      console.log('👨‍⚕️ Tipo de consulta encontrado:', result.title);
+  for (const [service, keywords] of Object.entries(services)) {
+    if (keywords.some(keyword => lowerMessage.includes(keyword))) {
+      info.service = service;
       break;
     }
   }
 
-  // Se não encontrou tipo específico, usar padrão
-  if (!result.title) {
-    result.title = 'Consulta Médica';
+  // Extrair horário
+  const timeMatch = message.match(/(\d{1,2}):?(\d{2})/);
+  if (timeMatch) {
+    info.time = `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}`;
   }
 
-  // Verificar se temos dados suficientes para agendar
-  result.hasRequiredData = !!(result.date && result.startTime && result.endTime && result.title);
-  
-  console.log('✅ Dados extraídos:', {
-    hasRequiredData: result.hasRequiredData,
-    title: result.title,
-    date: result.date,
-    startTime: result.startTime,
-    endTime: result.endTime,
-    email: result.email || 'não informado'
-  });
+  // Extrair email
+  const emailMatch = message.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+  if (emailMatch) {
+    info.email = emailMatch[1];
+  }
 
-  return result;
+  // Extrair nome (texto após "nome:" ou similar)
+  const nameMatch = message.match(/(?:nome?:?\s*)([a-zA-ZÀ-ÿ\s]+?)(?:\s*email|$)/i);
+  if (nameMatch) {
+    info.name = nameMatch[1].trim();
+  }
+
+  return info;
+}
+
+// Função para validar informações de agendamento
+export function validateAppointmentData(data: {
+  service?: string;
+  date?: string;
+  time?: string;
+  email?: string;
+  name?: string;
+}): {
+  isValid: boolean;
+  missing: string[];
+  errors: string[];
+} {
+  const missing: string[] = [];
+  const errors: string[] = [];
+
+  if (!data.service) missing.push('especialidade');
+  if (!data.date) missing.push('data');
+  if (!data.time) missing.push('horário');
+  if (!data.email) missing.push('email');
+  if (!data.name) missing.push('nome');
+
+  // Validar email
+  if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+    errors.push('Email inválido');
+  }
+
+  // Validar horário
+  if (data.time && !/^\d{2}:\d{2}$/.test(data.time)) {
+    errors.push('Horário deve estar no formato HH:MM');
+  }
+
+  return {
+    isValid: missing.length === 0 && errors.length === 0,
+    missing,
+    errors
+  };
+}
+
+// Função para formatar data em português
+export function formatDateForDisplay(dateStr: string): string {
+  const date = new Date(dateStr);
+  const dayName = date.toLocaleDateString('pt-BR', { weekday: 'long' });
+  const formatted = date.toLocaleDateString('pt-BR');
+  
+  return `${dayName.charAt(0).toUpperCase() + dayName.slice(1)} (${formatted})`;
+}
+
+// Função para verificar se é horário comercial
+export function isBusinessHours(time: string): boolean {
+  const [hours, minutes] = time.split(':').map(Number);
+  const totalMinutes = hours * 60 + minutes;
+  
+  // 8:00 às 18:00
+  return totalMinutes >= 8 * 60 && totalMinutes <= 18 * 60;
 }
