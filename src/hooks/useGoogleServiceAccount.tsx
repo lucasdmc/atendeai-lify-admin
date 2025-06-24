@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { googleServiceAccountService, GoogleCalendarEvent } from '@/services/googleServiceAccountService';
@@ -70,30 +71,34 @@ export const useGoogleServiceAccount = () => {
       console.log('Event details:', fetchedEvents);
       setEvents(fetchedEvents);
 
-      // Cache events in our database
+      // Cache events in our database - only if we have valid events with titles
       if (user && fetchedEvents.length > 0) {
         console.log('Caching events in database...');
-        const eventsToCache = fetchedEvents.map(event => ({
-          user_id: user.id,
-          google_event_id: event.id,
-          calendar_id: googleServiceAccountService.getCalendarId(),
-          title: event.summary,
-          description: event.description || null,
-          start_time: event.start.dateTime,
-          end_time: event.end.dateTime,
-          location: event.location || null,
-          attendees: event.attendees ? JSON.stringify(event.attendees) : null,
-          status: event.status,
-        }));
+        const eventsToCache = fetchedEvents
+          .filter(event => event.summary && event.summary.trim() !== '') // Only cache events with valid titles
+          .map(event => ({
+            user_id: user.id,
+            google_event_id: event.id,
+            calendar_id: googleServiceAccountService.getCalendarId(),
+            title: event.summary || 'Evento sem título', // Fallback title
+            description: event.description || null,
+            start_time: event.start.dateTime,
+            end_time: event.end.dateTime,
+            location: event.location || null,
+            attendees: event.attendees ? JSON.stringify(event.attendees) : null,
+            status: event.status,
+          }));
 
-        const { error } = await supabase
-          .from('calendar_events')
-          .upsert(eventsToCache, { onConflict: 'user_id,google_event_id' });
-        
-        if (error) {
-          console.error('Error caching events:', error);
-        } else {
-          console.log('Events cached successfully');
+        if (eventsToCache.length > 0) {
+          const { error } = await supabase
+            .from('calendar_events')
+            .upsert(eventsToCache, { onConflict: 'user_id,google_event_id' });
+          
+          if (error) {
+            console.error('Error caching events:', error);
+          } else {
+            console.log('Events cached successfully');
+          }
         }
       }
     } catch (error) {
@@ -114,6 +119,11 @@ export const useGoogleServiceAccount = () => {
       
       if (!isConnected) {
         throw new Error('Google Calendar não está conectado');
+      }
+
+      // Ensure we have a valid title
+      if (!eventData.summary || eventData.summary.trim() === '') {
+        throw new Error('Título do evento é obrigatório');
       }
       
       const newEvent = await googleServiceAccountService.createCalendarEvent(eventData);

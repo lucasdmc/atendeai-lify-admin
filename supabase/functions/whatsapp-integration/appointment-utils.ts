@@ -161,8 +161,8 @@ export function extractAppointmentData(message: string): any {
     result.title = 'Consulta Médica';
   }
 
-  // Verificar se temos dados suficientes
-  result.hasRequiredData = !!(result.date && result.startTime && result.endTime);
+  // Verificar se temos dados suficientes para agendar
+  result.hasRequiredData = !!(result.date && result.startTime && result.endTime && result.title);
   
   console.log('✅ Dados extraídos:', {
     hasRequiredData: result.hasRequiredData,

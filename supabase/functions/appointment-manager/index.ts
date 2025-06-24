@@ -48,8 +48,8 @@ function createDateTime(date: string, time: string): string {
       throw new Error(`Minuto inválido: ${minute}`);
     }
     
-    // Criar datetime no formato ISO
-    const dateTime = new Date(`${date}T${time}:00.000Z`);
+    // Criar datetime no formato ISO com timezone do Brasil
+    const dateTime = new Date(`${date}T${time}:00-03:00`);
     
     if (isNaN(dateTime.getTime())) {
       throw new Error(`Data/hora inválida: ${date} ${time}`);
@@ -60,6 +60,75 @@ function createDateTime(date: string, time: string): string {
     return isoString;
   } catch (error) {
     console.error('❌ Erro ao criar datetime:', error);
+    throw error;
+  }
+}
+
+async function createGoogleCalendarEvent(appointmentData: AppointmentRequest) {
+  try {
+    console.log('🗓️ Criando evento no Google Calendar...');
+    
+    // Chamar a função Google Service Auth para obter token
+    const { data: tokenData, error: tokenError } = await supabase.functions.invoke('google-service-auth', {
+      body: { action: 'get-access-token' }
+    });
+
+    if (tokenError || !tokenData.access_token) {
+      throw new Error('Falha ao obter token do Google Calendar');
+    }
+
+    const startDateTime = createDateTime(appointmentData.date, appointmentData.startTime);
+    const endDateTime = createDateTime(appointmentData.date, appointmentData.endTime);
+
+    // Criar evento no Google Calendar
+    const eventData = {
+      summary: appointmentData.title,
+      description: appointmentData.description || `Agendamento via WhatsApp`,
+      start: {
+        dateTime: startDateTime,
+        timeZone: 'America/Sao_Paulo'
+      },
+      end: {
+        dateTime: endDateTime,
+        timeZone: 'America/Sao_Paulo'
+      },
+      location: appointmentData.location || 'Clínica',
+      attendees: appointmentData.patientEmail ? [{ email: appointmentData.patientEmail }] : []
+    };
+
+    console.log('📅 Dados do evento:', eventData);
+
+    // Obter Calendar ID do serviço
+    const { data: credentialsData } = await supabase.functions.invoke('google-service-auth', {
+      body: { action: 'get-credentials' }
+    });
+
+    const calendarId = 'fb2b1dfb1e6c600594b05785de5cf04fb38bd0376bd3f5e5d1c08c60d4c894df@group.calendar.google.com';
+
+    const response = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${tokenData.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(eventData),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('❌ Erro na API do Google Calendar:', errorData);
+      throw new Error(`Falha ao criar evento no Google Calendar: ${response.status}`);
+    }
+
+    const createdEvent = await response.json();
+    console.log('✅ Evento criado no Google Calendar:', createdEvent.id);
+    
+    return createdEvent;
+  } catch (error) {
+    console.error('❌ Erro ao criar evento no Google Calendar:', error);
     throw error;
   }
 }
@@ -81,7 +150,7 @@ serve(async (req) => {
         
         try {
           // Validar dados obrigatórios
-          if (!appointmentData.title) {
+          if (!appointmentData.title || appointmentData.title.trim() === '') {
             throw new Error('Título é obrigatório');
           }
           if (!appointmentData.date) {
@@ -100,14 +169,26 @@ serve(async (req) => {
           
           console.log('📅 Datetimes criados:', { startDateTime, endDateTime });
           
+          // Primeiro, criar evento no Google Calendar
+          let googleEventId;
+          try {
+            const googleEvent = await createGoogleCalendarEvent(appointmentData);
+            googleEventId = googleEvent.id;
+            console.log('✅ Evento criado no Google Calendar com ID:', googleEventId);
+          } catch (googleError) {
+            console.error('❌ Erro ao criar no Google Calendar:', googleError);
+            // Continuar mesmo se falhar no Google Calendar
+            googleEventId = `whatsapp_${Date.now()}`;
+          }
+
           // Inserir no banco de dados
           const { data: eventData, error: eventError } = await supabase
             .from('calendar_events')
             .insert({
-              google_event_id: `whatsapp_${Date.now()}`,
+              google_event_id: googleEventId,
               user_id: '00000000-0000-0000-0000-000000000000', // Sistema
               calendar_id: 'primary',
-              title: appointmentData.title,
+              title: appointmentData.title.trim(),
               description: appointmentData.description || 'Agendamento via WhatsApp',
               start_time: startDateTime,
               end_time: endDateTime,
