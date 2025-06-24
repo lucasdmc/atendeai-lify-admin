@@ -12,9 +12,9 @@ const AgendamentosStats = ({ events }: AgendamentosStatsProps) => {
   const { statsCards, pieChartData } = useAgendamentosStats(events);
 
   return (
-    <div className="flex gap-6 items-start">
+    <div className="flex flex-col lg:flex-row gap-6 items-start">
       {/* KPIs em formato retangular compacto */}
-      <div className="grid grid-cols-2 gap-4 min-w-fit">
+      <div className="grid grid-cols-2 gap-4 flex-shrink-0">
         {statsCards.map((stat, index) => (
           <div key={index} className="w-64 h-32">
             <StatsCard {...stat} />
@@ -22,8 +22,8 @@ const AgendamentosStats = ({ events }: AgendamentosStatsProps) => {
         ))}
       </div>
 
-      {/* Gráfico à direita */}
-      <div className="flex-1 max-w-md">
+      {/* Gráfico à direita com tamanho controlado */}
+      <div className="w-full max-w-sm lg:max-w-xs xl:max-w-sm">
         <AppointmentsPieChart data={pieChartData} />
       </div>
     </div>

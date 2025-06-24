@@ -18,11 +18,11 @@ interface AppointmentsPieChartProps {
 const AppointmentsPieChart = ({ data }: AppointmentsPieChartProps) => {
   if (data.length === 0) {
     return (
-      <Card className="hover:shadow-2xl transition-all duration-300 border-2 border-lify-pink/20 bg-gradient-to-br from-white via-purple-50/30 to-pink-50/30 h-[280px]">
+      <Card className="hover:shadow-2xl transition-all duration-300 border-2 border-lify-pink/20 bg-gradient-to-br from-white via-purple-50/30 to-pink-50/30 h-[280px] w-full">
         <CardHeader className="pb-4 bg-gradient-to-r from-lify-pink/5 to-lify-purple/5">
-          <CardTitle className="flex items-center gap-3 text-xl text-gray-800">
-            <div className="p-3 rounded-xl bg-gradient-to-br from-lify-pink to-lify-purple border border-lify-pink/30 shadow-lg">
-              <ChartPie className="h-6 w-6 text-white" />
+          <CardTitle className="flex items-center gap-3 text-lg text-gray-800">
+            <div className="p-2 rounded-xl bg-gradient-to-br from-lify-pink to-lify-purple border border-lify-pink/30 shadow-lg">
+              <ChartPie className="h-5 w-5 text-white" />
             </div>
             <span className="bg-gradient-to-r from-lify-pink to-lify-purple bg-clip-text text-transparent font-bold">
               Tipos de Consulta
@@ -30,11 +30,11 @@ const AppointmentsPieChart = ({ data }: AppointmentsPieChartProps) => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-12 text-gray-600">
-            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-lify-pink/20 to-lify-purple/20 flex items-center justify-center border-2 border-lify-pink/30">
-              <ChartPie className="h-10 w-10 text-lify-pink" />
+          <div className="text-center py-8 text-gray-600">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-lify-pink/20 to-lify-purple/20 flex items-center justify-center border-2 border-lify-pink/30">
+              <ChartPie className="h-8 w-8 text-lify-pink" />
             </div>
-            <p className="text-lg font-medium bg-gradient-to-r from-lify-pink to-lify-purple bg-clip-text text-transparent">Nenhum agendamento encontrado</p>
+            <p className="text-base font-medium bg-gradient-to-r from-lify-pink to-lify-purple bg-clip-text text-transparent">Nenhum agendamento encontrado</p>
             <p className="text-sm mt-1 text-gray-500">Crie seu primeiro agendamento para ver as estatísticas</p>
           </div>
         </CardContent>
@@ -43,11 +43,11 @@ const AppointmentsPieChart = ({ data }: AppointmentsPieChartProps) => {
   }
 
   return (
-    <Card className="hover:shadow-2xl transition-all duration-300 border-2 border-lify-pink/20 bg-gradient-to-br from-white via-purple-50/30 to-pink-50/30 overflow-hidden group h-[280px]">
-      <CardHeader className="pb-4 bg-gradient-to-r from-lify-pink/5 to-lify-purple/5">
-        <CardTitle className="flex items-center gap-3 text-xl text-gray-800">
-          <div className="p-3 rounded-xl bg-gradient-to-br from-lify-pink to-lify-purple border border-lify-pink/30 shadow-lg">
-            <ChartPie className="h-6 w-6 text-white" />
+    <Card className="hover:shadow-2xl transition-all duration-300 border-2 border-lify-pink/20 bg-gradient-to-br from-white via-purple-50/30 to-pink-50/30 overflow-hidden group h-[280px] w-full">
+      <CardHeader className="pb-3 bg-gradient-to-r from-lify-pink/5 to-lify-purple/5">
+        <CardTitle className="flex items-center gap-3 text-lg text-gray-800">
+          <div className="p-2 rounded-xl bg-gradient-to-br from-lify-pink to-lify-purple border border-lify-pink/30 shadow-lg">
+            <ChartPie className="h-5 w-5 text-white" />
           </div>
           <span className="bg-gradient-to-r from-lify-pink to-lify-purple bg-clip-text text-transparent font-bold">
             Tipos de Consulta
@@ -69,11 +69,11 @@ const AppointmentsPieChart = ({ data }: AppointmentsPieChartProps) => {
                 data={data}
                 cx="50%"
                 cy="45%"
-                innerRadius={50}
-                outerRadius={90}
-                paddingAngle={8}
+                innerRadius={40}
+                outerRadius={75}
+                paddingAngle={6}
                 dataKey="value"
-                strokeWidth={3}
+                strokeWidth={2}
                 stroke="#ffffff"
               >
                 {data.map((entry, index) => (

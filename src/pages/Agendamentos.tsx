@@ -25,7 +25,7 @@ const Agendamentos = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <AgendamentosHeader 
         onRefetch={refetch} 
         isConnected={isConnected}
@@ -38,9 +38,9 @@ const Agendamentos = () => {
           <AgendamentosStats events={events} />
 
           {/* Layout principal: Calendário e Próximos Agendamentos */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             {/* Calendário principal */}
-            <div className="lg:col-span-8">
+            <div className="xl:col-span-2">
               <CalendarView 
                 events={events} 
                 isLoading={isLoadingEvents}
@@ -50,7 +50,7 @@ const Agendamentos = () => {
             </div>
 
             {/* Próximos agendamentos na lateral direita */}
-            <div className="lg:col-span-4">
+            <div className="xl:col-span-1">
               <UpcomingAppointments 
                 events={events} 
                 isLoadingEvents={isLoadingEvents}
