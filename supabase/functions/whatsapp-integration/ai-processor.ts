@@ -13,7 +13,10 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
   try {
     // Detectar contexto da conversa
     const userIntent = ConversationContextManager.detectUserIntent(message);
+    const context = ConversationContextManager.getContext(phoneNumber);
+    
     console.log(`🎯 Intenção detectada: ${userIntent}`);
+    console.log(`📊 Contexto atual: Stage=${context.conversationStage}, Greeted=${context.hasGreeted}, Repeats=${context.consecutiveRepeats}`);
 
     // Buscar contexto da clínica
     console.log('🏥 Buscando contexto da clínica...');
@@ -44,7 +47,7 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
         .select('content, message_type, timestamp')
         .eq('conversation_id', conversationData.id)
         .order('timestamp', { ascending: false })
-        .limit(8); // Reduzir para manter contexto mais focado
+        .limit(6); // Reduzir ainda mais para contexto focado
 
       if (messagesError) {
         console.error('❌ Erro ao buscar histórico:', messagesError);
@@ -75,15 +78,26 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
       finalResponse = await generateAIResponse(contextData, recentMessages, message, phoneNumber);
     }
 
-    // Verificar se a resposta é muito similar à anterior
-    const context = ConversationContextManager.getContext(phoneNumber);
-    if (context.consecutiveRepeats > 2) {
-      console.log('🔄 Muitas repetições detectadas, redirecionando para atendimento humano...');
-      finalResponse = `Percebi que pode estar com dúvidas. Que tal falar com um de nossos atendentes? 😊\n\nPosso te ajudar de outra forma?`;
+    // Verificar se há muitas repetições (contador crítico)
+    if (context.consecutiveRepeats > 3) {
+      console.log('🚨 Muitas repetições detectadas, escalando para humano...');
+      
+      // Atualizar conversa para escalada
+      await supabase
+        .from('whatsapp_conversations')
+        .update({
+          escalated_to_human: true,
+          escalation_reason: 'Repetições excessivas detectadas',
+          escalated_at: new Date().toISOString()
+        })
+        .eq('phone_number', phoneNumber);
+
+      finalResponse = `Percebi que pode estar confuso com minhas respostas. Vou transferir você para um de nossos atendentes humanos que poderá ajudá-lo melhor. 😊\n\nUm momento, por favor!`;
       
       // Resetar contador
       ConversationContextManager.updateContext(phoneNumber, {
-        consecutiveRepeats: 0
+        consecutiveRepeats: 0,
+        conversationStage: 'concluded'
       });
     }
 
@@ -98,7 +112,7 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
     // Tentar enviar mensagem de erro mais natural
     try {
       console.log('📤 Enviando mensagem de erro...');
-      const errorMsg = `Ops! Tive um probleminha aqui. Pode tentar de novo? Se continuar, me chame que passo para um atendente! 😊`;
+      const errorMsg = `Ops! Tive um probleminha aqui. Pode tentar de novo? Se persistir, vou te conectar com um atendente! 😊`;
       await sendMessageWithRetry(phoneNumber, errorMsg, supabase);
     } catch (sendError) {
       console.error('❌ Falha total ao comunicar com usuário:', sendError);

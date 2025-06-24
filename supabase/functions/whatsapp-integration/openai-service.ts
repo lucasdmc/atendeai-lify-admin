@@ -16,18 +16,30 @@ export async function generateAIResponse(
 ): Promise<string> {
   console.log(`🤖 Gerando resposta da IA para: ${phoneNumber}`);
   
-  // Atualizar contexto da conversa
+  // Gerenciar contexto da conversa
   const userIntent = ConversationContextManager.detectUserIntent(currentMessage);
   const context = ConversationContextManager.getContext(phoneNumber);
+  const shouldGreet = ConversationContextManager.shouldGreet(phoneNumber);
   
+  console.log(`🎯 Intenção: ${userIntent}, Stage: ${context.conversationStage}, Deve cumprimentar: ${shouldGreet}`);
+  
+  // Atualizar contexto
   ConversationContextManager.updateContext(phoneNumber, {
-    lastUserIntent: userIntent
+    lastUserIntent: userIntent,
+    conversationStage: userIntent === 'scheduling' ? 'scheduling' : 
+                      userIntent === 'greeting' ? 'information' : context.conversationStage
   });
 
-  // Construir prompt mais natural e humano
-  let systemPrompt = `Você é um assistente virtual amigável da nossa clínica médica. Seja natural, empático e prestativo. Use uma linguagem conversacional e humana.
+  // Se é uma saudação mas já cumprimentou, não repetir
+  if (userIntent === 'greeting' && !shouldGreet) {
+    ConversationContextManager.markAsGreeted(phoneNumber);
+    return NaturalResponseGenerator.generateContextualResponse('general', context.conversationStage);
+  }
 
-SOBRE A CLÍNICA:`;
+  // Construir prompt mais contextual
+  let systemPrompt = `Você é uma assistente virtual da nossa clínica médica. Seja natural, empática e objetiva.
+
+CONTEXTO DA CLÍNICA:`;
 
   if (contextData && contextData.length > 0) {
     contextData.forEach((item) => {
@@ -36,56 +48,56 @@ SOBRE A CLÍNICA:`;
       }
     });
   } else {
-    systemPrompt += `\n• Somos uma clínica médica comprometida com o cuidado e bem-estar dos nossos pacientes.`;
+    systemPrompt += `\n• Somos uma clínica médica focada no cuidado e bem-estar dos pacientes.`;
   }
 
-  systemPrompt += `\n\nCOMO VOCÊ DEVE SE COMPORTAR:
+  systemPrompt += `\n\nCOMPORTAMENTO:
 ✅ Seja natural e conversacional
-✅ Use emojis com moderação (1-2 por mensagem)
-✅ Seja conciso mas completo
-✅ Mostre empatia e interesse genuíno
-✅ Varie suas respostas para não repetir
-✅ Mantenha um tom acolhedor e profissional
+✅ Não repita saudações se já cumprimentou
+✅ Use emojis moderadamente (1-2 por mensagem)
+✅ Respostas concisas (máximo 2-3 linhas)
+✅ Adapte-se ao contexto da conversa
+✅ Evite repetições desnecessárias
 
 AGENDAMENTOS:
 • Para AGENDAR: colete data, horário, tipo de consulta e email
-• Para CANCELAR/REAGENDAR: identifique o agendamento existente primeiro
-• Para INFORMAÇÕES: seja específico e útil
+• Para CANCELAR/REAGENDAR: identifique o agendamento primeiro
 • Sempre confirme detalhes antes de finalizar
 
-INSTRUÇÕES IMPORTANTES:
-• Respostas máximo 3 linhas
-• Não repita informações desnecessariamente
-• Adapte-se ao contexto da conversa
-• Se o usuário está confuso, simplifique
-• Seja humano, não robótico`;
+CONTEXTO ATUAL:
+• Usuário já foi cumprimentado: ${context.hasGreeted ? 'SIM' : 'NÃO'}
+• Estágio da conversa: ${context.conversationStage}
+• Última intenção: ${context.lastUserIntent}
 
-  // Construir histórico mais inteligente
+INSTRUÇÕES CRÍTICAS:
+• NÃO repita informações já ditas
+• NÃO cumprimente novamente se já cumprimentou
+• Seja progressiva na conversa
+• Responda apenas ao que foi perguntado`;
+
+  // Construir histórico inteligente
   const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }];
 
   if (recentMessages && recentMessages.length > 0) {
-    // Pegar apenas mensagens relevantes e recentes
+    // Pegar apenas 4 mensagens mais recentes para manter contexto focado
     const relevantMessages = recentMessages
       .reverse()
-      .slice(0, 6) // Reduzir para manter contexto mais focado
-      .filter(msg => msg.content && msg.content.length > 0);
+      .slice(0, 4)
+      .filter(msg => msg.content && msg.content.length > 0 && msg.content !== currentMessage);
     
     relevantMessages.forEach((msg) => {
-      if (msg.content !== currentMessage) {
-        messages.push({
-          role: msg.message_type === 'received' ? 'user' : 'assistant',
-          content: msg.content
-        });
-      }
+      messages.push({
+        role: msg.message_type === 'received' ? 'user' : 'assistant',
+        content: msg.content
+      });
     });
   }
 
   // Adicionar mensagem atual
   messages.push({ role: 'user', content: currentMessage });
 
-  console.log(`💭 Contexto: ${userIntent}, Stage: ${context.conversationStage}`);
+  console.log(`💭 Total de mensagens no contexto: ${messages.length}`);
 
-  // Gerar resposta com IA
   let aiResponse = '';
   
   if (openAIApiKey) {
@@ -100,10 +112,10 @@ INSTRUÇÕES IMPORTANTES:
         body: JSON.stringify({
           model: 'gpt-4o-mini',
           messages: messages,
-          temperature: 0.8, // Aumentar criatividade
-          max_tokens: 300, // Reduzir para respostas mais concisas
-          presence_penalty: 0.6, // Evitar repetições
-          frequency_penalty: 0.4, // Variar vocabulário
+          temperature: 0.7,
+          max_tokens: 200, // Reduzir ainda mais para respostas concisas
+          presence_penalty: 0.8, // Aumentar para evitar repetições
+          frequency_penalty: 0.6,
         }),
       });
 
@@ -120,22 +132,28 @@ INSTRUÇÕES IMPORTANTES:
       aiResponse = NaturalResponseGenerator.generateErrorResponse();
     }
   } else {
-    console.log('⚠️ OpenAI Key não configurada');
-    // Usar respostas naturais baseadas no contexto
-    if (userIntent === 'greeting') {
-      aiResponse = NaturalResponseGenerator.generateGreeting();
+    console.log('⚠️ OpenAI Key não configurada, usando respostas padrão');
+    
+    if (userIntent === 'greeting' && shouldGreet) {
+      aiResponse = NaturalResponseGenerator.generateGreeting(undefined, shouldGreet);
+      ConversationContextManager.markAsGreeted(phoneNumber);
     } else if (userIntent === 'scheduling') {
-      aiResponse = NaturalResponseGenerator.generateSchedulingHelp();
+      aiResponse = NaturalResponseGenerator.generateSchedulingHelp(!context.hasGreeted);
     } else {
-      aiResponse = NaturalResponseGenerator.generateGenericHelp();
+      aiResponse = NaturalResponseGenerator.generateContextualResponse(userIntent, context.conversationStage);
     }
   }
 
-  // Verificar e evitar repetições
+  // Verificar repetições antes de retornar
   const isRepetitive = ConversationContextManager.checkForRepetition(phoneNumber, aiResponse);
   if (isRepetitive) {
-    console.log('🔄 Detectada repetição, gerando variação...');
+    console.log('🔄 Repetição detectada, gerando variação...');
     aiResponse = ConversationContextManager.generateVariedResponse(phoneNumber, aiResponse);
+  }
+
+  // Marcar como cumprimentado se foi uma saudação
+  if (userIntent === 'greeting') {
+    ConversationContextManager.markAsGreeted(phoneNumber);
   }
 
   // Atualizar contexto com a resposta
