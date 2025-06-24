@@ -55,7 +55,7 @@ const AppointmentsPieChart = ({ data }: AppointmentsPieChartProps) => {
         </CardTitle>
       </CardHeader>
       <CardContent className="p-3">
-        <div className="h-48">
+        <div className="h-[180px]">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <defs>
@@ -69,8 +69,8 @@ const AppointmentsPieChart = ({ data }: AppointmentsPieChartProps) => {
                 data={data}
                 cx="50%"
                 cy="45%"
-                innerRadius={40}
-                outerRadius={75}
+                innerRadius={30}
+                outerRadius={60}
                 paddingAngle={6}
                 dataKey="value"
                 strokeWidth={2}
