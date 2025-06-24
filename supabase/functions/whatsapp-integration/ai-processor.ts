@@ -11,6 +11,7 @@ import {
 import { handleEscalatedConversation } from './escalation-handler.ts';
 import { processMessageResponse } from './response-processor.ts';
 import { handleProcessingError } from './error-handler.ts';
+import { BookingFlowHandler } from './booking-flow-handler.ts';
 
 export async function processAndRespondWithAI(phoneNumber: string, message: string, supabase: any) {
   console.log(`🤖 === PROCESSAMENTO IA INICIADO ===`);
@@ -28,7 +29,18 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
       return;
     }
 
-    // NOVO: Verificar se usuário está pedindo para falar com humano
+    // NOVO: Verificar fluxo de agendamento PRIMEIRO
+    console.log('🗓️ Verificando fluxo de agendamento...');
+    const bookingHandler = new BookingFlowHandler(supabase);
+    const bookingResponse = await bookingHandler.handleMessage(conversationId, phoneNumber, message);
+    
+    if (bookingResponse) {
+      console.log('📅 Resposta de agendamento gerada');
+      await sendMessageWithRetry(phoneNumber, bookingResponse, supabase);
+      return;
+    }
+
+    // Verificar se usuário está pedindo para falar com humano
     if (detectHumanRequest(message)) {
       console.log('👤 Usuário solicitou falar com humano - escalando imediatamente');
       

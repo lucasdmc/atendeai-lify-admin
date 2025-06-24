@@ -57,6 +57,72 @@ export type Database = {
         }
         Relationships: []
       }
+      clinic_availability: {
+        Row: {
+          break_end_time: string | null
+          break_start_time: string | null
+          created_at: string
+          day_of_week: number
+          end_time: string
+          id: string
+          is_active: boolean
+          slot_duration_minutes: number
+          start_time: string
+        }
+        Insert: {
+          break_end_time?: string | null
+          break_start_time?: string | null
+          created_at?: string
+          day_of_week: number
+          end_time: string
+          id?: string
+          is_active?: boolean
+          slot_duration_minutes?: number
+          start_time: string
+        }
+        Update: {
+          break_end_time?: string | null
+          break_start_time?: string | null
+          created_at?: string
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          is_active?: boolean
+          slot_duration_minutes?: number
+          start_time?: string
+        }
+        Relationships: []
+      }
+      clinic_availability_exceptions: {
+        Row: {
+          created_at: string
+          custom_end_time: string | null
+          custom_start_time: string | null
+          exception_date: string
+          id: string
+          is_closed: boolean
+          reason: string | null
+        }
+        Insert: {
+          created_at?: string
+          custom_end_time?: string | null
+          custom_start_time?: string | null
+          exception_date: string
+          id?: string
+          is_closed?: boolean
+          reason?: string | null
+        }
+        Update: {
+          created_at?: string
+          custom_end_time?: string | null
+          custom_start_time?: string | null
+          exception_date?: string
+          id?: string
+          is_closed?: boolean
+          reason?: string | null
+        }
+        Relationships: []
+      }
       clinic_knowledge_base: {
         Row: {
           clinic_id: string | null
@@ -255,6 +321,54 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_booking_sessions: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          customer_email: string | null
+          customer_name: string | null
+          expires_at: string
+          id: string
+          phone_number: string
+          selected_date: string | null
+          selected_service: string | null
+          selected_time: string | null
+          session_data: Json | null
+          session_state: string
+          updated_at: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          expires_at?: string
+          id?: string
+          phone_number: string
+          selected_date?: string | null
+          selected_service?: string | null
+          selected_time?: string | null
+          session_data?: Json | null
+          session_state?: string
+          updated_at?: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          expires_at?: string
+          id?: string
+          phone_number?: string
+          selected_date?: string | null
+          selected_service?: string | null
+          selected_time?: string | null
+          session_data?: Json | null
+          session_state?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       whatsapp_conversations: {
         Row: {
           consecutive_same_responses: number | null
@@ -390,6 +504,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      clean_expired_booking_sessions: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       extract_country_code: {
         Args: { phone_number: string }
         Returns: string
