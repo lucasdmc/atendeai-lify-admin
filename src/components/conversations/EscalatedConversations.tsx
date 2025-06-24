@@ -39,7 +39,7 @@ export default function EscalatedConversations() {
           filter: 'escalated_to_human=eq.true'
         },
         (payload) => {
-          console.log('Nova conversa escalada:', payload);
+          console.log('🔥 Nova conversa escalada via realtime:', payload);
           fetchEscalatedConversations();
           toast({
             title: "Nova conversa escalada",
@@ -60,18 +60,52 @@ export default function EscalatedConversations() {
       setLoading(true);
       console.log('🔍 Buscando conversas escaladas...');
       
+      // Primeiro, vamos buscar TODAS as conversas para debug
+      const { data: allConversations, error: allError } = await supabase
+        .from('whatsapp_conversations')
+        .select('*')
+        .order('updated_at', { ascending: false });
+
+      if (allError) {
+        console.error('❌ Erro ao buscar todas as conversas:', allError);
+      } else {
+        console.log('📊 Total de conversas no banco:', allConversations?.length || 0);
+        console.log('📝 Conversas com escalated_to_human=true:', 
+          allConversations?.filter(c => c.escalated_to_human === true).length || 0);
+        
+        // Log detalhado das conversas escaladas
+        const escalated = allConversations?.filter(c => c.escalated_to_human === true) || [];
+        if (escalated.length > 0) {
+          console.log('🆘 Conversas escaladas encontradas:', escalated.map(c => ({
+            id: c.id,
+            phone_number: c.phone_number,
+            escalated_to_human: c.escalated_to_human,
+            escalation_reason: c.escalation_reason,
+            escalated_at: c.escalated_at
+          })));
+        }
+      }
+
+      // Agora buscar apenas as escaladas
       const { data, error } = await supabase
         .from('whatsapp_conversations')
         .select('*')
         .eq('escalated_to_human', true)
         .order('escalated_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro ao buscar conversas escaladas:', error);
+        throw error;
+      }
       
-      console.log('📊 Conversas escaladas encontradas:', data?.length || 0);
+      console.log('📊 Conversas escaladas retornadas pela query:', data?.length || 0);
+      if (data && data.length > 0) {
+        console.log('📝 Primeira conversa escalada:', data[0]);
+      }
+      
       setEscalatedConversations(data || []);
     } catch (error) {
-      console.error('Erro ao buscar conversas escaladas:', error);
+      console.error('❌ Erro completo ao buscar conversas escaladas:', error);
       toast({
         title: "Erro",
         description: "Falha ao carregar conversas escaladas",
@@ -84,6 +118,8 @@ export default function EscalatedConversations() {
 
   const markAsResolved = async (conversationId: string) => {
     try {
+      console.log('✅ Marcando conversa como resolvida:', conversationId);
+      
       const { error } = await supabase
         .from('whatsapp_conversations')
         .update({
@@ -108,7 +144,7 @@ export default function EscalatedConversations() {
         variant: "default",
       });
     } catch (error) {
-      console.error('Erro ao resolver conversa:', error);
+      console.error('❌ Erro ao resolver conversa:', error);
       toast({
         title: "Erro",
         description: "Falha ao marcar conversa como resolvida",
@@ -130,7 +166,7 @@ export default function EscalatedConversations() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-orange-500" />
-            Conversas Escaladas
+            Conversas Escaladas (Carregando...)
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -166,6 +202,15 @@ export default function EscalatedConversations() {
             <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
             <p className="text-gray-500">Nenhuma conversa escalada no momento</p>
             <p className="text-sm text-gray-400 mt-2">Todas as conversas estão sendo atendidas pelo bot</p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={fetchEscalatedConversations}
+              className="mt-4"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Atualizar
+            </Button>
           </div>
         ) : (
           <div className="space-y-4">
