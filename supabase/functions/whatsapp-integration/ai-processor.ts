@@ -31,8 +31,8 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
       console.log(`✅ Contexto encontrado: ${contextData?.length || 0} itens`);
     }
 
-    // Buscar histórico recente da conversa
-    console.log('📝 Buscando histórico da conversa...');
+    // Buscar histórico COMPLETO da conversa (últimas 20 mensagens)
+    console.log('📝 Buscando histórico completo da conversa...');
     
     const { data: conversationData, error: convError } = await supabase
       .from('whatsapp_conversations')
@@ -47,13 +47,27 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
         .select('content, message_type, timestamp')
         .eq('conversation_id', conversationData.id)
         .order('timestamp', { ascending: false })
-        .limit(6); // Reduzir ainda mais para contexto focado
+        .limit(20); // Aumentar limite para mais contexto histórico
 
       if (messagesError) {
         console.error('❌ Erro ao buscar histórico:', messagesError);
       } else {
         recentMessages = messages || [];
         console.log(`✅ Histórico encontrado: ${recentMessages.length} mensagens`);
+        
+        // Carregar histórico no contexto se ainda não estiver carregado
+        if (context.conversationHistory.length === 0 && recentMessages.length > 0) {
+          console.log('🔄 Carregando histórico do banco para o contexto...');
+          recentMessages.reverse().forEach((msg) => {
+            if (msg.content && msg.content.trim()) {
+              ConversationContextManager.addToHistory(
+                phoneNumber, 
+                msg.content, 
+                msg.message_type === 'received' ? 'user' : 'bot'
+              );
+            }
+          });
+        }
       }
     }
 
@@ -74,12 +88,12 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
 
     // Se não conseguiu processar agendamento ou não é sobre agendamento, usar IA
     if (!finalResponse) {
-      console.log('🤖 Processando com IA...');
+      console.log('🤖 Processando com IA (com histórico completo)...');
       finalResponse = await generateAIResponse(contextData, recentMessages, message, phoneNumber);
     }
 
     // Verificar se há muitas repetições (contador crítico)
-    if (context.consecutiveRepeats > 3) {
+    if (context.consecutiveRepeats > 2) { // Reduzir limite para ser mais proativo
       console.log('🚨 Muitas repetições detectadas, escalando para humano...');
       
       // Atualizar conversa para escalada

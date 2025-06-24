@@ -7,6 +7,12 @@ interface ConversationState {
   userPreferences: Record<string, any>;
   hasGreeted: boolean;
   lastInteractionTime: number;
+  conversationHistory: Array<{
+    content: string;
+    type: 'user' | 'bot';
+    timestamp: number;
+    intent?: string;
+  }>;
 }
 
 export class ConversationContextManager {
@@ -21,7 +27,8 @@ export class ConversationContextManager {
         conversationStage: 'greeting',
         userPreferences: {},
         hasGreeted: false,
-        lastInteractionTime: Date.now()
+        lastInteractionTime: Date.now(),
+        conversationHistory: []
       });
     }
     return this.contexts.get(phoneNumber)!;
@@ -36,6 +43,30 @@ export class ConversationContextManager {
     });
   }
 
+  static addToHistory(phoneNumber: string, content: string, type: 'user' | 'bot', intent?: string) {
+    const context = this.getContext(phoneNumber);
+    
+    // Adicionar à memória local
+    context.conversationHistory.push({
+      content,
+      type,
+      timestamp: Date.now(),
+      intent
+    });
+
+    // Manter apenas as últimas 20 interações na memória
+    if (context.conversationHistory.length > 20) {
+      context.conversationHistory = context.conversationHistory.slice(-20);
+    }
+
+    this.updateContext(phoneNumber, { conversationHistory: context.conversationHistory });
+  }
+
+  static getRecentHistory(phoneNumber: string, limit: number = 10): Array<{content: string, type: 'user' | 'bot'}> {
+    const context = this.getContext(phoneNumber);
+    return context.conversationHistory.slice(-limit);
+  }
+
   static checkForRepetition(phoneNumber: string, newResponse: string): boolean {
     const context = this.getContext(phoneNumber);
     
@@ -46,7 +77,7 @@ export class ConversationContextManager {
     console.log(`📝 Última resposta: ${context.lastBotResponse.substring(0, 50)}...`);
     console.log(`📝 Nova resposta: ${newResponse.substring(0, 50)}...`);
     
-    if (similarity > 0.7) { // Reduzir threshold para ser mais sensível
+    if (similarity > 0.7) {
       context.consecutiveRepeats++;
       console.log(`⚠️ Repetição detectada! Contador: ${context.consecutiveRepeats}`);
       return true;
@@ -59,16 +90,14 @@ export class ConversationContextManager {
   private static calculateSimilarity(text1: string, text2: string): number {
     if (!text1 || !text2) return 0;
     
-    // Normalizar textos
     const normalize = (text: string) => text.toLowerCase()
-      .replace(/[^\w\s]/g, '') // Remove pontuação
-      .replace(/\s+/g, ' ')    // Normaliza espaços
+      .replace(/[^\w\s]/g, '')
+      .replace(/\s+/g, ' ')
       .trim();
     
     const norm1 = normalize(text1);
     const norm2 = normalize(text2);
     
-    // Se são iguais após normalização, similaridade é 1
     if (norm1 === norm2) return 1;
     
     const words1 = norm1.split(/\s+/);
@@ -96,7 +125,6 @@ export class ConversationContextManager {
   }
 
   private static createResponseVariations(response: string, stage: string): string[] {
-    // Evitar saudações repetidas se já saudou
     if (response.includes('Oi!') || response.includes('Olá')) {
       return [
         response.replace(/^[^!]*! Tudo ótimo[^!]*!\s*/, ''),
@@ -151,14 +179,48 @@ export class ConversationContextManager {
   static shouldGreet(phoneNumber: string): boolean {
     const context = this.getContext(phoneNumber);
     
-    // Só cumprimentar se ainda não cumprimentou ou se passou muito tempo (mais de 30 min)
-    const thirtyMinutes = 30 * 60 * 1000;
+    // Só cumprimentar se ainda não cumprimentou ou se passou muito tempo (mais de 4 horas)
+    const fourHours = 4 * 60 * 60 * 1000;
     const timeSinceLastInteraction = Date.now() - context.lastInteractionTime;
     
-    return !context.hasGreeted || timeSinceLastInteraction > thirtyMinutes;
+    return !context.hasGreeted || timeSinceLastInteraction > fourHours;
   }
 
   static markAsGreeted(phoneNumber: string) {
     this.updateContext(phoneNumber, { hasGreeted: true });
+  }
+
+  static analyzeConversationContext(phoneNumber: string): {
+    hasAppointmentContext: boolean;
+    lastAppointmentData: any;
+    conversationFlow: string;
+    userMentions: string[];
+  } {
+    const context = this.getContext(phoneNumber);
+    const history = context.conversationHistory;
+    
+    // Analisar se há contexto de agendamento
+    const appointmentKeywords = ['agendar', 'marcar', 'consulta', 'médico', 'doutor', 'especialista'];
+    const hasAppointmentContext = history.some(msg => 
+      appointmentKeywords.some(keyword => msg.content.toLowerCase().includes(keyword))
+    );
+
+    // Extrair menções importantes do usuário
+    const userMentions = history
+      .filter(msg => msg.type === 'user')
+      .map(msg => msg.content)
+      .filter(content => content.length > 0);
+
+    // Analisar fluxo da conversa
+    let conversationFlow = 'initial';
+    if (history.length > 5) conversationFlow = 'ongoing';
+    if (hasAppointmentContext) conversationFlow = 'appointment_focused';
+
+    return {
+      hasAppointmentContext,
+      lastAppointmentData: null, // Pode ser expandido para extrair dados específicos
+      conversationFlow,
+      userMentions: userMentions.slice(-5) // Últimas 5 mensagens do usuário
+    };
   }
 }
