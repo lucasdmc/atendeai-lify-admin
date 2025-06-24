@@ -1,9 +1,8 @@
-
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -39,7 +38,8 @@ export default function EscalatedConversations() {
           table: 'whatsapp_conversations',
           filter: 'escalated_to_human=eq.true'
         },
-        () => {
+        (payload) => {
+          console.log('Nova conversa escalada:', payload);
           fetchEscalatedConversations();
           toast({
             title: "Nova conversa escalada",
@@ -58,6 +58,8 @@ export default function EscalatedConversations() {
   const fetchEscalatedConversations = async () => {
     try {
       setLoading(true);
+      console.log('🔍 Buscando conversas escaladas...');
+      
       const { data, error } = await supabase
         .from('whatsapp_conversations')
         .select('*')
@@ -65,6 +67,8 @@ export default function EscalatedConversations() {
         .order('escalated_at', { ascending: false });
 
       if (error) throw error;
+      
+      console.log('📊 Conversas escaladas encontradas:', data?.length || 0);
       setEscalatedConversations(data || []);
     } catch (error) {
       console.error('Erro ao buscar conversas escaladas:', error);
@@ -146,6 +150,14 @@ export default function EscalatedConversations() {
         <CardTitle className="flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 text-orange-500" />
           Conversas Escaladas ({escalatedConversations.length})
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={fetchEscalatedConversations}
+            className="ml-auto"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
         </CardTitle>
       </CardHeader>
       <CardContent>

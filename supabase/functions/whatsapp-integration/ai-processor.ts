@@ -1,6 +1,7 @@
 
 import { sendMessageWithRetry } from './message-retry.ts';
 import { detectAndHandleLoop } from './loop-detection.ts';
+import { detectHumanRequest, escalateToHumanImmediately } from './human-request-detector.ts';
 import { 
   fetchConversationData, 
   fetchContextData, 
@@ -24,6 +25,24 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
     // Verificar se já está escalado para humano
     if (checkIfEscalated(conversationData)) {
       await handleEscalatedConversation(phoneNumber, supabase);
+      return;
+    }
+
+    // NOVO: Verificar se usuário está pedindo para falar com humano
+    if (detectHumanRequest(message)) {
+      console.log('👤 Usuário solicitou falar com humano - escalando imediatamente');
+      
+      await escalateToHumanImmediately(
+        conversationId, 
+        'Usuário solicitou atendimento humano', 
+        supabase
+      );
+      
+      const humanMessage = `Entendi que você gostaria de falar com um atendente humano. Sua conversa foi transferida para nossa equipe de atendimento.
+
+Nossa equipe entrará em contato em breve. Para urgências, entre em contato pelo telefone da clínica: (47) 99967-2901.`;
+
+      await sendMessageWithRetry(phoneNumber, humanMessage, supabase);
       return;
     }
 
