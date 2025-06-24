@@ -1,7 +1,7 @@
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MessageCircle, AlertTriangle, Clock } from 'lucide-react';
+import { Clock, MessageSquare, AlertTriangle, User } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import ConversationAvatar from './ConversationAvatar';
@@ -32,99 +32,87 @@ export default function ConversationCard({
   getDisplayName
 }: ConversationCardProps) {
   const displayName = getDisplayName(conversation);
-  
-  const highlightText = (text: string, searchTerm: string) => {
-    if (!searchTerm) return text;
-    
-    const parts = text.split(new RegExp(`(${searchTerm})`, 'gi'));
-    return parts.map((part, index) => 
-      part.toLowerCase() === searchTerm.toLowerCase() ? 
-        <mark key={index} className="bg-yellow-200 px-1 rounded">{part}</mark> : 
-        part
-    );
-  };
+  const timeAgo = formatDistanceToNow(new Date(conversation.updated_at), {
+    addSuffix: true,
+    locale: ptBR
+  });
 
-  const getLoopStatus = () => {
-    if (conversation.escalated_to_human) {
-      return (
-        <Badge variant="destructive" className="text-xs">
-          <AlertTriangle className="h-3 w-3 mr-1" />
-          Escalada
-        </Badge>
-      );
-    }
-    
-    if ((conversation.loop_counter || 0) > 0) {
-      return (
-        <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700">
-          <AlertTriangle className="h-3 w-3 mr-1" />
-          {conversation.loop_counter} loops
-        </Badge>
-      );
-    }
-    
-    return null;
-  };
+  const hasLoop = (conversation.loop_counter || 0) > 0;
+  const isEscalated = conversation.escalated_to_human;
 
   return (
     <Card 
-      className={`cursor-pointer transition-all duration-200 hover:shadow-md hover:border-orange-300 ${
-        conversation.escalated_to_human ? 'border-red-200 bg-red-50' : 
-        (conversation.loop_counter || 0) > 0 ? 'border-orange-200 bg-orange-50' : ''
+      className={`cursor-pointer transition-all hover:shadow-md border-l-4 ${
+        isEscalated 
+          ? 'border-l-red-500 bg-red-50' 
+          : hasLoop 
+            ? 'border-l-orange-500 bg-orange-50' 
+            : 'border-l-transparent hover:border-l-blue-500'
       }`}
       onClick={onClick}
     >
       <CardContent className="p-4">
-        <div className="flex items-start space-x-3">
-          <ConversationAvatar name={displayName} />
+        <div className="flex items-start gap-3">
+          <ConversationAvatar 
+            name={displayName}
+            countryCode={conversation.phone_number}
+            unreadCount={conversation.unread_count || 0}
+          />
           
-          <div className="flex-1 min-w-0 space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900 truncate">
-                {highlightText(displayName, searchTerm)}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-medium text-gray-900 truncate">
+                {displayName}
               </h3>
+              
               <div className="flex items-center gap-2">
-                {getLoopStatus()}
-                {(conversation.unread_count || 0) > 0 && (
-                  <Badge variant="default" className="bg-orange-500">
-                    {conversation.unread_count}
+                {isEscalated && (
+                  <Badge variant="destructive" className="text-xs">
+                    <User className="h-3 w-3 mr-1" />
+                    Escalado
                   </Badge>
                 )}
+                {hasLoop && !isEscalated && (
+                  <Badge variant="outline" className="text-xs text-orange-600 border-orange-600">
+                    <AlertTriangle className="h-3 w-3 mr-1" />
+                    Loop {conversation.loop_counter}
+                  </Badge>
+                )}
+                <span className="text-xs text-gray-500 flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {timeAgo}
+                </span>
               </div>
             </div>
             
-            <div className="flex items-center justify-between text-sm text-gray-500">
-              <span className="truncate">
-                {highlightText(
-                  conversation.formatted_phone_number || conversation.phone_number, 
-                  searchTerm
-                )}
-              </span>
-              <div className="flex items-center gap-1 text-xs">
-                <Clock className="h-3 w-3" />
-                {formatDistanceToNow(new Date(conversation.updated_at), {
-                  addSuffix: true,
-                  locale: ptBR
-                })}
-              </div>
-            </div>
+            <p className="text-sm text-gray-600 mb-2">
+              {conversation.formatted_phone_number || conversation.phone_number}
+            </p>
             
             {conversation.last_message_preview && (
-              <p className="text-sm text-gray-600 truncate">
-                {highlightText(conversation.last_message_preview, searchTerm)}
+              <p className="text-sm text-gray-800 line-clamp-2 mb-2">
+                {conversation.last_message_preview}
               </p>
             )}
             
-            <div className="flex items-center justify-between text-xs text-gray-400">
-              <div className="flex items-center gap-1">
-                <MessageCircle className="h-3 w-3" />
-                <span>{conversation.message_count || 0} mensagens</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4 text-xs text-gray-500">
+                <span className="flex items-center gap-1">
+                  <MessageSquare className="h-3 w-3" />
+                  {conversation.message_count || 0} mensagens
+                </span>
+                
+                {(conversation.consecutive_same_responses || 0) > 0 && (
+                  <span className="text-orange-600">
+                    {conversation.consecutive_same_responses} respostas repetidas
+                  </span>
+                )}
               </div>
               
-              {(conversation.consecutive_same_responses || 0) > 1 && (
-                <span className="text-orange-600">
-                  {conversation.consecutive_same_responses} respostas repetidas
-                </span>
+              {(conversation.unread_count || 0) > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  {conversation.unread_count} não lidas
+                </Badge>
               )}
             </div>
           </div>
