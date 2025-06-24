@@ -1,5 +1,7 @@
 
 import { openAIApiKey } from './config.ts';
+import { ConversationContextManager } from './conversation-context.ts';
+import { NaturalResponseGenerator } from './natural-responses.ts';
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -9,63 +11,82 @@ interface ChatMessage {
 export async function generateAIResponse(
   contextData: any[], 
   recentMessages: any[], 
-  currentMessage: string
+  currentMessage: string,
+  phoneNumber: string
 ): Promise<string> {
-  // Construir prompt do sistema com contexto da clínica
-  let systemPrompt = `Você é um assistente virtual de uma clínica médica. Seja sempre educado, profissional e prestativo.
+  console.log(`🤖 Gerando resposta da IA para: ${phoneNumber}`);
+  
+  // Atualizar contexto da conversa
+  const userIntent = ConversationContextManager.detectUserIntent(currentMessage);
+  const context = ConversationContextManager.getContext(phoneNumber);
+  
+  ConversationContextManager.updateContext(phoneNumber, {
+    lastUserIntent: userIntent
+  });
 
-INFORMAÇÕES DA CLÍNICA:`;
+  // Construir prompt mais natural e humano
+  let systemPrompt = `Você é um assistente virtual amigável da nossa clínica médica. Seja natural, empático e prestativo. Use uma linguagem conversacional e humana.
+
+SOBRE A CLÍNICA:`;
 
   if (contextData && contextData.length > 0) {
     contextData.forEach((item) => {
       if (item.answer) {
-        systemPrompt += `\n- ${item.question}: ${item.answer}`;
+        systemPrompt += `\n• ${item.question}: ${item.answer}`;
       }
     });
   } else {
-    systemPrompt += `\n- Esta é uma clínica médica que oferece diversos serviços de saúde.`;
+    systemPrompt += `\n• Somos uma clínica médica comprometida com o cuidado e bem-estar dos nossos pacientes.`;
   }
 
-  systemPrompt += `\n\nFUNCIONALIDADES DE AGENDAMENTO:
-Você pode ajudar os pacientes com agendamentos. Quando detectar solicitações de agendamento completas:
-- Para CRIAR: precisa de data, horário, tipo de consulta e email
-- Para CANCELAR: precisa de data e horário da consulta existente
-- Para REAGENDAR: precisa de dados atuais e novos dados desejados
-- Para LISTAR: mostre os agendamentos do paciente
+  systemPrompt += `\n\nCOMO VOCÊ DEVE SE COMPORTAR:
+✅ Seja natural e conversacional
+✅ Use emojis com moderação (1-2 por mensagem)
+✅ Seja conciso mas completo
+✅ Mostre empatia e interesse genuíno
+✅ Varie suas respostas para não repetir
+✅ Mantenha um tom acolhedor e profissional
 
-INSTRUÇÕES:
-- Responda de forma clara e objetiva
-- Para agendamentos, seja específico sobre as informações necessárias
-- Sempre confirme detalhes antes de finalizar agendamentos
-- Mantenha um tom profissional e acolhedor
-- Respostas devem ser concisas (máximo 2-3 parágrafos)
-- Quando tiver todas as informações necessárias, confirme que o agendamento foi criado`;
+AGENDAMENTOS:
+• Para AGENDAR: colete data, horário, tipo de consulta e email
+• Para CANCELAR/REAGENDAR: identifique o agendamento existente primeiro
+• Para INFORMAÇÕES: seja específico e útil
+• Sempre confirme detalhes antes de finalizar
 
-  // Construir histórico da conversa
+INSTRUÇÕES IMPORTANTES:
+• Respostas máximo 3 linhas
+• Não repita informações desnecessariamente
+• Adapte-se ao contexto da conversa
+• Se o usuário está confuso, simplifique
+• Seja humano, não robótico`;
+
+  // Construir histórico mais inteligente
   const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }];
 
   if (recentMessages && recentMessages.length > 0) {
-    // Adicionar mensagens recentes ao contexto (em ordem cronológica)
-    recentMessages
+    // Pegar apenas mensagens relevantes e recentes
+    const relevantMessages = recentMessages
       .reverse()
-      .slice(0, 8)
-      .forEach((msg) => {
-        if (msg.content && msg.content !== currentMessage) {
-          messages.push({
-            role: msg.message_type === 'received' ? 'user' : 'assistant',
-            content: msg.content
-          });
-        }
-      });
+      .slice(0, 6) // Reduzir para manter contexto mais focado
+      .filter(msg => msg.content && msg.content.length > 0);
+    
+    relevantMessages.forEach((msg) => {
+      if (msg.content !== currentMessage) {
+        messages.push({
+          role: msg.message_type === 'received' ? 'user' : 'assistant',
+          content: msg.content
+        });
+      }
+    });
   }
 
   // Adicionar mensagem atual
   messages.push({ role: 'user', content: currentMessage });
 
-  console.log(`💭 Prompt construído com ${messages.length} mensagens`);
+  console.log(`💭 Contexto: ${userIntent}, Stage: ${context.conversationStage}`);
 
-  // Chamar a OpenAI se a chave estiver configurada
-  let aiResponse = 'Olá! Obrigado por entrar em contato. Como posso ajudá-lo hoje?';
+  // Gerar resposta com IA
+  let aiResponse = '';
   
   if (openAIApiKey) {
     try {
@@ -79,30 +100,49 @@ INSTRUÇÕES:
         body: JSON.stringify({
           model: 'gpt-4o-mini',
           messages: messages,
-          temperature: 0.7,
-          max_tokens: 500,
+          temperature: 0.8, // Aumentar criatividade
+          max_tokens: 300, // Reduzir para respostas mais concisas
+          presence_penalty: 0.6, // Evitar repetições
+          frequency_penalty: 0.4, // Variar vocabulário
         }),
       });
-
-      console.log(`📡 OpenAI response status: ${response.status}`);
 
       if (response.ok) {
         const data = await response.json();
         aiResponse = data.choices[0].message.content;
-        console.log('✅ Resposta IA gerada com sucesso');
-        console.log(`💬 Resposta: ${aiResponse.substring(0, 100)}...`);
+        console.log('✅ Resposta IA gerada');
       } else {
-        const errorText = await response.text();
-        console.error('❌ Erro na OpenAI API:', response.status, errorText);
-        aiResponse = 'Desculpe, estou com dificuldades técnicas no momento. Tente novamente em alguns minutos ou entre em contato por telefone.';
+        console.error('❌ Erro na OpenAI API:', response.status);
+        aiResponse = NaturalResponseGenerator.generateErrorResponse();
       }
     } catch (error) {
       console.error('❌ Erro ao chamar OpenAI:', error);
-      aiResponse = 'Desculpe, estou temporariamente indisponível. Por favor, tente novamente em alguns minutos.';
+      aiResponse = NaturalResponseGenerator.generateErrorResponse();
     }
   } else {
-    console.log('⚠️ OpenAI Key não configurada, usando resposta padrão');
+    console.log('⚠️ OpenAI Key não configurada');
+    // Usar respostas naturais baseadas no contexto
+    if (userIntent === 'greeting') {
+      aiResponse = NaturalResponseGenerator.generateGreeting();
+    } else if (userIntent === 'scheduling') {
+      aiResponse = NaturalResponseGenerator.generateSchedulingHelp();
+    } else {
+      aiResponse = NaturalResponseGenerator.generateGenericHelp();
+    }
   }
 
+  // Verificar e evitar repetições
+  const isRepetitive = ConversationContextManager.checkForRepetition(phoneNumber, aiResponse);
+  if (isRepetitive) {
+    console.log('🔄 Detectada repetição, gerando variação...');
+    aiResponse = ConversationContextManager.generateVariedResponse(phoneNumber, aiResponse);
+  }
+
+  // Atualizar contexto com a resposta
+  ConversationContextManager.updateContext(phoneNumber, {
+    lastBotResponse: aiResponse
+  });
+
+  console.log(`💬 Resposta final: ${aiResponse.substring(0, 100)}...`);
   return aiResponse;
 }

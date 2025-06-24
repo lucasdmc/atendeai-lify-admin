@@ -3,6 +3,7 @@ import { isAppointmentRelated } from './appointment-utils.ts';
 import { handleAppointmentRequest } from './appointment-handler.ts';
 import { generateAIResponse } from './openai-service.ts';
 import { sendMessageWithRetry } from './message-retry.ts';
+import { ConversationContextManager } from './conversation-context.ts';
 
 export async function processAndRespondWithAI(phoneNumber: string, message: string, supabase: any) {
   console.log(`🤖 === PROCESSAMENTO IA INICIADO ===`);
@@ -10,6 +11,10 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
   console.log(`💬 Mensagem: ${message}`);
   
   try {
+    // Detectar contexto da conversa
+    const userIntent = ConversationContextManager.detectUserIntent(message);
+    console.log(`🎯 Intenção detectada: ${userIntent}`);
+
     // Buscar contexto da clínica
     console.log('🏥 Buscando contexto da clínica...');
     const { data: contextData, error: contextError } = await supabase
@@ -23,7 +28,7 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
       console.log(`✅ Contexto encontrado: ${contextData?.length || 0} itens`);
     }
 
-    // Buscar histórico recente da conversa usando o número de telefone
+    // Buscar histórico recente da conversa
     console.log('📝 Buscando histórico da conversa...');
     
     const { data: conversationData, error: convError } = await supabase
@@ -39,7 +44,7 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
         .select('content, message_type, timestamp')
         .eq('conversation_id', conversationData.id)
         .order('timestamp', { ascending: false })
-        .limit(10);
+        .limit(8); // Reduzir para manter contexto mais focado
 
       if (messagesError) {
         console.error('❌ Erro ao buscar histórico:', messagesError);
@@ -49,36 +54,52 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
       }
     }
 
-    // Verificar se é sobre agendamento e tentar processar
+    // Verificar se é sobre agendamento
     const isAboutAppointment = isAppointmentRelated(message);
     console.log(`📅 Mensagem sobre agendamento: ${isAboutAppointment ? 'SIM' : 'NÃO'}`);
+
+    let finalResponse = '';
 
     if (isAboutAppointment) {
       console.log('🔄 Processando solicitação de agendamento...');
       const appointmentResponse = await handleAppointmentRequest(message, phoneNumber, supabase);
       if (appointmentResponse) {
-        console.log('📅 Resposta de agendamento gerada:', appointmentResponse.substring(0, 100) + '...');
-        await sendMessageWithRetry(phoneNumber, appointmentResponse, supabase);
-        return;
+        finalResponse = appointmentResponse;
+        console.log('📅 Resposta de agendamento gerada');
       }
     }
 
-    // Se não conseguiu processar agendamento, usar IA para resposta
-    console.log('🤖 Processando com IA...');
-    const aiResponse = await generateAIResponse(contextData, recentMessages, message);
+    // Se não conseguiu processar agendamento ou não é sobre agendamento, usar IA
+    if (!finalResponse) {
+      console.log('🤖 Processando com IA...');
+      finalResponse = await generateAIResponse(contextData, recentMessages, message, phoneNumber);
+    }
 
-    // Enviar resposta de volta via WhatsApp com retry
+    // Verificar se a resposta é muito similar à anterior
+    const context = ConversationContextManager.getContext(phoneNumber);
+    if (context.consecutiveRepeats > 2) {
+      console.log('🔄 Muitas repetições detectadas, redirecionando para atendimento humano...');
+      finalResponse = `Percebi que pode estar com dúvidas. Que tal falar com um de nossos atendentes? 😊\n\nPosso te ajudar de outra forma?`;
+      
+      // Resetar contador
+      ConversationContextManager.updateContext(phoneNumber, {
+        consecutiveRepeats: 0
+      });
+    }
+
+    // Enviar resposta
     console.log('📤 Enviando resposta via WhatsApp...');
-    await sendMessageWithRetry(phoneNumber, aiResponse, supabase);
+    await sendMessageWithRetry(phoneNumber, finalResponse, supabase);
     console.log(`✅ Resposta automática enviada para ${phoneNumber}`);
     
   } catch (error) {
     console.error('❌ Erro crítico no processamento com IA:', error);
     
-    // Tentar enviar mensagem de erro básica
+    // Tentar enviar mensagem de erro mais natural
     try {
-      console.log('📤 Enviando mensagem de erro básica...');
-      await sendMessageWithRetry(phoneNumber, 'Desculpe, estou com dificuldades no momento. Tente novamente em alguns minutos.', supabase);
+      console.log('📤 Enviando mensagem de erro...');
+      const errorMsg = `Ops! Tive um probleminha aqui. Pode tentar de novo? Se continuar, me chame que passo para um atendente! 😊`;
+      await sendMessageWithRetry(phoneNumber, errorMsg, supabase);
     } catch (sendError) {
       console.error('❌ Falha total ao comunicar com usuário:', sendError);
     }
