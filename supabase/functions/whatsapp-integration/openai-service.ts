@@ -1,106 +1,108 @@
-import { Configuration, OpenAIApi } from "openai";
-import { load } from 'https://deno.land/std@0.218.2/dotenv/mod.ts';
 
-const env = await load();
+import { openAIApiKey } from './config.ts';
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
-export async function generateOpenAIResponse(
-  messages: any[],
-  contextData: any[]
+export async function generateAIResponse(
+  contextData: any[], 
+  recentMessages: any[], 
+  currentMessage: string
 ): Promise<string> {
-  const openaiApiKey = Deno.env.get('OPENAI_API_KEY') || env['OPENAI_API_KEY'];
-
-  if (!openaiApiKey) {
-    console.error('Chave da OpenAI não encontrada nas variáveis de ambiente.');
-    throw new Error('Chave da OpenAI não encontrada.');
-  }
-
-  try {
-    // Construir prompt do sistema com contexto da clínica
-    let systemPrompt = `Você é um assistente virtual de uma clínica médica. Seja sempre educado, profissional e prestativo.
+  // Construir prompt do sistema com contexto da clínica
+  let systemPrompt = `Você é um assistente virtual de uma clínica médica. Seja sempre educado, profissional e prestativo.
 
 INFORMAÇÕES DA CLÍNICA:`;
 
-    if (contextData && contextData.length > 0) {
-      contextData.forEach((item) => {
-        if (item.answer) {
-          systemPrompt += `\n- ${item.question}: ${item.answer}`;
+  if (contextData && contextData.length > 0) {
+    contextData.forEach((item) => {
+      if (item.answer) {
+        systemPrompt += `\n- ${item.question}: ${item.answer}`;
+      }
+    });
+  } else {
+    systemPrompt += `\n- Esta é uma clínica médica que oferece diversos serviços de saúde.`;
+  }
+
+  systemPrompt += `\n\nFUNCIONALIDADES DE AGENDAMENTO:
+Você pode ajudar os pacientes com agendamentos. Quando detectar solicitações de agendamento completas:
+- Para CRIAR: precisa de data, horário, tipo de consulta e email
+- Para CANCELAR: precisa de data e horário da consulta existente
+- Para REAGENDAR: precisa de dados atuais e novos dados desejados
+- Para LISTAR: mostre os agendamentos do paciente
+
+INSTRUÇÕES:
+- Responda de forma clara e objetiva
+- Para agendamentos, seja específico sobre as informações necessárias
+- Sempre confirme detalhes antes de finalizar agendamentos
+- Mantenha um tom profissional e acolhedor
+- Respostas devem ser concisas (máximo 2-3 parágrafos)
+- Quando tiver todas as informações necessárias, confirme que o agendamento foi criado`;
+
+  // Construir histórico da conversa
+  const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }];
+
+  if (recentMessages && recentMessages.length > 0) {
+    // Adicionar mensagens recentes ao contexto (em ordem cronológica)
+    recentMessages
+      .reverse()
+      .slice(0, 8)
+      .forEach((msg) => {
+        if (msg.content && msg.content !== currentMessage) {
+          messages.push({
+            role: msg.message_type === 'received' ? 'user' : 'assistant',
+            content: msg.content
+          });
         }
       });
-    } else {
-      systemPrompt += `\n- Esta é uma clínica médica que oferece diversos serviços de saúde.`;
-    }
-
-    systemPrompt += `
-
-FUNCIONALIDADES DE AGENDAMENTO VIA WHATSAPP:
-• O sistema possui agendamento completo integrado ao WhatsApp
-• Para agendar uma consulta, o paciente deve digitar: "/agendar" ou "agendar"
-• O sistema mostra um calendário interativo com datas disponíveis
-• O paciente seleciona data e horário através de números das opções
-• O agendamento é confirmado automaticamente e sincronizado com o Google Calendar
-• Horários de funcionamento: Segunda a Sexta 8h às 18h (pausa 12h às 13h), Sábado 8h às 12h
-
-INSTRUÇÕES IMPORTANTES:
-• SEMPRE ofereça o comando "/agendar" quando o paciente perguntar sobre agendamentos
-• NÃO tente agendar manualmente - use SEMPRE o sistema automatizado
-• Explique que o agendamento é feito de forma interativa pelo próprio WhatsApp
-• Seja claro que o paciente deve digitar "/agendar" para iniciar o processo
-• Mencione que o processo é rápido, seguro e automatizado
-• Se o paciente tentar dar dados de agendamento sem usar o comando, redirecione para "/agendar"
-
-OUTRAS INSTRUÇÕES:
-• Responda de forma clara e objetiva  
-• Mantenha sempre um tom profissional e acolhedor
-• Respostas devem ser concisas (máximo 2-3 parágrafos)
-• Se não souber algo, seja honesto e direcione para contato telefônico: (47) 99967-2901
-• Para urgências, sempre mencione o telefone da clínica`;
-
-    // Construir histórico da conversa
-    const messagesForAI: ChatMessage[] = [
-      { role: 'system', content: systemPrompt },
-      ...messages
-    ];
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages
-        ],
-        max_tokens: 500,
-        temperature: 0.7,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('❌ Erro da OpenAI API:', response.status, errorData);
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const aiResponse = data.choices[0]?.message?.content;
-
-    if (!aiResponse) {
-      throw new Error('Resposta vazia da OpenAI');
-    }
-
-    console.log('✅ Resposta IA gerada com sucesso');
-    return aiResponse;
-
-  } catch (error) {
-    console.error('❌ Erro ao chamar OpenAI:', error);
-    throw error;
   }
+
+  // Adicionar mensagem atual
+  messages.push({ role: 'user', content: currentMessage });
+
+  console.log(`💭 Prompt construído com ${messages.length} mensagens`);
+
+  // Chamar a OpenAI se a chave estiver configurada
+  let aiResponse = 'Olá! Obrigado por entrar em contato. Como posso ajudá-lo hoje?';
+  
+  if (openAIApiKey) {
+    try {
+      console.log('🔄 Chamando OpenAI API...');
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: messages,
+          temperature: 0.7,
+          max_tokens: 500,
+        }),
+      });
+
+      console.log(`📡 OpenAI response status: ${response.status}`);
+
+      if (response.ok) {
+        const data = await response.json();
+        aiResponse = data.choices[0].message.content;
+        console.log('✅ Resposta IA gerada com sucesso');
+        console.log(`💬 Resposta: ${aiResponse.substring(0, 100)}...`);
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Erro na OpenAI API:', response.status, errorText);
+        aiResponse = 'Desculpe, estou com dificuldades técnicas no momento. Tente novamente em alguns minutos ou entre em contato por telefone.';
+      }
+    } catch (error) {
+      console.error('❌ Erro ao chamar OpenAI:', error);
+      aiResponse = 'Desculpe, estou temporariamente indisponível. Por favor, tente novamente em alguns minutos.';
+    }
+  } else {
+    console.log('⚠️ OpenAI Key não configurada, usando resposta padrão');
+  }
+
+  return aiResponse;
 }

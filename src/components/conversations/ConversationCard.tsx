@@ -1,123 +1,81 @@
 
-import { Card, CardContent } from '@/components/ui/card';
+import React from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Clock, MessageSquare, AlertTriangle, User } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import ConversationAvatar from './ConversationAvatar';
+import ConversationStats from './ConversationStats';
+
+interface Conversation {
+  id: string;
+  phone_number: string;
+  formatted_phone_number: string | null;
+  country_code: string | null;
+  name: string | null;
+  updated_at: string;
+  last_message_preview: string | null;
+  unread_count: number | null;
+  message_count?: number;
+}
 
 interface ConversationCardProps {
-  conversation: {
-    id: string;
-    phone_number: string;
-    formatted_phone_number: string | null;
-    name: string | null;
-    updated_at: string;
-    last_message_preview: string | null;
-    unread_count: number | null;
-    message_count?: number;
-    escalated_to_human?: boolean;
-    loop_counter?: number;
-    consecutive_same_responses?: number;
-  };
-  searchTerm: string;
-  onClick: () => void;
-  getDisplayName: (conversation: any) => string;
+  conversation: Conversation;
+  onOpenConversation: (conversationId: string) => void;
+  getDisplayName: (conversation: Conversation) => string;
 }
 
-export default function ConversationCard({
+const ConversationCard: React.FC<ConversationCardProps> = ({
   conversation,
-  searchTerm,
-  onClick,
+  onOpenConversation,
   getDisplayName
-}: ConversationCardProps) {
-  const displayName = getDisplayName(conversation);
-  const timeAgo = formatDistanceToNow(new Date(conversation.updated_at), {
-    addSuffix: true,
-    locale: ptBR
-  });
+}) => {
+  const getStatusColor = (messageCount: number) => {
+    if (messageCount > 10) return 'bg-green-100 text-green-800';
+    if (messageCount > 5) return 'bg-yellow-100 text-yellow-800';
+    return 'bg-red-100 text-red-800';
+  };
 
-  const hasLoop = (conversation.loop_counter || 0) > 0;
-  const isEscalated = conversation.escalated_to_human;
+  const displayName = getDisplayName(conversation);
 
   return (
-    <Card 
-      className={`cursor-pointer transition-all hover:shadow-md border-l-4 ${
-        isEscalated 
-          ? 'border-l-red-500 bg-red-50' 
-          : hasLoop 
-            ? 'border-l-orange-500 bg-orange-50' 
-            : 'border-l-transparent hover:border-l-blue-500'
-      }`}
-      onClick={onClick}
+    <div
+      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer border"
+      onClick={() => onOpenConversation(conversation.id)}
     >
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-          <ConversationAvatar 
-            name={conversation.name}
-            countryCode={conversation.phone_number}
-            unreadCount={conversation.unread_count}
-          />
-          
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="font-medium text-gray-900 truncate">
-                {displayName}
-              </h3>
-              
-              <div className="flex items-center gap-2">
-                {isEscalated && (
-                  <Badge variant="destructive" className="text-xs">
-                    <User className="h-3 w-3 mr-1" />
-                    Escalado
-                  </Badge>
-                )}
-                {hasLoop && !isEscalated && (
-                  <Badge variant="outline" className="text-xs text-orange-600 border-orange-600">
-                    <AlertTriangle className="h-3 w-3 mr-1" />
-                    Loop {conversation.loop_counter}
-                  </Badge>
-                )}
-                <span className="text-xs text-gray-500 flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {timeAgo}
-                </span>
-              </div>
-            </div>
-            
-            <p className="text-sm text-gray-600 mb-2">
-              {conversation.formatted_phone_number || conversation.phone_number}
-            </p>
-            
-            {conversation.last_message_preview && (
-              <p className="text-sm text-gray-800 line-clamp-2 mb-2">
-                {conversation.last_message_preview}
-              </p>
-            )}
-            
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4 text-xs text-gray-500">
-                <span className="flex items-center gap-1">
-                  <MessageSquare className="h-3 w-3" />
-                  {conversation.message_count || 0} mensagens
-                </span>
-                
-                {(conversation.consecutive_same_responses || 0) > 0 && (
-                  <span className="text-orange-600">
-                    {conversation.consecutive_same_responses} respostas repetidas
-                  </span>
-                )}
-              </div>
-              
-              {(conversation.unread_count || 0) > 0 && (
-                <Badge variant="secondary" className="text-xs">
-                  {conversation.unread_count} não lidas
-                </Badge>
-              )}
-            </div>
+      <div className="flex items-center gap-4">
+        <ConversationAvatar
+          name={conversation.name}
+          countryCode={conversation.country_code}
+          unreadCount={conversation.unread_count}
+        />
+        
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="font-semibold text-gray-900">
+              {displayName}
+            </h3>
+            <Badge variant="outline" className={getStatusColor(conversation.message_count || 0)}>
+              {conversation.message_count} mensagens
+            </Badge>
           </div>
+          <p className="text-sm text-gray-600 font-mono">
+            {conversation.formatted_phone_number || conversation.phone_number}
+          </p>
+          {conversation.last_message_preview && (
+            <p className="text-xs text-gray-500 mt-1 truncate max-w-xs">
+              {conversation.last_message_preview}
+            </p>
+          )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+      
+      <ConversationStats
+        messageCount={conversation.message_count || 0}
+        updatedAt={conversation.updated_at}
+        onOpenConversation={() => onOpenConversation(conversation.id)}
+        conversationId={conversation.id}
+        conversationName={displayName}
+      />
+    </div>
   );
-}
+};
+
+export default ConversationCard;
