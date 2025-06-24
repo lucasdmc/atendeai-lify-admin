@@ -31,6 +31,25 @@ export const useGoogleServiceAccount = () => {
 
   const calendarId = 'fb2b1dfb1e6c600594b05785de5cf04fb38bd0376bd3f5e5d1c08c60d4c894df@group.calendar.google.com';
 
+  const parseAttendees = (attendees: any): Array<{ email: string }> => {
+    if (!attendees) return [];
+    
+    // If it's already an array, return it
+    if (Array.isArray(attendees)) return attendees;
+    
+    // If it's a string, try to parse it
+    if (typeof attendees === 'string') {
+      try {
+        const parsed = JSON.parse(attendees);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    
+    return [];
+  };
+
   const fetchEvents = async () => {
     if (!user) return;
     
@@ -66,7 +85,7 @@ export const useGoogleServiceAccount = () => {
           timeZone: 'America/Sao_Paulo'
         },
         location: event.location || '',
-        attendees: event.attendees ? JSON.parse(event.attendees) : [],
+        attendees: parseAttendees(event.attendees),
         status: event.status || 'confirmed'
       }));
 
