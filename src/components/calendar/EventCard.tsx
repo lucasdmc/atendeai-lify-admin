@@ -45,45 +45,50 @@ const EventCard = ({ event, onEdit, size = 'md', showDate = false }: EventCardPr
   if (size === 'sm') {
     return (
       <div
-        className={`p-2 rounded-lg cursor-pointer transition-all hover:shadow-md group border ${labelConfig.color}`}
+        className={`p-2 rounded-lg cursor-pointer transition-all hover:shadow-md group border ${labelConfig.color} overflow-hidden`}
         onClick={() => onEdit(event)}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex-1 min-w-0">
+        <div className="flex items-start justify-between gap-1">
+          <div className="flex-1 min-w-0 overflow-hidden">
             <div className="flex items-center gap-1 mb-1">
-              <Tag className="h-3 w-3" />
-              <span className="text-xs font-medium">{labelConfig.name}</span>
+              <Tag className="h-3 w-3 flex-shrink-0" />
+              <span className="text-xs font-medium truncate">{labelConfig.name}</span>
             </div>
-            <p className="font-medium text-xs truncate">{event.summary}</p>
-            <p className="text-xs opacity-75">
+            <p className="font-medium text-xs truncate mb-1">{event.summary}</p>
+            <p className="text-xs opacity-75 truncate">
               {formatEventTime(event.start.dateTime)} - {formatEventTime(event.end.dateTime)}
             </p>
+            {event.description && (
+              <p className="text-xs opacity-60 mt-1 line-clamp-1 leading-tight">
+                {event.description.replace(/\[LABEL:\w+\]/, '').trim()}
+              </p>
+            )}
           </div>
-          <Edit className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity ml-1" />
+          <Edit className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`p-4 border rounded-lg bg-white hover:shadow-md transition-all group cursor-pointer`}>
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <h4 className="font-semibold text-gray-900">{event.summary}</h4>
-            <Badge variant="outline" className={labelConfig.color}>
+    <div className={`p-4 border rounded-lg bg-white hover:shadow-md transition-all group cursor-pointer overflow-hidden`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <h4 className="font-semibold text-gray-900 truncate flex-shrink-0">{event.summary}</h4>
+            <Badge variant="outline" className={`${labelConfig.color} flex-shrink-0`}>
               <Tag className="h-3 w-3 mr-1" />
               {labelConfig.name}
             </Badge>
-            <Badge variant="outline" className={getStatusColor(event.status)}>
+            <Badge variant="outline" className={`${getStatusColor(event.status)} flex-shrink-0`}>
               {event.status}
             </Badge>
           </div>
           
           <div className="space-y-1 text-sm text-gray-600">
             <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              <span>
+              <Clock className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate">
                 {showDate && format(new Date(event.start.dateTime), 'dd/MM/yyyy • ', { locale: ptBR })}
                 {formatEventTime(event.start.dateTime)} - {formatEventTime(event.end.dateTime)}
               </span>
@@ -91,23 +96,25 @@ const EventCard = ({ event, onEdit, size = 'md', showDate = false }: EventCardPr
             
             {event.location && (
               <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
+                <MapPin className="h-4 w-4 flex-shrink-0" />
                 <span className="truncate">{event.location}</span>
               </div>
             )}
             
             {event.attendees && event.attendees.length > 0 && (
               <div className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                <span>{event.attendees.length} participante(s)</span>
+                <Users className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">{event.attendees.length} participante(s)</span>
               </div>
             )}
           </div>
           
           {event.description && (
-            <p className="text-sm text-gray-600 mt-2 line-clamp-2">
-              {event.description.replace(/\[LABEL:\w+\]/, '').trim()}
-            </p>
+            <div className="mt-2 overflow-hidden">
+              <p className="text-sm text-gray-600 line-clamp-2 break-words">
+                {event.description.replace(/\[LABEL:\w+\]/, '').trim()}
+              </p>
+            </div>
           )}
         </div>
         
@@ -118,7 +125,7 @@ const EventCard = ({ event, onEdit, size = 'md', showDate = false }: EventCardPr
             e.stopPropagation();
             onEdit(event);
           }}
-          className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
         >
           <Edit className="h-4 w-4" />
         </Button>
