@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +7,7 @@ import ConversationSearch from '@/components/conversations/ConversationSearch';
 import ConversationList from '@/components/conversations/ConversationList';
 import LoadingState from '@/components/conversations/LoadingState';
 import { getDisplayName } from '@/utils/conversationUtils';
+import EscalatedConversations from '@/components/conversations/EscalatedConversations';
 
 interface Conversation {
   id: string;
@@ -133,6 +133,9 @@ const Conversas = () => {
           Conversas WhatsApp
         </h1>
       </div>
+
+      {/* Conversas Escaladas */}
+      <EscalatedConversations />
 
       <Card>
         <CardHeader>

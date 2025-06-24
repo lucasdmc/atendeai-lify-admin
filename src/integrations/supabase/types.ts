@@ -257,39 +257,95 @@ export type Database = {
       }
       whatsapp_conversations: {
         Row: {
+          consecutive_same_responses: number | null
           country_code: string | null
           created_at: string
+          escalated_at: string | null
+          escalated_to_human: boolean | null
+          escalation_reason: string | null
           formatted_phone_number: string | null
           id: string
+          last_ai_response: string | null
           last_message_preview: string | null
+          loop_counter: number | null
           name: string | null
           phone_number: string
           unread_count: number | null
           updated_at: string
         }
         Insert: {
+          consecutive_same_responses?: number | null
           country_code?: string | null
           created_at?: string
+          escalated_at?: string | null
+          escalated_to_human?: boolean | null
+          escalation_reason?: string | null
           formatted_phone_number?: string | null
           id?: string
+          last_ai_response?: string | null
           last_message_preview?: string | null
+          loop_counter?: number | null
           name?: string | null
           phone_number: string
           unread_count?: number | null
           updated_at?: string
         }
         Update: {
+          consecutive_same_responses?: number | null
           country_code?: string | null
           created_at?: string
+          escalated_at?: string | null
+          escalated_to_human?: boolean | null
+          escalation_reason?: string | null
           formatted_phone_number?: string | null
           id?: string
+          last_ai_response?: string | null
           last_message_preview?: string | null
+          loop_counter?: number | null
           name?: string | null
           phone_number?: string
           unread_count?: number | null
           updated_at?: string
         }
         Relationships: []
+      }
+      whatsapp_loop_events: {
+        Row: {
+          ai_response: string | null
+          conversation_id: string
+          created_at: string
+          event_type: string
+          id: string
+          loop_count: number | null
+          message_content: string | null
+        }
+        Insert: {
+          ai_response?: string | null
+          conversation_id: string
+          created_at?: string
+          event_type: string
+          id?: string
+          loop_count?: number | null
+          message_content?: string | null
+        }
+        Update: {
+          ai_response?: string | null
+          conversation_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          loop_count?: number | null
+          message_content?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_loop_events_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       whatsapp_messages: {
         Row: {
