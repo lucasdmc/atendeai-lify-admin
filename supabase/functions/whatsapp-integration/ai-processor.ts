@@ -4,6 +4,10 @@ import { handleEnhancedAppointmentRequest } from './enhanced-appointment-handler
 import { generateAIResponse } from './openai-service.ts';
 import { sendMessageWithRetry } from './message-retry.ts';
 import { ConversationContextManager } from './conversation-context.ts';
+import { IntentDetector } from './intent-detector.ts';
+import { UserProfileManager } from './user-profile-manager.ts';
+import { ConversationValidator } from './conversation-validator.ts';
+import { ConversationFeedbackManager } from './conversation-feedback.ts';
 
 export async function processAndRespondWithAI(phoneNumber: string, message: string, supabase: any) {
   console.log(`🤖 === PROCESSAMENTO IA INICIADO ===`);
@@ -11,45 +15,17 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
   console.log(`💬 Mensagem: ${message}`);
   
   try {
-    // Detectar contexto da conversa
-    const userIntent = ConversationContextManager.detectUserIntent(message);
+    // Detectar intenção avançada
     const context = ConversationContextManager.getContext(phoneNumber);
+    const userIntent = IntentDetector.detectAdvancedIntent(message, context.conversationHistory);
     
-    console.log(`🎯 Intenção detectada: ${userIntent}`);
+    console.log(`🎯 Intenção detectada: ${userIntent.primary} (confiança: ${userIntent.confidence})`);
     console.log(`📊 Contexto atual: Stage=${context.conversationStage}, Greeted=${context.hasGreeted}, Repeats=${context.consecutiveRepeats}`);
 
-    // PRIORIDADE 1: Sistema avançado de agendamentos
-    const isAboutAppointment = isAppointmentRelated(message);
-    console.log(`📅 Mensagem sobre agendamento: ${isAboutAppointment ? 'SIM' : 'NÃO'}`);
+    // Analisar estilo do usuário para personalização
+    UserProfileManager.analyzeUserStyle(message, phoneNumber);
 
-    if (isAboutAppointment) {
-      console.log('🔄 Processando com sistema avançado de agendamento...');
-      try {
-        const appointmentResponse = await handleEnhancedAppointmentRequest(message, phoneNumber, supabase);
-        if (appointmentResponse) {
-          console.log('📅 Resposta do sistema de agendamento gerada');
-          
-          // Atualizar contexto da conversa
-          ConversationContextManager.addToHistory(phoneNumber, message, 'user', 'scheduling');
-          ConversationContextManager.addToHistory(phoneNumber, appointmentResponse, 'bot');
-          ConversationContextManager.updateContext(phoneNumber, {
-            conversationStage: 'scheduling',
-            lastUserIntent: 'scheduling',
-            lastBotResponse: appointmentResponse
-          });
-          
-          // Enviar resposta
-          await sendMessageWithRetry(phoneNumber, appointmentResponse, supabase);
-          console.log(`✅ Resposta de agendamento enviada para ${phoneNumber}`);
-          return;
-        }
-      } catch (appointmentError) {
-        console.error('❌ Erro no sistema de agendamento:', appointmentError);
-        // Continuar para IA se agendamento falhar
-      }
-    }
-
-    // PRIORIDADE 2: Buscar contexto da clínica para IA
+    // NOVA PRIORIDADE 1: Resposta da IA (OpenAI) - PRIMEIRA PRIORIDADE
     console.log('🏥 Buscando contexto da clínica...');
     const { data: contextData, error: contextError } = await supabase
       .from('contextualization_data')
@@ -62,7 +38,7 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
       console.log(`✅ Contexto encontrado: ${contextData?.length || 0} itens`);
     }
 
-    // PRIORIDADE 3: Buscar histórico COMPLETO da conversa
+    // Buscar histórico COMPLETO da conversa
     console.log('📝 Buscando histórico completo da conversa...');
     
     const { data: conversationData, error: convError } = await supabase
@@ -102,7 +78,40 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
       }
     }
 
-    // PRIORIDADE 4: Verificar repetições (contador crítico)
+    // Verificar se é feedback do usuário
+    const isFeedback = ConversationFeedbackManager.processFeedback(phoneNumber, message);
+    if (isFeedback) {
+      const rating = parseInt(message.trim()) || 3;
+      const feedbackResponse = ConversationFeedbackManager.generateFeedbackResponse(rating);
+      
+      ConversationContextManager.addToHistory(phoneNumber, feedbackResponse, 'bot');
+      await sendMessageWithRetry(phoneNumber, feedbackResponse, supabase);
+      console.log(`✅ Feedback processado para ${phoneNumber}`);
+      return;
+    }
+
+    // Processar com IA usando personalizacao
+    console.log('🤖 Processando com IA (PRIORIDADE 1)...');
+    const personalizedContext = UserProfileManager.getPersonalizationContext(phoneNumber);
+    const finalResponse = await generateAIResponse(
+      contextData, 
+      recentMessages, 
+      message, 
+      phoneNumber,
+      personalizedContext,
+      userIntent
+    );
+
+    // NOVA PRIORIDADE 2: Detecção de Loops/Repetições
+    console.log('🔄 Verificando repetições (PRIORIDADE 2)...');
+    const isRepetitive = ConversationContextManager.checkForRepetition(phoneNumber, finalResponse);
+    let responseToSend = finalResponse;
+    
+    if (isRepetitive) {
+      console.log('🔄 Repetição detectada, gerando variação...');
+      responseToSend = ConversationContextManager.generateVariedResponse(phoneNumber, finalResponse);
+    }
+
     if (context.consecutiveRepeats > 2) {
       console.log('🚨 Muitas repetições detectadas, escalando para humano...');
       
@@ -129,21 +138,25 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
       return;
     }
 
-    // PRIORIDADE 5: Processar com IA (com histórico completo e contexto avançado)
-    console.log('🤖 Processando com IA (com histórico completo)...');
-    const finalResponse = await generateAIResponse(contextData, recentMessages, message, phoneNumber);
+    // PRIORIDADE 5: Sistema de Agendamentos (apenas se IA não resolveu)
+    const isAboutAppointment = isAppointmentRelated(message);
+    console.log(`📅 Mensagem sobre agendamento: ${isAboutAppointment ? 'SIM' : 'NÃO'}`);
 
-    // Verificar se há muitas repetições antes de enviar
-    const isRepetitive = ConversationContextManager.checkForRepetition(phoneNumber, finalResponse);
-    let responseToSend = finalResponse;
-    
-    if (isRepetitive) {
-      console.log('🔄 Repetição detectada, gerando variação...');
-      responseToSend = ConversationContextManager.generateVariedResponse(phoneNumber, finalResponse);
+    if (isAboutAppointment && userIntent.confidence < 0.8) {
+      console.log('🔄 Tentando sistema de agendamento como fallback...');
+      try {
+        const appointmentResponse = await handleEnhancedAppointmentRequest(message, phoneNumber, supabase);
+        if (appointmentResponse) {
+          console.log('📅 Resposta do sistema de agendamento gerada como fallback');
+          responseToSend = appointmentResponse;
+        }
+      } catch (appointmentError) {
+        console.error('❌ Erro no sistema de agendamento:', appointmentError);
+      }
     }
 
     // Marcar como cumprimentado se foi uma saudação
-    if (userIntent === 'greeting') {
+    if (userIntent.primary === 'greeting') {
       ConversationContextManager.markAsGreeted(phoneNumber);
     }
 
@@ -153,8 +166,15 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
     // Atualizar contexto com a resposta
     ConversationContextManager.updateContext(phoneNumber, {
       lastBotResponse: responseToSend,
-      lastUserIntent: userIntent
+      lastUserIntent: userIntent.primary
     });
+
+    // Verificar se deve solicitar feedback
+    const messageCount = context.conversationHistory.length;
+    if (ConversationFeedbackManager.shouldRequestFeedback(phoneNumber, messageCount)) {
+      const feedbackRequest = ConversationFeedbackManager.requestFeedback(phoneNumber);
+      responseToSend += `\n\n${feedbackRequest}`;
+    }
 
     // Enviar resposta
     console.log('📤 Enviando resposta via WhatsApp...');

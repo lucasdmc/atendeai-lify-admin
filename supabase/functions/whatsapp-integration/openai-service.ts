@@ -12,38 +12,39 @@ export async function generateAIResponse(
   contextData: any[], 
   recentMessages: any[], 
   currentMessage: string,
-  phoneNumber: string
+  phoneNumber: string,
+  personalizationContext?: string,
+  userIntent?: any
 ): Promise<string> {
   console.log(`🤖 Gerando resposta da IA para: ${phoneNumber}`);
   
   // Gerenciar contexto da conversa
-  const userIntent = ConversationContextManager.detectUserIntent(currentMessage);
   const context = ConversationContextManager.getContext(phoneNumber);
   const shouldGreet = ConversationContextManager.shouldGreet(phoneNumber);
   
   // Analisar contexto histórico da conversa
   const conversationAnalysis = ConversationContextManager.analyzeConversationContext(phoneNumber);
   
-  console.log(`🎯 Intenção: ${userIntent}, Stage: ${context.conversationStage}, Deve cumprimentar: ${shouldGreet}`);
+  console.log(`🎯 Intenção: ${userIntent?.primary}, Confiança: ${userIntent?.confidence}, Deve cumprimentar: ${shouldGreet}`);
   console.log(`📊 Análise da conversa:`, conversationAnalysis);
   
   // Adicionar mensagem do usuário ao histórico
-  ConversationContextManager.addToHistory(phoneNumber, currentMessage, 'user', userIntent);
+  ConversationContextManager.addToHistory(phoneNumber, currentMessage, 'user', userIntent?.primary);
   
   // Atualizar contexto
   ConversationContextManager.updateContext(phoneNumber, {
-    lastUserIntent: userIntent,
-    conversationStage: userIntent === 'scheduling' ? 'scheduling' : 
-                      userIntent === 'greeting' ? 'information' : context.conversationStage
+    lastUserIntent: userIntent?.primary,
+    conversationStage: userIntent?.primary === 'scheduling' ? 'scheduling' : 
+                      userIntent?.primary === 'greeting' ? 'information' : context.conversationStage
   });
 
   // Se é uma saudação mas já cumprimentou, não repetir
-  if (userIntent === 'greeting' && !shouldGreet) {
+  if (userIntent?.primary === 'greeting' && !shouldGreet) {
     ConversationContextManager.markAsGreeted(phoneNumber);
     return NaturalResponseGenerator.generateContextualResponse('general', context.conversationStage);
   }
 
-  // Construir prompt mais contextual com histórico
+  // Construir prompt mais contextual e personalizado
   let systemPrompt = `Você é uma assistente virtual especializada em atendimento de clínica médica. Seja natural, empática e mantenha sempre o foco na saúde e bem-estar dos pacientes.
 
 CONTEXTO DA CLÍNICA:`;
@@ -58,21 +59,30 @@ CONTEXTO DA CLÍNICA:`;
     systemPrompt += `\n• Somos uma clínica médica focada no cuidado e bem-estar dos pacientes.`;
   }
 
+  // Adicionar personalização
+  if (personalizationContext) {
+    systemPrompt += `\n\nPERSONALIZAÇÃO DO USUÁRIO:
+${personalizationContext}`;
+  }
+
   systemPrompt += `\n\nCOMPORTAMENTO E PERSONALIDADE:
 ✅ Seja uma atendente profissional de clínica médica
 ✅ Mantenha tom acolhedor e empático 
 ✅ Use linguagem clara e acessível sobre saúde
 ✅ Seja proativa em oferecer ajuda médica
-✅ Respostas concisas (máximo 2-3 linhas)
+✅ Respostas concisas e relevantes (2-3 linhas máximo)
 ✅ Use emojis relacionados à saúde moderadamente (🩺👩‍⚕️📅💊)
 ✅ Não repita informações já mencionadas
 ✅ Continue conversas naturalmente baseado no histórico
+✅ Valide dados fornecidos pelo usuário
+✅ Ofereça sugestões quando necessário
 
 AGENDAMENTOS MÉDICOS:
 • Para AGENDAR: colete data, horário, especialidade médica e email
 • Para CANCELAR/REAGENDAR: identifique o agendamento primeiro
 • Sempre confirme detalhes médicos antes de finalizar
 • Ofereça opções de especialidades disponíveis
+• Valide dados inseridos (datas, horários, emails)
 
 ANÁLISE DO CONTEXTO ATUAL:
 • Usuário já foi cumprimentado: ${context.hasGreeted ? 'SIM' : 'NÃO'}
@@ -80,6 +90,15 @@ ANÁLISE DO CONTEXTO ATUAL:
 • Fluxo da conversa: ${conversationAnalysis.conversationFlow}
 • Contexto de agendamento: ${conversationAnalysis.hasAppointmentContext ? 'SIM' : 'NÃO'}
 • Última intenção: ${context.lastUserIntent}`;
+
+  // Adicionar análise de intenção se disponível
+  if (userIntent) {
+    systemPrompt += `\n• Intenção atual: ${userIntent.primary} (confiança: ${userIntent.confidence})`;
+    
+    if (userIntent.entities && Object.keys(userIntent.entities).length > 0) {
+      systemPrompt += `\n• Entidades detectadas: ${JSON.stringify(userIntent.entities)}`;
+    }
+  }
 
   // Se há contexto de agendamento, adicionar ao prompt
   if (conversationAnalysis.hasAppointmentContext) {
@@ -96,9 +115,12 @@ ANÁLISE DO CONTEXTO ATUAL:
 • NÃO cumprimente novamente se já cumprimentou
 • Continue a conversa de forma natural baseada no histórico
 • Responda progressivamente, construindo sobre o que já foi discutido
-• Mantenha sempre o foco na área da saúde e medicina`;
+• Mantenha sempre o foco na área da saúde e medicina
+• Valide sempre os dados fornecidos pelo usuário
+• Ofereça alternativas quando algo não for possível
+• Seja empática com problemas de saúde`;
 
-  // Construir histórico inteligente combinando mensagens do banco com contexto local
+  // Construir histórico inteligente
   const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }];
 
   // Priorizar histórico do contexto local (mais recente e estruturado)
@@ -173,13 +195,13 @@ ANÁLISE DO CONTEXTO ATUAL:
   } else {
     console.log('⚠️ OpenAI Key não configurada, usando respostas padrão');
     
-    if (userIntent === 'greeting' && shouldGreet) {
+    if (userIntent?.primary === 'greeting' && shouldGreet) {
       aiResponse = NaturalResponseGenerator.generateGreeting(undefined, shouldGreet);
       ConversationContextManager.markAsGreeted(phoneNumber);
-    } else if (userIntent === 'scheduling') {
+    } else if (userIntent?.primary === 'scheduling') {
       aiResponse = NaturalResponseGenerator.generateSchedulingHelp(!context.hasGreeted);
     } else {
-      aiResponse = NaturalResponseGenerator.generateContextualResponse(userIntent, context.conversationStage);
+      aiResponse = NaturalResponseGenerator.generateContextualResponse(userIntent?.primary || 'general', context.conversationStage);
     }
   }
 
@@ -191,17 +213,9 @@ ANÁLISE DO CONTEXTO ATUAL:
   }
 
   // Marcar como cumprimentado se foi uma saudação
-  if (userIntent === 'greeting') {
+  if (userIntent?.primary === 'greeting') {
     ConversationContextManager.markAsGreeted(phoneNumber);
   }
-
-  // Adicionar resposta do bot ao histórico
-  ConversationContextManager.addToHistory(phoneNumber, aiResponse, 'bot');
-
-  // Atualizar contexto com a resposta
-  ConversationContextManager.updateContext(phoneNumber, {
-    lastBotResponse: aiResponse
-  });
 
   console.log(`💬 Resposta final: ${aiResponse.substring(0, 100)}...`);
   return aiResponse;
