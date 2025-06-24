@@ -36,7 +36,20 @@ export async function handleAppointmentRequest(message: string, phoneNumber: str
 
       if (error) {
         console.error('❌ Erro ao criar agendamento:', error);
-        return `Desculpe, houve um erro ao criar seu agendamento. Por favor, tente novamente mais tarde.`;
+        
+        // Resposta mais específica baseada no tipo de erro
+        if (error.message?.includes('Foreign key')) {
+          return `Ops! Houve um problema com o sistema. Nossa equipe foi notificada e resolverá em breve. Por favor, tente novamente em alguns minutos.`;
+        } else if (error.message?.includes('Google Calendar')) {
+          return `Consegui processar sua solicitação, mas houve um problema com a integração do Google Calendar. Por favor, confirme os dados e tente novamente:
+
+📅 **Data:** ${appointmentData.displayDate}
+🕐 **Horário:** ${appointmentData.startTime}
+👨‍⚕️ **Consulta:** ${appointmentData.title}
+📧 **Email:** ${appointmentData.email || 'não informado'}`;
+        }
+        
+        return `Desculpe, houve um erro ao criar seu agendamento: ${error.message}. Por favor, tente novamente mais tarde.`;
       }
 
       if (data && data.success) {
@@ -54,19 +67,32 @@ Seu agendamento foi criado com sucesso! ${appointmentData.email ? 'Você receber
 Se precisar cancelar ou reagendar, me avise!`;
       } else {
         console.error('❌ Resposta inesperada da API:', data);
-        return `Houve um problema ao confirmar seu agendamento. Tente novamente em alguns instantes.`;
+        return `Houve um problema ao confirmar seu agendamento. Verifique os dados e tente novamente:
+
+📅 **Data:** ${appointmentData.displayDate}
+🕐 **Horário:** ${appointmentData.startTime}
+👨‍⚕️ **Consulta:** ${appointmentData.title}
+📧 **Email:** ${appointmentData.email || 'não informado'}`;
       }
 
     } catch (error) {
       console.error('❌ Erro ao processar agendamento:', error);
-      return `Desculpe, houve um erro técnico. Tente novamente em alguns minutos.`;
+      return `Desculpe, houve um erro técnico. Verifique os dados informados e tente novamente:
+
+**Formato sugerido:**
+- Data: DD/MM/AAAA (ex: 26/06/2024)
+- Horário: HH:MM (ex: 14:00)
+- Tipo: nome da especialidade (ex: Cardiologia)
+- Email: seu@email.com
+
+Exemplo: "26/06/2024 às 14:00 para Cardiologia, email: teste@email.com"`;
     }
   }
 
   // Se não temos dados suficientes, solicitar mais informações
   if (lowerMessage.includes('agendar') || lowerMessage.includes('marcar') || lowerMessage.includes('consulta')) {
     const missingInfo = [];
-    if (!appointmentData.date) missingInfo.push('📅 **Data** (ex: 25/12/2024 ou 25/12)');
+    if (!appointmentData.date) missingInfo.push('📅 **Data** (ex: 26/06/2024 ou 26/06)');
     if (!appointmentData.startTime) missingInfo.push('🕐 **Horário** (ex: 14:00 ou 14h)');
     if (!appointmentData.email) missingInfo.push('📧 **Email** (para confirmação)');
 

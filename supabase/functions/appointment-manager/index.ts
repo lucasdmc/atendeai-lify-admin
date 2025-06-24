@@ -64,7 +64,7 @@ function createDateTime(date: string, time: string): string {
   }
 }
 
-async function createGoogleCalendarEvent(appointmentData: AppointmentRequest) {
+async function createGoogleCalendarEvent(appointmentData: AppointmentRequest, supabase: any) {
   try {
     console.log('🗓️ Criando evento no Google Calendar...');
     
@@ -98,11 +98,6 @@ async function createGoogleCalendarEvent(appointmentData: AppointmentRequest) {
 
     console.log('📅 Dados do evento:', eventData);
 
-    // Obter Calendar ID do serviço
-    const { data: credentialsData } = await supabase.functions.invoke('google-service-auth', {
-      body: { action: 'get-credentials' }
-    });
-
     const calendarId = 'fb2b1dfb1e6c600594b05785de5cf04fb38bd0376bd3f5e5d1c08c60d4c894df@group.calendar.google.com';
 
     const response = await fetch(
@@ -129,6 +124,39 @@ async function createGoogleCalendarEvent(appointmentData: AppointmentRequest) {
     return createdEvent;
   } catch (error) {
     console.error('❌ Erro ao criar evento no Google Calendar:', error);
+    throw error;
+  }
+}
+
+async function getSystemUserId(supabase: any): Promise<string> {
+  try {
+    // Buscar um admin user para usar como sistema
+    const { data: adminUser, error } = await supabase
+      .from('user_profiles')
+      .select('id')
+      .eq('role', 'admin')
+      .limit(1)
+      .single();
+
+    if (error || !adminUser) {
+      console.log('⚠️ Nenhum usuário admin encontrado, criando entrada do sistema');
+      // Se não houver admin, usar o primeiro usuário disponível
+      const { data: firstUser } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .limit(1)
+        .single();
+      
+      if (firstUser) {
+        return firstUser.id;
+      } else {
+        throw new Error('Nenhum usuário encontrado no sistema');
+      }
+    }
+
+    return adminUser.id;
+  } catch (error) {
+    console.error('❌ Erro ao obter ID do usuário do sistema:', error);
     throw error;
   }
 }
@@ -169,10 +197,14 @@ serve(async (req) => {
           
           console.log('📅 Datetimes criados:', { startDateTime, endDateTime });
           
+          // Obter ID de usuário do sistema válido
+          const systemUserId = await getSystemUserId(supabase);
+          console.log('👤 Usando usuário do sistema:', systemUserId);
+          
           // Primeiro, criar evento no Google Calendar
           let googleEventId;
           try {
-            const googleEvent = await createGoogleCalendarEvent(appointmentData);
+            const googleEvent = await createGoogleCalendarEvent(appointmentData, supabase);
             googleEventId = googleEvent.id;
             console.log('✅ Evento criado no Google Calendar com ID:', googleEventId);
           } catch (googleError) {
@@ -186,7 +218,7 @@ serve(async (req) => {
             .from('calendar_events')
             .insert({
               google_event_id: googleEventId,
-              user_id: '00000000-0000-0000-0000-000000000000', // Sistema
+              user_id: systemUserId, // Usar usuário válido do sistema
               calendar_id: 'primary',
               title: appointmentData.title.trim(),
               description: appointmentData.description || 'Agendamento via WhatsApp',
