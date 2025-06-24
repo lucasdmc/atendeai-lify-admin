@@ -24,7 +24,7 @@ const Agendamentos = () => {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4 p-6">
       <AgendamentosHeader 
         onRefetch={refetch} 
         isConnected={isConnected}
@@ -32,8 +32,8 @@ const Agendamentos = () => {
       />
 
       {isConnected ? (
-        <div className="space-y-6">
-          {/* Próximos agendamentos no topo */}
+        <div className="space-y-4">
+          {/* Próximos agendamentos - mais compacto */}
           <UpcomingAppointments 
             events={events} 
             isLoadingEvents={isLoadingEvents}
@@ -41,7 +41,7 @@ const Agendamentos = () => {
             onDeleteEvent={deleteEvent}
           />
 
-          {/* Calendário principal ocupando toda a largura */}
+          {/* Calendário principal - destaque principal */}
           <div className="w-full">
             <CalendarView 
               events={events} 
