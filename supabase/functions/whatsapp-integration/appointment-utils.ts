@@ -105,43 +105,47 @@ export function extractAppointmentData(message: string): any {
     }
   }
 
-  // Extrair horário - melhorado
-  const timeRegex = /(\d{1,2}):?(\d{0,2})\s*h?(?:oras?)?(?:\s*(?:às?|até|-)?\s*(\d{1,2}):?(\d{0,2})\s*h?(?:oras?)?)?/gi;
-  const timeMatches = [...message.matchAll(timeRegex)];
+  // Extrair horário - melhorado para capturar formatos mais flexíveis
+  const timePatterns = [
+    // Padrão HH:MM
+    /(\d{1,2}):(\d{2})/g,
+    // Padrão HH:MM com h
+    /(\d{1,2}):(\d{2})h/g,
+    // Padrão HHh ou HH h
+    /(\d{1,2})\s*h(?:oras?)?/g,
+    // Padrão apenas números seguidos de h
+    /(\d{1,2})h/g
+  ];
   
-  if (timeMatches.length > 0) {
-    const firstTime = timeMatches[0];
-    let startHour = parseInt(firstTime[1]);
-    const startMin = firstTime[2] ? parseInt(firstTime[2]) : 0;
+  let timeFound = false;
+  
+  for (const pattern of timePatterns) {
+    const timeMatches = [...message.matchAll(pattern)];
     
-    // Validar horário
-    if (startHour >= 0 && startHour <= 23 && startMin >= 0 && startMin <= 59) {
-      result.startTime = `${startHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`;
+    if (timeMatches.length > 0) {
+      const firstTime = timeMatches[0];
+      let startHour = parseInt(firstTime[1]);
+      let startMin = firstTime[2] ? parseInt(firstTime[2]) : 0;
       
-      // Se há horário de fim especificado
-      if (firstTime[3]) {
-        let endHour = parseInt(firstTime[3]);
-        const endMin = firstTime[4] ? parseInt(firstTime[4]) : 0;
+      // Validar horário
+      if (startHour >= 0 && startHour <= 23 && startMin >= 0 && startMin <= 59) {
+        result.startTime = `${startHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`;
         
-        if (endHour >= 0 && endHour <= 23 && endMin >= 0 && endMin <= 59) {
-          result.endTime = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
-        }
-      }
-      
-      // Se não tem horário de fim, assumir 1 hora de duração
-      if (!result.endTime) {
+        // Assumir 1 hora de duração
         let endHour = startHour + 1;
         if (endHour > 23) endHour = 23;
         result.endTime = `${endHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`;
+        
+        timeFound = true;
+        console.log('🕐 Horário encontrado:', result.startTime, '-', result.endTime);
+        break;
       }
-      
-      console.log('🕐 Horário encontrado:', result.startTime, '-', result.endTime);
     }
   }
 
   // Extrair tipo de consulta
   const consultationTypes = [
-    'dermatologia', 'cardiologia', 'neurologia', 'ortopedia', 'ortopedista',
+    'dermatologia', 'cardiologia', 'cardiologista', 'neurologia', 'ortopedia', 'ortopedista',
     'ginecologia', 'ginecologista', 'pediatria', 'pediatra', 'clínico geral',
     'consulta geral', 'retorno', 'check-up', 'exame', 'avaliação',
     'oftalmologia', 'oftalmologista', 'psiquiatria', 'psiquiatra',
@@ -150,7 +154,11 @@ export function extractAppointmentData(message: string): any {
   
   for (const type of consultationTypes) {
     if (lowerMessage.includes(type)) {
-      result.title = type.charAt(0).toUpperCase() + type.slice(1);
+      if (type === 'cardiologista') {
+        result.title = 'Cardiologia';
+      } else {
+        result.title = type.charAt(0).toUpperCase() + type.slice(1);
+      }
       console.log('👨‍⚕️ Tipo de consulta encontrado:', result.title);
       break;
     }
