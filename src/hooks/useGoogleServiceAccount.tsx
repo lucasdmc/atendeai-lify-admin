@@ -1,111 +1,83 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { googleServiceAccountService, GoogleCalendarEvent } from '@/services/googleServiceAccountService';
-import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+
+export interface GoogleCalendarEvent {
+  id: string;
+  summary: string;
+  description?: string;
+  start: {
+    dateTime: string;
+    timeZone?: string;
+  };
+  end: {
+    dateTime: string;
+    timeZone?: string;
+  };
+  location?: string;
+  attendees?: Array<{ email: string }>;
+  status: string;
+}
 
 export const useGoogleServiceAccount = () => {
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(true); // Service Account sempre conectado
   const [isLoading, setIsLoading] = useState(true);
   const [events, setEvents] = useState<GoogleCalendarEvent[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const checkConnection = async () => {
-    try {
-      console.log('Checking Google Service Account connection...');
-      const connected = await googleServiceAccountService.isConnected();
-      console.log('Service Account connected:', connected);
-      setIsConnected(connected);
-    } catch (error) {
-      console.error('Error checking service account connection:', error);
-      setIsConnected(false);
-      toast({
-        title: 'Erro de Conexão',
-        description: 'Falha ao verificar conexão com Google Calendar',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const calendarId = 'fb2b1dfb1e6c600594b05785de5cf04fb38bd0376bd3f5e5d1c08c60d4c894df@group.calendar.google.com';
 
-  const fetchEvents = async (timeMin?: string, timeMax?: string) => {
-    if (!isConnected) {
-      console.log('Service account not connected, skipping event fetch');
-      return;
-    }
-
+  const fetchEvents = async () => {
+    if (!user) return;
+    
     try {
       setIsLoadingEvents(true);
-      console.log('Fetching calendar events...');
+      console.log('📅 Buscando eventos do banco de dados...');
       
-      // If no time range provided, fetch for entire current year
-      const now = new Date();
-      let defaultTimeMin: string;
-      let defaultTimeMax: string;
-      
-      if (!timeMin || !timeMax) {
-        const startOfYear = new Date(now.getFullYear(), 0, 1);
-        startOfYear.setHours(0, 0, 0, 0);
-        
-        const endOfYear = new Date(now.getFullYear(), 11, 31);
-        endOfYear.setHours(23, 59, 59, 999);
-        
-        defaultTimeMin = startOfYear.toISOString();
-        defaultTimeMax = endOfYear.toISOString();
-      } else {
-        defaultTimeMin = timeMin;
-        defaultTimeMax = timeMax;
-      }
-      
-      console.log('Fetching events for time range:', {
-        timeMin: defaultTimeMin,
-        timeMax: defaultTimeMax
-      });
-      
-      const fetchedEvents = await googleServiceAccountService.fetchCalendarEvents(defaultTimeMin, defaultTimeMax);
-      console.log('Events fetched successfully:', fetchedEvents.length);
-      console.log('Event details:', fetchedEvents);
-      setEvents(fetchedEvents);
+      // Buscar eventos do banco de dados local em vez do Google Calendar
+      const { data: dbEvents, error } = await supabase
+        .from('calendar_events')
+        .select('*')
+        .gte('start_time', new Date().toISOString())
+        .order('start_time', { ascending: true });
 
-      // Cache events in our database - only if we have valid events with titles
-      if (user && fetchedEvents.length > 0) {
-        console.log('Caching events in database...');
-        const eventsToCache = fetchedEvents
-          .filter(event => event.summary && event.summary.trim() !== '') // Only cache events with valid titles
-          .map(event => ({
-            user_id: user.id,
-            google_event_id: event.id,
-            calendar_id: googleServiceAccountService.getCalendarId(),
-            title: event.summary || 'Evento sem título', // Fallback title
-            description: event.description || null,
-            start_time: event.start.dateTime,
-            end_time: event.end.dateTime,
-            location: event.location || null,
-            attendees: event.attendees ? JSON.stringify(event.attendees) : null,
-            status: event.status,
-          }));
-
-        if (eventsToCache.length > 0) {
-          const { error } = await supabase
-            .from('calendar_events')
-            .upsert(eventsToCache, { onConflict: 'user_id,google_event_id' });
-          
-          if (error) {
-            console.error('Error caching events:', error);
-          } else {
-            console.log('Events cached successfully');
-          }
-        }
+      if (error) {
+        console.error('❌ Erro ao buscar eventos do banco:', error);
+        throw error;
       }
+
+      console.log(`✅ ${dbEvents?.length || 0} eventos encontrados no banco`);
+
+      // Converter formato do banco para o formato esperado
+      const formattedEvents: GoogleCalendarEvent[] = (dbEvents || []).map(event => ({
+        id: event.google_event_id,
+        summary: event.title,
+        description: event.description || '',
+        start: {
+          dateTime: event.start_time,
+          timeZone: 'America/Sao_Paulo'
+        },
+        end: {
+          dateTime: event.end_time,
+          timeZone: 'America/Sao_Paulo'
+        },
+        location: event.location || '',
+        attendees: event.attendees ? JSON.parse(event.attendees) : [],
+        status: event.status || 'confirmed'
+      }));
+
+      setEvents(formattedEvents);
+      console.log('✅ Eventos carregados:', formattedEvents.length);
+      
     } catch (error) {
-      console.error('Error fetching events:', error);
+      console.error('❌ Erro ao buscar eventos:', error);
       toast({
         title: 'Erro',
-        description: 'Falha ao carregar eventos do calendário',
+        description: 'Falha ao carregar agendamentos',
         variant: 'destructive',
       });
     } finally {
@@ -115,34 +87,53 @@ export const useGoogleServiceAccount = () => {
 
   const createEvent = async (eventData: Omit<GoogleCalendarEvent, 'id' | 'status'>) => {
     try {
-      console.log('Creating calendar event...', eventData);
+      console.log('📝 Criando novo agendamento...');
       
-      if (!isConnected) {
-        throw new Error('Google Calendar não está conectado');
+      // Extrair data e hora do evento
+      const startDate = new Date(eventData.start.dateTime);
+      const endDate = new Date(eventData.end.dateTime);
+      
+      const appointmentData = {
+        title: eventData.summary,
+        description: eventData.description || '',
+        date: startDate.toISOString().split('T')[0], // YYYY-MM-DD
+        startTime: startDate.toTimeString().slice(0, 5), // HH:MM
+        endTime: endDate.toTimeString().slice(0, 5), // HH:MM
+        location: eventData.location || 'Clínica',
+        patientEmail: eventData.attendees?.[0]?.email
+      };
+
+      const { data, error } = await supabase.functions.invoke('appointment-manager', {
+        body: {
+          action: 'create',
+          appointmentData
+        }
+      });
+
+      if (error) {
+        console.error('❌ Erro ao criar agendamento:', error);
+        throw error;
       }
 
-      // Ensure we have a valid title
-      if (!eventData.summary || eventData.summary.trim() === '') {
-        throw new Error('Título do evento é obrigatório');
+      if (!data.success) {
+        throw new Error(data.message || 'Falha ao criar agendamento');
       }
-      
-      const newEvent = await googleServiceAccountService.createCalendarEvent(eventData);
-      console.log('Event created successfully:', newEvent);
-      
-      // Refresh events to show the new one
+
+      console.log('✅ Agendamento criado com sucesso');
+      toast({
+        title: 'Agendamento criado',
+        description: 'Agendamento adicionado com sucesso',
+      });
+
+      // Recarregar eventos
       await fetchEvents();
       
-      toast({
-        title: 'Evento criado',
-        description: 'Evento adicionado ao Google Calendar com sucesso',
-      });
-      return newEvent;
+      return data.appointment;
     } catch (error) {
-      console.error('Error creating event:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      console.error('❌ Erro ao criar agendamento:', error);
       toast({
         title: 'Erro',
-        description: `Falha ao criar evento: ${errorMessage}`,
+        description: 'Falha ao criar agendamento',
         variant: 'destructive',
       });
       throw error;
@@ -151,27 +142,29 @@ export const useGoogleServiceAccount = () => {
 
   const updateEvent = async (eventId: string, eventData: Omit<GoogleCalendarEvent, 'id' | 'status'>) => {
     try {
-      console.log('Updating calendar event...', eventId, eventData);
+      console.log('📝 Atualizando agendamento:', eventId);
       
-      if (!isConnected) {
-        throw new Error('Google Calendar não está conectado');
-      }
-      
-      await googleServiceAccountService.updateCalendarEvent(eventId, eventData);
-      
-      // Refresh events to show the updated one
-      await fetchEvents();
-      
-      toast({
-        title: 'Evento atualizado',
-        description: 'Agendamento atualizado no Google Calendar',
+      const { data, error } = await supabase.functions.invoke('appointment-manager', {
+        body: {
+          action: 'update',
+          eventId,
+          appointmentData: eventData
+        }
       });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Agendamento atualizado',
+        description: 'Agendamento atualizado com sucesso',
+      });
+
+      await fetchEvents();
     } catch (error) {
-      console.error('Error updating event:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      console.error('❌ Erro ao atualizar agendamento:', error);
       toast({
         title: 'Erro',
-        description: `Falha ao atualizar evento: ${errorMessage}`,
+        description: 'Falha ao atualizar agendamento',
         variant: 'destructive',
       });
       throw error;
@@ -180,63 +173,59 @@ export const useGoogleServiceAccount = () => {
 
   const deleteEvent = async (eventId: string) => {
     try {
-      console.log('Deleting calendar event...', eventId);
+      console.log('🗑️ Deletando agendamento:', eventId);
       
-      if (!isConnected) {
-        throw new Error('Google Calendar não está conectado');
-      }
-      
-      await googleServiceAccountService.deleteCalendarEvent(eventId);
-      
-      // Refresh events to remove the deleted one
-      await fetchEvents();
-      
-      toast({
-        title: 'Evento excluído',
-        description: 'Agendamento removido do Google Calendar',
+      const { data, error } = await supabase.functions.invoke('appointment-manager', {
+        body: {
+          action: 'delete',
+          eventId
+        }
       });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Agendamento cancelado',
+        description: 'Agendamento cancelado com sucesso',
+      });
+
+      await fetchEvents();
     } catch (error) {
-      console.error('Error deleting event:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      console.error('❌ Erro ao deletar agendamento:', error);
       toast({
         title: 'Erro',
-        description: `Falha ao excluir evento: ${errorMessage}`,
+        description: 'Falha ao cancelar agendamento',
         variant: 'destructive',
       });
       throw error;
     }
   };
 
-  useEffect(() => {
-    console.log('useGoogleServiceAccount: Checking connection');
-    checkConnection();
-  }, []);
+  const refetch = () => {
+    console.log('🔄 Recarregando agendamentos...');
+    fetchEvents();
+  };
 
   useEffect(() => {
-    if (isConnected) {
-      console.log('Connected to Google Calendar via Service Account, fetching events');
+    if (user) {
+      console.log('👤 Usuário logado, carregando agendamentos...');
+      setIsLoading(false);
       fetchEvents();
     } else {
-      setEvents([]);
+      setIsLoading(false);
     }
-  }, [isConnected]);
+  }, [user]);
 
   return {
     isConnected,
     isLoading,
     events,
     isLoadingEvents,
+    calendarId,
     fetchEvents,
     createEvent,
     updateEvent,
     deleteEvent,
-    calendarId: googleServiceAccountService.getCalendarId(),
-    refetch: () => {
-      console.log('Refetching Google Calendar data');
-      checkConnection();
-      if (isConnected) {
-        fetchEvents();
-      }
-    },
+    refetch,
   };
 };

@@ -80,7 +80,7 @@ async function createGoogleCalendarEvent(appointmentData: AppointmentRequest, su
     const startDateTime = createDateTime(appointmentData.date, appointmentData.startTime);
     const endDateTime = createDateTime(appointmentData.date, appointmentData.endTime);
 
-    // Criar evento no Google Calendar
+    // Criar evento no Google Calendar SEM attendees para evitar erro 403
     const eventData = {
       summary: appointmentData.title,
       description: appointmentData.description || `Agendamento via WhatsApp`,
@@ -92,8 +92,8 @@ async function createGoogleCalendarEvent(appointmentData: AppointmentRequest, su
         dateTime: endDateTime,
         timeZone: 'America/Sao_Paulo'
       },
-      location: appointmentData.location || 'Clínica',
-      attendees: appointmentData.patientEmail ? [{ email: appointmentData.patientEmail }] : []
+      location: appointmentData.location || 'Clínica'
+      // Removido attendees para evitar erro 403
     };
 
     console.log('📅 Dados do evento:', eventData);
@@ -201,14 +201,17 @@ serve(async (req) => {
           const systemUserId = await getSystemUserId(supabase);
           console.log('👤 Usando usuário do sistema:', systemUserId);
           
-          // Primeiro, criar evento no Google Calendar
+          // Tentar criar evento no Google Calendar
           let googleEventId;
+          let googleCalendarError = null;
+          
           try {
             const googleEvent = await createGoogleCalendarEvent(appointmentData, supabase);
             googleEventId = googleEvent.id;
             console.log('✅ Evento criado no Google Calendar com ID:', googleEventId);
           } catch (googleError) {
             console.error('❌ Erro ao criar no Google Calendar:', googleError);
+            googleCalendarError = googleError.message;
             // Continuar mesmo se falhar no Google Calendar
             googleEventId = `whatsapp_${Date.now()}`;
           }
@@ -218,7 +221,7 @@ serve(async (req) => {
             .from('calendar_events')
             .insert({
               google_event_id: googleEventId,
-              user_id: systemUserId, // Usar usuário válido do sistema
+              user_id: systemUserId,
               calendar_id: 'primary',
               title: appointmentData.title.trim(),
               description: appointmentData.description || 'Agendamento via WhatsApp',
@@ -238,12 +241,20 @@ serve(async (req) => {
 
           console.log('✅ Agendamento salvo no banco:', eventData);
           
-          return new Response(JSON.stringify({
+          const responseData = {
             success: true,
             eventId: eventData.google_event_id,
             message: 'Agendamento criado com sucesso',
             appointment: eventData
-          }), {
+          };
+
+          // Adicionar aviso sobre Google Calendar se houve erro
+          if (googleCalendarError) {
+            responseData.message += ' (Google Calendar não disponível)';
+            responseData.googleCalendarError = googleCalendarError;
+          }
+          
+          return new Response(JSON.stringify(responseData), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         } catch (error) {
@@ -258,7 +269,7 @@ serve(async (req) => {
         }
 
       case 'list':
-        console.log('📋 Listing appointments for date:', date);
+        console.log('📋 Listing appointments');
         
         try {
           const { data: appointments, error } = await supabase
@@ -271,6 +282,8 @@ serve(async (req) => {
             console.error('❌ Erro ao buscar agendamentos:', error);
             throw new Error('Falha ao buscar agendamentos');
           }
+
+          console.log(`✅ ${appointments?.length || 0} agendamentos encontrados`);
 
           return new Response(JSON.stringify({
             success: true,
