@@ -54,9 +54,9 @@ export default function ConversationCard({
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
           <ConversationAvatar 
-            name={displayName}
+            name={conversation.name}
             countryCode={conversation.phone_number}
-            unreadCount={conversation.unread_count || 0}
+            unreadCount={conversation.unread_count}
           />
           
           <div className="flex-1 min-w-0">
