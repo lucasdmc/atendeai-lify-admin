@@ -1,5 +1,6 @@
 
 import { addDays, startOfWeek, format, isSameDay } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { GoogleCalendarEvent } from '@/services/googleServiceAccountService';
 import EventCard from '../EventCard';
 
@@ -16,38 +17,51 @@ const WeekView = ({ currentDate, events, onEditEvent, getEventsForDay }: WeekVie
   
   return (
     <div className="grid grid-cols-7 gap-2">
-      {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
-        <div key={day} className="p-2 text-center text-sm font-medium text-gray-500 bg-gray-50 rounded-t-lg">
-          {day}
-        </div>
-      ))}
+      {/* Header dos dias */}
+      {weekDays.map((day, index) => {
+        const dayName = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][index];
+        const isToday = isSameDay(day, new Date());
+        
+        return (
+          <div key={day.toString()} className={`p-3 text-center rounded-t-lg border-b-2 ${
+            isToday ? 'bg-orange-100 border-orange-500' : 'bg-gray-50 border-gray-200'
+          }`}>
+            <div className="text-sm font-medium text-gray-500 mb-1">{dayName}</div>
+            <div className={`text-lg font-bold ${
+              isToday ? 'text-orange-600' : 'text-gray-900'
+            }`}>
+              {format(day, 'd')}
+            </div>
+          </div>
+        );
+      })}
       
+      {/* Conteúdo dos dias */}
       {weekDays.map((day) => {
         const dayEvents = getEventsForDay(day);
         const isToday = isSameDay(day, new Date());
         
         return (
           <div
-            key={day.toString()}
-            className={`min-h-[200px] p-2 border rounded-b-lg ${
-              isToday ? 'bg-orange-50 border-orange-200' : 'bg-white'
+            key={`content-${day.toString()}`}
+            className={`min-h-[300px] p-3 border rounded-b-lg ${
+              isToday ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-200'
             }`}
           >
-            <div className={`text-sm font-medium mb-2 ${
-              isToday ? 'text-orange-600' : 'text-gray-900'
-            }`}>
-              {format(day, 'd')}
-            </div>
-            
-            <div className="space-y-1">
+            <div className="space-y-2">
               {dayEvents.map((event) => (
                 <EventCard
                   key={event.id}
                   event={event}
                   onEdit={onEditEvent}
-                  size="sm"
+                  size="md"
                 />
               ))}
+              {dayEvents.length === 0 && (
+                <div className="text-center py-8 text-gray-400">
+                  <div className="text-sm">Nenhum evento</div>
+                </div>
+              )}
             </div>
           </div>
         );
