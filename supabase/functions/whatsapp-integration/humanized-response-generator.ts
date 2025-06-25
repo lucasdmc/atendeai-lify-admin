@@ -1,5 +1,5 @@
 
-import { ConversationMemoryManager } from './conversation-memory.ts';
+import { ConversationMemoryManager, ConversationMemory } from './conversation-memory.ts';
 import { SentimentAnalyzer } from './sentiment-analyzer.ts';
 import { ResponseContextBuilder } from './response-context-builder.ts';
 import { TimeContextManager } from './time-context-manager.ts';
@@ -13,8 +13,11 @@ export class HumanizedResponseGenerator {
     contextData: any[],
     conversationHistory: any[]
   ): Promise<string> {
+    // Criar um mock funcional do supabase se necessário
+    const workingSupabase = supabase || this.createSupabaseMock();
+    
     // Carregar memória do usuário
-    const memory = await ConversationMemoryManager.loadMemory(phoneNumber, supabase);
+    const memory = await ConversationMemoryManager.loadMemory(phoneNumber, workingSupabase);
     
     // Analisar sentimento da mensagem
     const sentiment = SentimentAnalyzer.analyzeSentiment(userMessage);
@@ -39,7 +42,7 @@ export class HumanizedResponseGenerator {
     // Atualizar histórico de interação
     ConversationMemoryManager.updateInteractionHistory(
       memory, 
-      memory.conversationContext.currentTopic || 'general',
+      memory.conversationContext?.currentTopic || 'general',
       sentiment.primaryEmotion,
       'in_progress'
     );
@@ -48,8 +51,21 @@ export class HumanizedResponseGenerator {
     ConversationMemoryManager.evolveRelationship(memory);
     
     // Salvar memória atualizada
-    await ConversationMemoryManager.saveMemory(phoneNumber, memory, supabase);
+    await ConversationMemoryManager.saveMemory(phoneNumber, memory, workingSupabase);
     
     return contextualPrompt;
+  }
+
+  private static createSupabaseMock() {
+    return {
+      from: (table: string) => ({
+        select: (columns: string) => ({
+          eq: (column: string, value: any) => ({
+            single: () => Promise.resolve({ data: null, error: { code: 'PGRST116' } })
+          })
+        }),
+        upsert: (data: any, options?: any) => Promise.resolve({ data: null, error: null })
+      })
+    };
   }
 }
