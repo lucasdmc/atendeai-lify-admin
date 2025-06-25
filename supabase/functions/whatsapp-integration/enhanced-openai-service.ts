@@ -24,7 +24,22 @@ export async function generateEnhancedAIResponse(
     const isFirstContact = LiaPersonality.isFirstContact(recentMessages);
     console.log(`👋 Primeiro contato: ${isFirstContact ? 'SIM' : 'NÃO'}`);
 
-    // Gerar prompt contextual da Lia
+    // Se é primeiro contato, responder diretamente com saudação
+    if (isFirstContact) {
+      console.log('🎯 Retornando saudação inicial da Lia...');
+      return LiaPersonality.getGreetingMessage();
+    }
+
+    // Verificar se é uma resposta rápida e direta (não precisa de desculpas)
+    const isQuickResponse = this.shouldRespondQuickly(message, recentMessages);
+
+    // Para respostas diretas, usar respostas da Lia sem IA
+    if (isQuickResponse) {
+      console.log('⚡ Resposta rápida da Lia...');
+      return LiaPersonality.getFollowUpResponse(message);
+    }
+
+    // Gerar prompt contextual da Lia (sem instruções de desculpas)
     const liaPrompt = LiaPersonality.generateContextualPrompt(
       message,
       contextData,
@@ -38,7 +53,13 @@ export async function generateEnhancedAIResponse(
       messages: [
         {
           role: "system",
-          content: liaPrompt
+          content: `${liaPrompt}
+
+IMPORTANTE: 
+- NÃO peça desculpas desnecessariamente
+- Seja natural e direta
+- Só se desculpe se realmente houve demora ou problema
+- Responda de forma fluida e positiva`
         },
         {
           role: "user", 
@@ -67,15 +88,15 @@ export async function generateEnhancedAIResponse(
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`❌ Erro OpenAI (${response.status}):`, errorText);
-      return LiaPersonality.getFallbackResponse();
+      return LiaPersonality.getFollowUpResponse(message);
     }
 
     const result = await response.json();
-    console.log('📥 Resposta OpenAI recebida:', JSON.stringify(result, null, 2));
+    console.log('📥 Resposta OpenAI recebida');
 
     if (!result.choices || result.choices.length === 0) {
       console.error('❌ Resposta OpenAI vazia');
-      return LiaPersonality.getFallbackResponse();
+      return LiaPersonality.getFollowUpResponse(message);
     }
 
     const choice = result.choices[0];
@@ -85,31 +106,72 @@ export async function generateEnhancedAIResponse(
     if (choice.message?.tool_calls && choice.message.tool_calls.length > 0) {
       console.log('🔧 Processando tool calls...');
       const toolCall = choice.message.tool_calls[0];
+      
+      // Simular supabase para MCP tools
+      const mockSupabase = this.createSupabaseMock();
+      
       const toolResult = await MCPToolsProcessor.processToolCall(
         toolCall.function.name,
         JSON.parse(toolCall.function.arguments || '{}'),
-        null // supabase será passado quando necessário
+        mockSupabase
       );
       
-      finalResponse = choice.message.content || toolResult;
+      finalResponse = toolResult;
     } else {
       finalResponse = choice.message?.content || '';
     }
 
     if (!finalResponse || finalResponse.trim().length === 0) {
       console.log('⚠️ Resposta vazia, usando fallback da Lia');
-      return LiaPersonality.getFallbackResponse();
+      return LiaPersonality.getFollowUpResponse(message);
     }
 
-    // Aplicar filtros de personalidade da Lia
-    finalResponse = LiaPersonality.applyPersonalityFilter(finalResponse);
+    // Aplicar filtros de personalidade da Lia (sem desculpas desnecessárias)
+    finalResponse = LiaPersonality.adaptResponseStyle(finalResponse, false, false);
     
     console.log('✅ Resposta final da Lia:', finalResponse);
     return finalResponse;
 
   } catch (error) {
     console.error('❌ Erro crítico na geração de resposta:', error);
-    return LiaPersonality.getFallbackResponse();
+    return LiaPersonality.getFollowUpResponse(message);
+  }
+
+  private static shouldRespondQuickly(message: string, recentMessages: any[]): boolean {
+    const lowerMessage = message.toLowerCase();
+    
+    // Respostas rápidas para mensagens simples
+    const quickResponseTriggers = [
+      'oi', 'olá', 'hi', 'hello',
+      'agend', 'consulta', 'marcar',
+      'psicolog', 'cardio', 'dermat',
+      'obrigad', 'valeu', 'ok'
+    ];
+    
+    return quickResponseTriggers.some(trigger => lowerMessage.includes(trigger));
+  }
+
+  private static createSupabaseMock() {
+    return {
+      from: (table: string) => ({
+        select: (columns: string) => ({
+          gte: (column: string, value: any) => ({
+            order: (orderColumn: string, options: any) => ({
+              limit: (limitValue: number) => Promise.resolve({ 
+                data: [], 
+                error: null 
+              })
+            })
+          })
+        })
+      }),
+      functions: {
+        invoke: (functionName: string, options: any) => Promise.resolve({ 
+          data: { success: true }, 
+          error: null 
+        })
+      }
+    };
   }
 }
 

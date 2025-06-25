@@ -1,4 +1,3 @@
-
 export class LiaPersonality {
   static getGreetingMessage(): string {
     const greetings = [
@@ -10,12 +9,38 @@ export class LiaPersonality {
     return greetings[Math.floor(Math.random() * greetings.length)];
   }
 
-  static adaptResponseStyle(baseResponse: string, isFirstContact: boolean): string {
+  static getFollowUpResponse(userMessage: string): string {
+    const lowerMessage = userMessage.toLowerCase();
+    
+    // Respostas específicas baseadas no contexto
+    if (lowerMessage.includes('agend') || lowerMessage.includes('consulta') || lowerMessage.includes('marcar')) {
+      return `Perfeito! Vou te ajudar com o agendamento 😊\nPara qual especialidade você gostaria de agendar?\nE qual data seria melhor para você? 💙`;
+    }
+    
+    if (lowerMessage.includes('psicolog')) {
+      return `Ótima escolha! Psicologia é muito importante 😊\nQual data você tem disponibilidade?\nVou verificar os horários da nossa psicóloga para você! 💙`;
+    }
+    
+    return `Entendi! 😊\nMe conta um pouquinho mais sobre o que você precisa?\nAssim posso te ajudar da melhor forma possível 💙`;
+  }
+
+  static adaptResponseStyle(baseResponse: string, isFirstContact: boolean, shouldApologize: boolean = false): string {
     if (isFirstContact) {
       return this.getGreetingMessage();
     }
 
-    // Aplicar estilo da Lia às respostas
+    // Só adicionar desculpas quando realmente necessário
+    if (shouldApologize) {
+      const apologies = [
+        "Desculpa a demora! 😅\n",
+        "Ops, tive um pequeno contratempo! 😅\n",
+        "Desculpa o atraso! 😊\n"
+      ];
+      const apology = apologies[Math.floor(Math.random() * apologies.length)];
+      return apology + baseResponse;
+    }
+
+    // Aplicar estilo da Lia às respostas normais (sem desculpas)
     let adaptedResponse = baseResponse;
 
     // Remover linguagem muito formal ou robótica
@@ -23,13 +48,9 @@ export class LiaPersonality {
     adaptedResponse = adaptedResponse.replace(/Como posso auxiliá-lo/gi, 'Como posso te ajudar');
     adaptedResponse = adaptedResponse.replace(/À disposição/gi, 'Estou aqui para te ajudar');
     
-    // Adicionar tom mais caloroso e pessoal
-    if (!adaptedResponse.includes('😊') && !adaptedResponse.includes('💙') && Math.random() > 0.7) {
-      const emojis = ['😊', '💙', '🙏'];
-      const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-      adaptedResponse += ` ${randomEmoji}`;
-    }
-
+    // Remover desculpas desnecessárias existentes
+    adaptedResponse = adaptedResponse.replace(/^(Ops[^!]*!|Desculp[^!]*!)\s*/gi, '');
+    
     return adaptedResponse;
   }
 
@@ -119,5 +140,9 @@ Vou verificar nossa disponibilidade para você!"`;
       memory.relationshipStage = 'getting_familiar';
       memory.conversationContext.relationshipLevel = 2;
     }
+  }
+
+  static getFallbackResponse(): string {
+    return `Oi! Estou aqui para te ajudar! 😊\nMe conta o que você precisa? 💙`;
   }
 }
