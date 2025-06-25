@@ -369,6 +369,30 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_conversation_memory: {
+        Row: {
+          created_at: string
+          id: string
+          memory_data: Json
+          phone_number: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          memory_data?: Json
+          phone_number: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          memory_data?: Json
+          phone_number?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       whatsapp_conversations: {
         Row: {
           consecutive_same_responses: number | null

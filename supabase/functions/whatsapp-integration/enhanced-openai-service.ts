@@ -1,261 +1,118 @@
 
-import { openAIApiKey } from './config.ts';
 import { HumanizedResponseGenerator } from './humanized-response-generator.ts';
-import { MCPToolsManager } from './mcp-tools.ts';
-import { ConversationMemoryManager } from './conversation-memory.ts';
-import { SentimentAnalyzer } from './sentiment-analyzer.ts';
+import { MCPTools } from './mcp-tools.ts';
 
-interface ChatMessage {
+interface OpenAIMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
 export async function generateEnhancedAIResponse(
-  contextData: any[], 
-  recentMessages: any[], 
-  currentMessage: string,
+  contextData: any[],
+  conversationHistory: any[],
+  userMessage: string,
   phoneNumber: string,
-  userIntent?: any
+  userIntent: any
 ): Promise<string> {
-  console.log(`🤖 Gerando resposta IA humanizada para: ${phoneNumber}`);
+  console.log('🤖 === SISTEMA DE IA HUMANIZADA INICIADO ===');
   
   try {
-    // 1. Carregar memória conversacional
-    const memory = await ConversationMemoryManager.loadMemory(phoneNumber, null);
-    
-    // 2. Analisar sentimento da mensagem atual
-    const sentiment = SentimentAnalyzer.analyzeSentiment(currentMessage);
-    console.log(`🎭 Sentimento detectado:`, sentiment);
-    
-    // 3. Verificar se precisa usar ferramentas MCP
-    const mcpResults = await checkAndUseMCPTools(currentMessage, phoneNumber, sentiment);
-    
-    // 4. Gerar prompt humanizado e contextualizado
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) {
+      throw new Error('OpenAI API key não configurada');
+    }
+
+    // Gerar prompt contextualizado e humanizado
     const humanizedPrompt = await HumanizedResponseGenerator.generateHumanizedResponse(
-      currentMessage,
+      userMessage,
       phoneNumber,
-      null, // supabase será injetado quando necessário
+      { from: () => ({ select: () => ({ eq: () => ({ single: () => ({ data: null, error: null }) }) }) }) }, // Mock supabase
       contextData,
-      recentMessages
+      conversationHistory
     );
+
+    console.log('📝 Prompt humanizado gerado com sucesso');
+
+    // Verificar se precisa usar ferramentas MCP
+    const mcpResponse = await MCPTools.processWithMCP(userMessage, userIntent, phoneNumber);
     
-    // 5. Preparar contexto de ferramentas MCP para a IA
-    const mcpContext = mcpResults.length > 0 ? 
-      `\n\nINFORMAÇÕES ADICIONAIS DO SISTEMA:\n${mcpResults.map(r => r.summary).join('\n')}` : '';
-    
-    // 6. Construir mensagens para OpenAI
-    const messages: ChatMessage[] = [
-      { 
-        role: 'system', 
-        content: humanizedPrompt + mcpContext 
+    let systemPrompt = humanizedPrompt;
+    if (mcpResponse) {
+      systemPrompt += `\n\nINFORMAÇÕES ATUALIZADAS DO SISTEMA:\n${mcpResponse}`;
+      console.log('🔧 Informações MCP integradas ao prompt');
+    }
+
+    // Construir histórico de mensagens para OpenAI
+    const messages: OpenAIMessage[] = [
+      {
+        role: 'system',
+        content: systemPrompt
       }
     ];
-    
-    // Adicionar histórico contextual (limitado para não exceder tokens)
-    const contextualHistory = buildContextualHistory(recentMessages, memory, currentMessage);
-    messages.push(...contextualHistory);
-    
-    // Adicionar mensagem atual
-    messages.push({ role: 'user', content: currentMessage });
-    
-    console.log(`💭 Contexto construído com ${messages.length} mensagens`);
-    
-    // 7. Chamar OpenAI com configurações otimizadas para conversação natural
-    let aiResponse = '';
-    
-    if (openAIApiKey) {
-      try {
-        console.log('🔄 Chamando OpenAI API com configurações humanizadas...');
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openAIApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'gpt-4o',  // Modelo mais avançado para conversação natural
-            messages: messages,
-            temperature: 0.8,  // Mais criativo para conversa natural
-            max_tokens: 200,   // Respostas mais naturais (não muito longas)
-            presence_penalty: 1.2,  // Evitar repetições
-            frequency_penalty: 1.0,  // Variar vocabulário
-            top_p: 0.9,        // Núcleo de probabilidade para naturalidade
-          }),
-        });
 
-        if (response.ok) {
-          const data = await response.json();
-          aiResponse = data.choices[0].message.content;
-          console.log('✅ Resposta IA humanizada gerada');
-        } else {
-          console.error('❌ Erro na OpenAI API:', response.status);
-          aiResponse = generateFallbackResponse(sentiment, memory);
+    // Adicionar histórico recente (últimas 6 mensagens para contexto)
+    if (conversationHistory && conversationHistory.length > 0) {
+      const recentHistory = conversationHistory.slice(-6);
+      recentHistory.forEach((msg) => {
+        if (msg.content && msg.content.trim()) {
+          messages.push({
+            role: msg.message_type === 'received' ? 'user' : 'assistant',
+            content: msg.content
+          });
         }
-      } catch (error) {
-        console.error('❌ Erro ao chamar OpenAI:', error);
-        aiResponse = generateFallbackResponse(sentiment, memory);
-      }
-    } else {
-      console.log('⚠️ OpenAI Key não configurada, usando resposta humanizada padrão');
-      aiResponse = generateFallbackResponse(sentiment, memory);
+      });
     }
-    
-    // 8. Pós-processamento da resposta
-    const processedResponse = postProcessResponse(aiResponse, sentiment, memory);
-    
-    // 9. Atualizar memória com a nova interação
-    await updateConversationMemory(phoneNumber, currentMessage, processedResponse, sentiment);
-    
-    // 10. Verificar se precisa de follow-up proativo
-    await scheduleProactiveFollowUp(phoneNumber, sentiment, memory);
-    
-    console.log(`💬 Resposta final humanizada: ${processedResponse.substring(0, 100)}...`);
-    return processedResponse;
-    
-  } catch (error) {
-    console.error('❌ Erro no serviço de IA humanizada:', error);
-    return 'Desculpe, tive um problema momentâneo. Pode tentar novamente? Estou aqui para ajudar! 😊';
-  }
-}
 
-async function checkAndUseMCPTools(message: string, phoneNumber: string, sentiment: any) {
-  const results = [];
-  
-  try {
-    // Ferramenta de contexto temporal
-    if (true) { // Sempre usar para melhor contexto
-      const temporalContext = await MCPToolsManager.executeTool('temporal_context', {
-        userMessage: message
-      }, null);
-      
-      results.push({
-        tool: 'temporal_context',
-        summary: `Contexto temporal: ${temporalContext.timeOfDay}, horário comercial: ${temporalContext.isBusinessHours}`
-      });
-    }
-    
-    // Ferramenta de agendamento se detectar intenção
-    if (message.toLowerCase().includes('agendar') || message.toLowerCase().includes('marcar') || message.toLowerCase().includes('consulta')) {
-      const schedulingInfo = await MCPToolsManager.executeTool('smart_scheduling', {
-        urgency: sentiment.urgencyLevel,
-        specialty: extractSpecialtyFromMessage(message)
-      }, null);
-      
-      results.push({
-        tool: 'smart_scheduling',
-        summary: `Agendamento: ${schedulingInfo.availableSlots?.length || 0} slots disponíveis`
-      });
-    }
-    
-    // Ferramenta de conhecimento médico se detectar termos médicos
-    if (sentiment.medicalConcern) {
-      const medicalInfo = await MCPToolsManager.executeTool('medical_knowledge', {
-        query: message,
-        context: 'whatsapp_conversation'
-      }, null);
-      
-      results.push({
-        tool: 'medical_knowledge',
-        summary: `Conhecimento médico: ${medicalInfo.requiresProfessionalConsultation ? 'Requer consulta profissional' : 'Informações disponíveis'}`
-      });
-    }
-    
-  } catch (error) {
-    console.error('❌ Erro ao usar ferramentas MCP:', error);
-  }
-  
-  return results;
-}
-
-function buildContextualHistory(recentMessages: any[], memory: any, currentMessage: string): ChatMessage[] {
-  const contextualMessages: ChatMessage[] = [];
-  
-  // Filtrar mensagens relevantes baseadas na memória
-  const relevantMessages = recentMessages
-    .filter(msg => msg.content && msg.content !== currentMessage)
-    .slice(-4) // Últimas 4 mensagens para contexto
-    .reverse();
-  
-  relevantMessages.forEach(msg => {
-    contextualMessages.push({
-      role: msg.message_type === 'received' ? 'user' : 'assistant',
-      content: msg.content
+    // Adicionar mensagem atual do usuário
+    messages.push({
+      role: 'user',
+      content: userMessage
     });
-  });
-  
-  return contextualMessages;
-}
 
-function generateFallbackResponse(sentiment: any, memory: any): string {
-  const empathyPhrase = SentimentAnalyzer.generateEmpatheticResponse(sentiment);
-  
-  switch (sentiment.responseTone) {
-    case 'urgent':
-      return `${empathyPhrase} Vou te ajudar imediatamente. Me conte mais detalhes sobre sua situação para que eu possa orientá-lo da melhor forma.`;
-    case 'reassuring':
-      return `${empathyPhrase} Entendo sua preocupação. Estou aqui para esclarecer suas dúvidas e te tranquilizar. Como posso ajudar?`;
-    case 'supportive':
-      return `${empathyPhrase} Vamos resolver isso juntos. Me conte o que está acontecendo para que eu possa te orientar adequadamente.`;
-    case 'empathetic':
-      return `${empathyPhrase} Compreendo como você se sente. Estou aqui para te apoiar. O que posso fazer por você hoje?`;
-    default:
-      return `${empathyPhrase} Como posso ajudá-lo hoje? Estou aqui para qualquer dúvida ou necessidade que você tenha.`;
-  }
-}
+    console.log('📤 Enviando requisição para OpenAI GPT-4o...');
 
-function postProcessResponse(response: string, sentiment: any, memory: any): string {
-  // Remover formatações muito rígidas se existirem
-  let processed = response.replace(/^\d+\.\s*/gm, ''); // Remove numeração
-  
-  // Adicionar toque pessoal baseado no relacionamento
-  if (memory.relationshipStage === 'trusted') {
-    // Para relacionamentos estabelecidos, pode ser mais casual
-    processed = processed.replace(/^Olá[,!]?\s*/i, '');
-  }
-  
-  // Ajustar tom final baseado no sentimento
-  if (sentiment.primaryEmotion === 'anxiety' && !processed.includes('tranquilo')) {
-    processed += ' Fique tranquilo, estamos aqui para ajudar.';
-  }
-  
-  return processed;
-}
+    // Chamar OpenAI API com configurações otimizadas para conversação natural
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: messages,
+        max_tokens: 800,
+        temperature: 0.8, // Mais criatividade para conversação natural
+        top_p: 0.9,
+        frequency_penalty: 0.3, // Reduz repetições
+        presence_penalty: 0.4, // Encoraja novos tópicos
+        response_format: { type: "text" }
+      }),
+    });
 
-async function updateConversationMemory(phoneNumber: string, userMessage: string, botResponse: string, sentiment: any) {
-  try {
-    // Esta função será chamada para persistir a memória
-    console.log(`💾 Atualizando memória conversacional para ${phoneNumber}`);
-  } catch (error) {
-    console.error('❌ Erro ao atualizar memória:', error);
-  }
-}
-
-async function scheduleProactiveFollowUp(phoneNumber: string, sentiment: any, memory: any) {
-  try {
-    // Verificar se precisa agendar follow-up
-    if (sentiment.urgencyLevel === 'high' || sentiment.medicalConcern) {
-      console.log(`📋 Agendando follow-up proativo para ${phoneNumber}`);
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('❌ Erro na API OpenAI:', errorData);
+      throw new Error(`OpenAI API error: ${response.status}`);
     }
-  } catch (error) {
-    console.error('❌ Erro ao agendar follow-up:', error);
-  }
-}
 
-function extractSpecialtyFromMessage(message: string): string | undefined {
-  const specialties = {
-    'cardiologia': ['coração', 'cardio', 'pressão', 'hipertensão'],
-    'pediatria': ['criança', 'bebê', 'infantil', 'pediatra'],
-    'ginecologia': ['gineco', 'mulher', 'útero', 'ovário'],
-    'dermatologia': ['pele', 'derma', 'mancha', 'acne']
-  };
-  
-  const lowerMessage = message.toLowerCase();
-  
-  for (const [specialty, keywords] of Object.entries(specialties)) {
-    if (keywords.some(keyword => lowerMessage.includes(keyword))) {
-      return specialty;
+    const data = await response.json();
+    
+    if (!data.choices || data.choices.length === 0) {
+      throw new Error('Resposta inválida da OpenAI');
     }
+
+    const aiResponse = data.choices[0].message.content.trim();
+    
+    console.log(`✅ Resposta humanizada gerada: ${aiResponse.substring(0, 100)}...`);
+    console.log(`📊 Tokens utilizados: ${data.usage?.total_tokens || 'N/A'}`);
+
+    return aiResponse;
+
+  } catch (error) {
+    console.error('❌ Erro crítico no sistema de IA humanizada:', error);
+    
+    // Fallback empático em caso de erro
+    return `Ops! Parece que tive um pequeno problema técnico. 😅 Pode repetir sua mensagem? Prometo que vou conseguir te ajudar melhor desta vez!`;
   }
-  
-  return undefined;
 }
