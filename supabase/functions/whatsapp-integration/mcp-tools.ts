@@ -253,15 +253,19 @@ Nossa equipe vai entrar em contato para confirmar todos os detalhes! 💙`;
         return isoDate;
       }
       
-      // Fallback para hoje
-      const today = new Date().toISOString().split('T')[0];
-      console.log(`⚠️ Usando data padrão: ${today}`);
-      return today;
+      // Fallback para amanhã (próximo dia útil)
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const isoDate = tomorrow.toISOString().split('T')[0];
+      console.log(`⚠️ Usando data padrão (amanhã): ${isoDate}`);
+      return isoDate;
     } catch (error) {
       console.error('❌ Erro ao converter data:', error);
-      const today = new Date().toISOString().split('T')[0];
-      console.log(`⚠️ Usando data padrão: ${today}`);
-      return today;
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const isoDate = tomorrow.toISOString().split('T')[0];
+      console.log(`⚠️ Usando data padrão (amanhã): ${isoDate}`);
+      return isoDate;
     }
   }
 

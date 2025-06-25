@@ -1,6 +1,7 @@
 
 import { MCPToolsProcessor } from './mcp-tools.ts';
 import { LiaPersonality } from './lia-personality.ts';
+import { SmartConversationHandler } from './smart-conversation-handler.ts';
 
 // Utility functions (previously private static methods)
 function shouldRespondQuickly(message: string, recentMessages: any[]): boolean {
@@ -132,6 +133,17 @@ export async function generateEnhancedAIResponse(
   console.log('🤖 === GERAÇÃO DE RESPOSTA IA HUMANIZADA (LIA) ===');
   console.log(`📞 Número: ${phoneNumber}`);
   console.log(`💬 Mensagem: ${message}`);
+
+  // PRIORIDADE 1: Smart Conversation Handler para agendamentos
+  try {
+    const smartResponse = await SmartConversationHandler.processMessage(phoneNumber, message, supabase);
+    if (smartResponse && smartResponse.length > 10) {
+      console.log('✅ Smart Conversation Handler processou a mensagem');
+      return smartResponse;
+    }
+  } catch (error) {
+    console.error('❌ Erro no Smart Conversation Handler:', error);
+  }
 
   const isFirstContact = LiaPersonality.isFirstContact(recentMessages);
   console.log(`👋 Primeiro contato: ${isFirstContact ? 'SIM' : 'NÃO'}`);
