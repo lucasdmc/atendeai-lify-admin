@@ -92,34 +92,63 @@ Pode me enviar assim:
 
   static async handleContactInfo(params: FlowHandlerParams): Promise<string> {
     const { phoneNumber, message, userInput, supabase } = params;
+    console.log('👤 Processando informações de contato...');
+    console.log('📝 Mensagem recebida:', message);
+    console.log('🔍 User input analisado:', userInput);
+    
     const state = await ConversationStateManager.getState(phoneNumber, supabase);
     
     let customerName = userInput.extractedName;
     let customerEmail = userInput.extractedEmail;
     
-    // Tentar extrair de formatos alternativos
+    console.log('👤 Nome extraído:', customerName);
+    console.log('📧 Email extraído:', customerEmail);
+    
+    // Tentar extrair de formatos alternativos se não encontrou
     if (!customerName || !customerEmail) {
       const lines = message.split('\n');
+      console.log('📋 Analisando linhas separadamente:', lines);
+      
       for (const line of lines) {
-        if (!customerName && line.toLowerCase().includes('nome')) {
-          customerName = line.replace(/nome:?/gi, '').trim();
-        }
-        if (!customerEmail && line.includes('@')) {
-          const emailMatch = line.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-          if (emailMatch) customerEmail = emailMatch[1];
+        const trimmedLine = line.trim();
+        console.log('🔍 Analisando linha:', trimmedLine);
+        
+        if (!customerName && trimmedLine.toLowerCase().includes('nome')) {
+          customerName = trimmedLine.replace(/nome:?/gi, '').trim();
+          console.log('👤 Nome encontrado em linha com "nome":', customerName);
+        } else if (!customerEmail && trimmedLine.includes('@')) {
+          const emailMatch = trimmedLine.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+          if (emailMatch) {
+            customerEmail = emailMatch[1];
+            console.log('📧 Email encontrado:', customerEmail);
+          }
         }
       }
       
-      // Se ainda não encontrou nome e não tem email, assumir que é o nome
-      if (!customerName && !message.includes('@')) {
-        const words = message.split(' ');
-        if (words.length >= 2 && words.every(word => /^[A-Za-zÀ-ÿ]+$/.test(word))) {
-          customerName = message.trim();
+      // Se ainda não encontrou nome, tentar detectar linha com nome completo
+      if (!customerName) {
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          // Verificar se linha não contém email e parece ser um nome
+          if (!trimmedLine.includes('@') && trimmedLine.length > 2) {
+            const words = trimmedLine.split(' ');
+            // Nome com pelo menos 2 palavras ou uma palavra com mais de 2 caracteres
+            if ((words.length >= 2 && words.every(word => /^[A-Za-zÀ-ÿ]+$/.test(word))) ||
+                (words.length === 1 && /^[A-Za-zÀ-ÿ]{3,}$/.test(trimmedLine))) {
+              customerName = trimmedLine;
+              console.log('👤 Nome detectado sem formato específico:', customerName);
+              break;
+            }
+          }
         }
       }
     }
 
+    console.log('✅ Resultado final - Nome:', customerName, 'Email:', customerEmail);
+
     if (customerName && customerEmail) {
+      console.log('🎉 Ambas informações coletadas, prosseguindo para confirmação');
+      
       await ConversationStateManager.updateState(phoneNumber, { 
         currentState: 'confirmation',
         customerName,
@@ -139,7 +168,14 @@ Pode me enviar assim:
 Está tudo certo? Digite **SIM** para confirmar! 💙`;
     }
 
-    return `Preciso do seu nome e email para finalizar! 😊
+    console.log('❌ Informações incompletas, solicitando novamente');
+    
+    // Informar quais dados ainda são necessários
+    const missingInfo = [];
+    if (!customerName) missingInfo.push('📝 **Nome completo**');
+    if (!customerEmail) missingInfo.push('📧 **Email**');
+
+    return `Preciso ${missingInfo.join(' e ')} para finalizar! 😊
 
 Por favor, me envie assim:
 **Nome:** Seu Nome Completo  
@@ -160,6 +196,8 @@ Ou me diga se quer alterar alguma informação! 💙`;
     const state = await ConversationStateManager.getState(phoneNumber, supabase);
     
     try {
+      console.log('🎯 Criando agendamento com MCP Tools...');
+      
       // Criar agendamento real usando MCP
       const result = await MCPToolsProcessor.scheduleAppointment({
         specialty: state.selectedService,
@@ -168,6 +206,8 @@ Ou me diga se quer alterar alguma informação! 💙`;
         customerName: state.customerName,
         customerEmail: state.customerEmail
       }, supabase);
+
+      console.log('✅ Resultado do agendamento:', result);
 
       // Limpar estado após sucesso
       ConversationStateManager.clearState(phoneNumber);
