@@ -3,6 +3,7 @@
 export class MCPToolsProcessor {
   static async processToolCall(toolName: string, parameters: any, supabase: any): Promise<string> {
     console.log(`🔧 Processando ferramenta MCP: ${toolName}`);
+    console.log(`📋 Parâmetros recebidos:`, JSON.stringify(parameters, null, 2));
     
     try {
       switch (toolName) {
@@ -13,11 +14,12 @@ export class MCPToolsProcessor {
         case 'get_clinic_info':
           return await this.getClinicInfo(parameters);
         default:
+          console.log(`⚠️ Ferramenta não reconhecida: ${toolName}`);
           return `Ferramenta ${toolName} não reconhecida.`;
       }
     } catch (error) {
       console.error(`❌ Erro ao processar ferramenta ${toolName}:`, error);
-      return `Erro ao processar ${toolName}.`;
+      return `Erro ao processar ${toolName}: ${error.message}`;
     }
   }
 
@@ -25,79 +27,241 @@ export class MCPToolsProcessor {
     try {
       console.log('🔍 Verificando disponibilidade real na agenda...');
       
+      const today = new Date();
+      const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+      
       // Verificar disponibilidade usando o sistema real de agendamentos
       const { data: events, error } = await supabase
         .from('calendar_events')
         .select('*')
-        .gte('start_time', new Date().toISOString())
-        .order('start_time', { ascending: true })
-        .limit(10);
+        .gte('start_time', today.toISOString())
+        .lte('start_time', nextWeek.toISOString())
+        .order('start_time', { ascending: true });
 
       if (error) {
-        console.error('Erro ao consultar agenda:', error);
-        return 'Vou verificar nossa agenda e te retorno em instantes! 💙';
+        console.error('❌ Erro ao consultar agenda:', error);
+        return 'Vou verificar nossa agenda e te retorno rapidinho! 💙';
       }
 
       const { specialty, date } = parameters;
+      console.log(`📅 Buscando disponibilidade para: ${specialty} em ${date}`);
       
-      if (events && events.length > 0) {
-        // Filtrar por especialidade se fornecida
-        const filteredEvents = specialty 
-          ? events.filter(event => 
-              event.title.toLowerCase().includes(specialty.toLowerCase()) ||
-              event.description?.toLowerCase().includes(specialty.toLowerCase())
-            )
-          : events;
+      // Gerar horários disponíveis baseado na agenda real
+      const availableSlots = this.generateAvailableSlots(events, date);
+      
+      if (availableSlots.length > 0) {
+        const slotsText = availableSlots.slice(0, 3).join(', ');
+        return `Ótimo! Encontrei horários disponíveis${specialty ? ` para ${specialty}` : ''} ${date ? `no dia ${date}` : 'nos próximos dias'}! 😊
 
-        if (filteredEvents.length > 0) {
-          return `Perfeito! Encontrei horários disponíveis${specialty ? ` para ${specialty}` : ''}! 😊\nVou te mostrar as opções. Qual data você prefere? 💙`;
-        }
+📅 **Horários disponíveis:** ${slotsText}
+
+Qual horário funciona melhor para você? 💙`;
       }
 
-      return `No momento nossa agenda está bem cheia${specialty ? ` para ${specialty}` : ''}.\nMas posso te colocar em nossa lista de espera ou verificar outras datas.\nQual você prefere? 💙`;
+      return `No momento nossa agenda está bem cheia${specialty ? ` para ${specialty}` : ''}${date ? ` no dia ${date}` : ''}.
+Posso verificar outras datas ou te colocar em nossa lista de espera.
+Qual você prefere? 💙`;
     } catch (error) {
-      console.error('Erro ao verificar disponibilidade:', error);
+      console.error('❌ Erro ao verificar disponibilidade:', error);
       return 'Vou consultar nossa agenda e te retorno rapidinho! 💙';
+    }
+  }
+
+  static generateAvailableSlots(existingEvents: any[], requestedDate?: string): string[] {
+    // Horários padrão da clínica (8h às 18h)
+    const workingHours = [
+      '08:00', '09:00', '10:00', '11:00', 
+      '14:00', '15:00', '16:00', '17:00'
+    ];
+    
+    if (!requestedDate) {
+      // Se não tem data específica, retornar horários genéricos
+      return workingHours.slice(0, 3);
+    }
+    
+    // Filtrar horários ocupados para a data específica
+    const occupiedSlots = existingEvents
+      .filter(event => {
+        const eventDate = new Date(event.start_time).toLocaleDateString('pt-BR');
+        const targetDate = this.parseDate(requestedDate);
+        return eventDate === targetDate;
+      })
+      .map(event => {
+        const time = new Date(event.start_time);
+        return `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
+      });
+    
+    // Retornar horários disponíveis
+    return workingHours.filter(slot => !occupiedSlots.includes(slot));
+  }
+
+  static parseDate(dateString: string): string {
+    try {
+      // Tentar diferentes formatos de data
+      let date;
+      
+      if (dateString.includes('/')) {
+        const parts = dateString.split('/');
+        if (parts.length === 3) {
+          // DD/MM/YYYY ou DD/MM/YY
+          const day = parts[0].padStart(2, '0');
+          const month = parts[1].padStart(2, '0');
+          let year = parts[2];
+          if (year.length === 2) {
+            year = '20' + year;
+          }
+          date = new Date(`${year}-${month}-${day}`);
+        }
+      } else if (dateString.includes('-')) {
+        // YYYY-MM-DD
+        date = new Date(dateString);
+      } else {
+        // Tentar parsing direto
+        date = new Date(dateString);
+      }
+      
+      return date.toLocaleDateString('pt-BR');
+    } catch {
+      return new Date().toLocaleDateString('pt-BR');
     }
   }
 
   static async scheduleAppointment(parameters: any, supabase: any): Promise<string> {
     try {
       console.log('📅 Criando agendamento real...');
+      console.log('📋 Dados do agendamento:', JSON.stringify(parameters, null, 2));
+      
       const { specialty, date, time, customerName, customerEmail } = parameters;
       
-      // Usar o sistema real de agendamentos via edge function
+      // Validar dados obrigatórios
+      if (!specialty || !date || !time) {
+        console.log('❌ Dados insuficientes para agendamento');
+        return `Para finalizar o agendamento, ainda preciso:
+${!specialty ? '👨‍⚕️ Especialidade' : ''}
+${!date ? '📅 Data' : ''}
+${!time ? '🕐 Horário' : ''}
+
+Me informe esses dados para confirmar! 💙`;
+      }
+      
+      // Converter data para formato correto
+      const formattedDate = this.convertToISODate(date);
+      const endTime = this.calculateEndTime(time);
+      
+      console.log(`📅 Data formatada: ${formattedDate}`);
+      console.log(`🕐 Horário: ${time} - ${endTime}`);
+      
+      // Chamar o sistema real de agendamentos
       const appointmentData = {
         action: 'create',
         appointmentData: {
-          title: `${specialty || 'Consulta'} - ${customerName || 'Paciente via WhatsApp'}`,
-          description: `Agendamento realizado via WhatsApp\nPaciente: ${customerName || 'Não informado'}\nEmail: ${customerEmail || 'Não informado'}`,
-          date: date,
+          title: `${specialty} - ${customerName || 'Paciente via WhatsApp'}`,
+          description: `Agendamento realizado via WhatsApp AI
+Paciente: ${customerName || 'Não informado'}
+Email: ${customerEmail || 'Não informado'}
+Telefone: WhatsApp`,
+          date: formattedDate,
           startTime: time,
-          endTime: this.calculateEndTime(time),
+          endTime: endTime,
           patientEmail: customerEmail,
-          location: 'Clínica'
+          location: 'Clínica',
+          label: 'consulta'
         }
       };
 
-      // Chamar a função de agendamento real
+      console.log('🚀 Enviando para appointment-manager:', JSON.stringify(appointmentData, null, 2));
+
       const { data, error } = await supabase.functions.invoke('appointment-manager', {
         body: appointmentData
       });
 
+      console.log('📥 Resposta do appointment-manager:', JSON.stringify({ data, error }, null, 2));
+
       if (error) {
-        console.error('Erro ao criar agendamento:', error);
-        return `Tive uma dificuldade para confirmar o agendamento. 😔\nMas nossa equipe vai entrar em contato para finalizar!\nAnote: ${specialty} - ${date} às ${time} 💙`;
+        console.error('❌ Erro ao criar agendamento:', error);
+        return `Ops! Tive uma dificuldade para confirmar o agendamento. 😔
+Nossa equipe vai entrar em contato para finalizar!
+
+📋 **Dados do agendamento:**
+👨‍⚕️ **${specialty}**
+📅 **${date}**
+🕐 **${time}**
+${customerName ? `👤 **${customerName}**` : ''}
+
+Você receberá uma confirmação em breve! 💙`;
       }
 
       if (data && data.success) {
-        return `✅ Agendamento confirmado com sucesso!\n\n📅 **${specialty || 'Consulta'}**\n🗓️ Data: ${date}\n🕐 Horário: ${time}\n${customerName ? `👤 Paciente: ${customerName}` : ''}\n📍 Local: Clínica\n\n${customerEmail ? 'Você receberá uma confirmação por email!' : 'Nossa equipe entrará em contato para confirmação!'} 😊💙`;
+        console.log('✅ Agendamento criado com sucesso!');
+        return `✅ **Agendamento confirmado!**
+
+👨‍⚕️ **${specialty}**
+📅 **${date}**
+🕐 **${time}**
+${customerName ? `👤 **${customerName}**` : ''}
+${customerEmail ? `📧 **${customerEmail}**` : ''}
+📍 **Clínica**
+
+Seu agendamento foi criado com sucesso! ${customerEmail ? 'Você receberá uma confirmação por email.' : 'Nossa equipe entrará em contato para confirmação.'}
+
+Se precisar reagendar ou cancelar, é só me avisar! 😊💙`;
       }
 
-      return `Agendamento processado! 😊\nNossa equipe vai confirmar todos os detalhes:\n📅 ${specialty} - ${date} às ${time}\nAguarde nosso contato! 💙`;
+      console.log('⚠️ Resposta inesperada do sistema');
+      return `Agendamento processado! 😊
+Nossa equipe vai confirmar todos os detalhes:
+
+📋 **${specialty}** - **${date}** às **${time}**
+
+Aguarde nosso contato para confirmação! 💙`;
     } catch (error) {
-      console.error('Erro ao agendar:', error);
-      return `Anotei sua solicitação de agendamento! 😊\n📅 ${parameters.specialty} - ${parameters.date} às ${parameters.time}\nNossa equipe vai entrar em contato para confirmar! 💙`;
+      console.error('❌ Erro crítico ao agendar:', error);
+      return `Anotei sua solicitação de agendamento! 😊
+
+📋 **${parameters.specialty || 'Consulta'}** - **${parameters.date}** às **${parameters.time}**
+
+Nossa equipe vai entrar em contato para confirmar todos os detalhes! 💙`;
+    }
+  }
+
+  static convertToISODate(dateString: string): string {
+    try {
+      console.log(`🔄 Convertendo data: ${dateString}`);
+      
+      if (dateString.includes('/')) {
+        const parts = dateString.split('/');
+        if (parts.length === 3) {
+          const day = parts[0].padStart(2, '0');
+          const month = parts[1].padStart(2, '0');
+          let year = parts[2];
+          
+          if (year.length === 2) {
+            year = '20' + year;
+          }
+          
+          const isoDate = `${year}-${month}-${day}`;
+          console.log(`✅ Data convertida para: ${isoDate}`);
+          return isoDate;
+        }
+      }
+      
+      // Se já está em formato ISO ou outro formato válido
+      const date = new Date(dateString);
+      if (!isNaN(date.getTime())) {
+        const isoDate = date.toISOString().split('T')[0];
+        console.log(`✅ Data convertida para: ${isoDate}`);
+        return isoDate;
+      }
+      
+      // Fallback para hoje
+      const today = new Date().toISOString().split('T')[0];
+      console.log(`⚠️ Usando data padrão: ${today}`);
+      return today;
+    } catch (error) {
+      console.error('❌ Erro ao converter data:', error);
+      const today = new Date().toISOString().split('T')[0];
+      console.log(`⚠️ Usando data padrão: ${today}`);
+      return today;
     }
   }
 
@@ -116,13 +280,34 @@ export class MCPToolsProcessor {
     
     switch (info_type) {
       case 'horarios':
-        return `📅 **Horários de Funcionamento:**\n🕐 Segunda a Sexta: 8h às 18h\n🕐 Sábado: 8h às 12h\n❌ Domingo: Fechado\n\nPrecisa agendar? Me avisa que te ajudo! 😊💙`;
+        return `📅 **Horários de Funcionamento:**
+🕐 Segunda a Sexta: 8h às 18h
+🕐 Sábado: 8h às 12h
+❌ Domingo: Fechado
+
+Precisa agendar? Me avisa que te ajudo! 😊💙`;
       case 'especialidades':
-        return `👨‍⚕️ **Nossas Especialidades:**\n• Clínica Geral\n• Cardiologia\n• Psicologia\n• Dermatologia\n• Ginecologia\n• Pediatria\n\nQual você precisa? 😊💙`;
+        return `👨‍⚕️ **Nossas Especialidades:**
+• Clínica Geral
+• Cardiologia
+• Psicologia
+• Dermatologia
+• Ginecologia
+• Pediatria
+
+Qual você precisa? 😊💙`;
       case 'localizacao':
-        return `📍 **Nossa Localização:**\nEstamos localizados no centro da cidade, com fácil acesso e estacionamento.\n\nPrecisa do endereço exato? Nossa equipe pode te passar! 😊💙`;
+        return `📍 **Nossa Localização:**
+Estamos localizados no centro da cidade, com fácil acesso e estacionamento.
+
+Precisa do endereço exato? Nossa equipe pode te passar! 😊💙`;
       default:
-        return `🏥 **Sobre Nossa Clínica:**\nSomos uma clínica completa com diversas especialidades!\n📅 Atendemos de segunda a sexta, das 8h às 18h\n👨‍⚕️ Temos profissionais qualificados\n\nEm que posso te ajudar especificamente? 😊💙`;
+        return `🏥 **Sobre Nossa Clínica:**
+Somos uma clínica completa com diversas especialidades!
+📅 Atendemos de segunda a sexta, das 8h às 18h
+👨‍⚕️ Temos profissionais qualificados
+
+Em que posso te ajudar especificamente? 😊💙`;
     }
   }
 
