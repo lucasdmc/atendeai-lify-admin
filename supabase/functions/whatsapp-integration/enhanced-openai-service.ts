@@ -1,162 +1,173 @@
 
+import { ConversationMemoryManager } from './conversation-memory.ts';
 import { HumanizedResponseGenerator } from './humanized-response-generator.ts';
-import { MCPTools } from './mcp-tools.ts';
 import { LiaPersonality } from './lia-personality.ts';
-
-interface OpenAIMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
+import { MCPToolsProcessor } from './mcp-tools.ts';
+import { TimeContextManager } from './time-context-manager.ts';
 
 export async function generateEnhancedAIResponse(
   contextData: any[],
-  conversationHistory: any[],
-  userMessage: string,
+  recentMessages: any[],
+  message: string,
   phoneNumber: string,
-  userIntent: any
+  userIntent?: any
 ): Promise<string> {
-  console.log('🤖 === SISTEMA DE IA DA LIA INICIADO ===');
-  
   try {
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    if (!OPENAI_API_KEY) {
-      console.warn('⚠️ OpenAI API key não configurada, usando fallback da Lia');
-      return this.generateLiaFallbackResponse(userMessage, contextData);
-    }
-
-    // Gerar prompt humanizado da Lia
+    console.log('🤖 === SISTEMA DE IA DA LIA INICIADO ===');
+    
+    // Usar o sistema humanizado da Lia como principal
     console.log('🧠 Gerando prompt da Lia...');
-    const liaPrompt = await HumanizedResponseGenerator.generateHumanizedResponse(
-      userMessage,
-      phoneNumber,
-      null, // Supabase será mockado internamente se necessário
-      contextData,
-      conversationHistory
-    );
-
-    console.log('📝 Prompt da Lia gerado com sucesso');
-
-    // Verificar se precisa usar ferramentas MCP
-    let mcpResponse = '';
+    
     try {
-      mcpResponse = await MCPTools.processWithMCP(userMessage, userIntent, phoneNumber);
-    } catch (mcpError) {
-      console.warn('⚠️ Erro no MCP, continuando sem:', mcpError);
+      const liaResponse = await HumanizedResponseGenerator.generateHumanizedResponse(
+        message,
+        phoneNumber,
+        null, // supabase será criado internamente
+        contextData,
+        recentMessages
+      );
+      
+      // Se recebemos um prompt contextual, processar com OpenAI
+      if (liaResponse && liaResponse.includes('CONTEXTO PESSOAL DO PACIENTE')) {
+        console.log('📝 Prompt da Lia gerado com sucesso');
+        
+        // Processar com MCP Tools
+        console.log('🔧 === PROCESSAMENTO MCP INICIADO ===');
+        const mcpResult = await MCPToolsProcessor.processUserMessage(message, contextData);
+        console.log('🔧 MCP processamento concluído. Resposta:', mcpResult.shouldRespond ? 'Sim' : 'Não');
+        
+        // Aplicar contexto temporal
+        const timeContext = TimeContextManager.getCurrentTimeContext();
+        console.log('✅ Contexto temporal aplicado');
+        
+        // Integrar informações do MCP ao prompt
+        let enhancedPrompt = liaResponse;
+        if (mcpResult.toolsData && Object.keys(mcpResult.toolsData).length > 0) {
+          enhancedPrompt += `\n\nINFORMAÇÕES ADICIONAIS DO SISTEMA:\n${JSON.stringify(mcpResult.toolsData, null, 2)}`;
+        }
+        console.log('🔧 Informações MCP integradas ao prompt da Lia');
+        
+        // Processar com OpenAI
+        const openaiResponse = await processWithOpenAI(enhancedPrompt, message);
+        
+        if (openaiResponse) {
+          // Aplicar filtros da personalidade da Lia
+          const finalResponse = applyLiaPersonalityFilters(openaiResponse, message);
+          console.log('✅ Resposta processada e filtros da Lia aplicados');
+          return finalResponse;
+        }
+      }
+      
+      // Se é uma saudação direta da Lia (primeiro contato)
+      if (liaResponse && !liaResponse.includes('CONTEXTO PESSOAL DO PACIENTE')) {
+        console.log('✅ Saudação da Lia retornada diretamente');
+        return liaResponse;
+      }
+      
+    } catch (liaError) {
+      console.error('❌ Erro crítico no sistema da Lia:', liaError);
     }
     
-    let systemPrompt = liaPrompt;
-    if (mcpResponse) {
-      systemPrompt += `\n\nINFORMAÇÕES ATUALIZADAS DO SISTEMA:\n${mcpResponse}`;
-      console.log('🔧 Informações MCP integradas ao prompt da Lia');
-    }
+    // Fallback para resposta da Lia
+    console.log('🔄 Usando fallback da Lia');
+    return generateLiaFallbackResponse(message, contextData);
+    
+  } catch (error) {
+    console.error('❌ Erro crítico no processamento humanizado:', error);
+    return generateLiaFallbackResponse(message, contextData);
+  }
+}
 
-    // Construir histórico de mensagens para OpenAI
-    const messages: OpenAIMessage[] = [
-      {
-        role: 'system',
-        content: systemPrompt
-      }
-    ];
-
-    // Adicionar histórico recente (últimas 4 mensagens para contexto)
-    if (conversationHistory && conversationHistory.length > 0) {
-      const recentHistory = conversationHistory.slice(-4);
-      recentHistory.forEach((msg) => {
-        if (msg.content && msg.content.trim()) {
-          messages.push({
-            role: msg.message_type === 'received' ? 'user' : 'assistant',
-            content: msg.content
-          });
-        }
-      });
-    }
-
-    // Adicionar mensagem atual do usuário
-    messages.push({
-      role: 'user',
-      content: userMessage
-    });
-
+async function processWithOpenAI(prompt: string, userMessage: string): Promise<string | null> {
+  try {
     console.log('📤 Enviando requisição para OpenAI GPT-4o-mini (Lia)...');
+    
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openaiApiKey) {
+      console.error('❌ OPENAI_API_KEY não configurada');
+      return null;
+    }
 
-    // Chamar OpenAI API com configurações otimizadas para a personalidade da Lia
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${openaiApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        messages: messages,
-        max_tokens: 400, // Reduzido para respostas mais concisas da Lia
-        temperature: 0.8, // Mais criativo para personalidade natural
-        top_p: 0.9,
-        frequency_penalty: 0.4, // Reduz repetições
-        presence_penalty: 0.3, // Encoraja variação
-        response_format: { type: "text" }
+        messages: [
+          { role: 'user', content: `${prompt}\n\nMensagem do paciente: "${userMessage}"` }
+        ],
+        max_tokens: 300,
+        temperature: 0.7,
       }),
     });
 
     if (!response.ok) {
-      const errorData = await response.text();
-      console.error('❌ Erro na API OpenAI:', errorData);
-      return this.generateLiaFallbackResponse(userMessage, contextData);
+      console.error('❌ Erro na resposta da OpenAI:', response.status, response.statusText);
+      return null;
     }
 
     const data = await response.json();
+    const aiResponse = data.choices?.[0]?.message?.content;
     
-    if (!data.choices || data.choices.length === 0) {
-      console.error('❌ Resposta inválida da OpenAI');
-      return this.generateLiaFallbackResponse(userMessage, contextData);
+    if (aiResponse) {
+      console.log('✅ Resposta da OpenAI recebida com sucesso');
+      return aiResponse.trim();
     }
-
-    let aiResponse = data.choices[0].message.content.trim();
     
-    // Aplicar filtros da personalidade da Lia
-    aiResponse = this.applyLiaPersonalityFilters(aiResponse);
-    
-    console.log(`✅ Resposta da Lia gerada: ${aiResponse.substring(0, 100)}...`);
-    console.log(`📊 Tokens utilizados: ${data.usage?.total_tokens || 'N/A'}`);
-
-    return aiResponse;
-
+    return null;
   } catch (error) {
-    console.error('❌ Erro crítico no sistema da Lia:', error);
-    return this.generateLiaFallbackResponse(userMessage, contextData);
+    console.error('❌ Erro ao chamar OpenAI:', error);
+    return null;
   }
 }
 
-function applyLiaPersonalityFilters(response: string): string {
-  // Filtros para garantir que a resposta está no estilo da Lia
-  let filtered = response;
+function applyLiaPersonalityFilters(response: string, userMessage: string): string {
+  // Aplicar filtros da Lia para garantir personalidade consistente
+  let filteredResponse = response;
   
-  // Remover referências à IA
-  filtered = filtered.replace(/como (?:uma )?(?:IA|inteligência artificial|assistente virtual)/gi, 'como assistente');
-  filtered = filtered.replace(/sou (?:uma )?(?:IA|inteligência artificial)/gi, 'sou a Lia');
+  // Remover linguagem muito técnica ou formal
+  filteredResponse = filteredResponse.replace(/Prezado\(a\) usuário\(a\)/gi, 'Oi!');
+  filteredResponse = filteredResponse.replace(/Como posso auxiliá-lo\(a\)/gi, 'Como posso te ajudar');
+  filteredResponse = filteredResponse.replace(/À disposição/gi, 'Estou aqui para te ajudar');
+  filteredResponse = filteredResponse.replace(/Atenciosamente/gi, '');
   
-  // Garantir tom mais pessoal
-  filtered = filtered.replace(/posso auxiliá-lo/gi, 'posso te ajudar');
-  filtered = filtered.replace(/à disposição/gi, 'estou aqui para te ajudar');
+  // Garantir que não mencione ser IA
+  filteredResponse = filteredResponse.replace(/Como uma IA/gi, 'Como assistente');
+  filteredResponse = filteredResponse.replace(/sou uma inteligência artificial/gi, 'sou a assistente da clínica');
+  filteredResponse = filteredResponse.replace(/sistema de IA/gi, 'sistema da clínica');
   
-  // Limitar emojis excessivos
-  filtered = filtered.replace(/(😊|💙|🙏){3,}/g, '$1');
+  // Adicionar toque pessoal se não tiver emoji
+  if (!filteredResponse.includes('😊') && !filteredResponse.includes('💙') && Math.random() > 0.6) {
+    const emojis = ['😊', '💙', '🙏'];
+    const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+    filteredResponse += ` ${randomEmoji}`;
+  }
   
-  return filtered;
+  // Garantir que termina de forma acolhedora
+  if (!filteredResponse.includes('qualquer coisa') && !filteredResponse.includes('mais alguma coisa')) {
+    if (Math.random() > 0.7) {
+      filteredResponse += '\n\nSe precisar de mais alguma coisa, é só me chamar!';
+    }
+  }
+  
+  return filteredResponse;
 }
 
 function generateLiaFallbackResponse(userMessage: string, contextData: any[]): string {
-  console.log('🔄 Gerando resposta de fallback da Lia');
+  console.log('🔄 Usando resposta de fallback da Lia');
   
   const lowerMessage = userMessage.toLowerCase();
   
-  // Respostas contextuais da Lia baseadas na mensagem
+  // Respostas da Lia baseadas na mensagem
   if (lowerMessage.includes('ola') || lowerMessage.includes('oi') || lowerMessage.includes('olá')) {
-    return `Oi! Que bom ter você aqui! 😊\nSou a Lia, assistente aqui da clínica.\nCom quem eu tenho o prazer de falar? E como você está hoje? 💙\nMe conta como posso te ajudar!`;
+    return LiaPersonality.getGreetingMessage();
   }
   
   if (lowerMessage.includes('agend')) {
-    return `Claro! Vou te ajudar com o agendamento 😊\nPara qual especialidade você gostaria?\nE que dia seria melhor para você? 💙`;
+    return `Claro! Vou te ajudar com o agendamento 😊\nPara qual especialidade você gostaria de agendar?\nE qual data seria melhor para você? 💙`;
   }
   
   if (lowerMessage.includes('horario') || lowerMessage.includes('horário')) {
@@ -164,13 +175,13 @@ function generateLiaFallbackResponse(userMessage: string, contextData: any[]): s
   }
   
   if (lowerMessage.includes('doutor') || lowerMessage.includes('medico') || lowerMessage.includes('médico')) {
-    return `Temos profissionais excelentes! 😊\nPara qual especialidade você precisa?\nVou verificar qual médico está disponível 💙`;
+    return `Temos profissionais excelentes! 😊\nPara qual especialidade você precisa?\nVou verificar qual médico está disponível para você 💙`;
   }
 
   if (lowerMessage.includes('obrigad') || lowerMessage.includes('valeu')) {
     return `Fico muito feliz em ajudar! 😊\nSe precisar de mais alguma coisa, é só me chamar.\nEstou sempre aqui para você! 💙`;
   }
   
-  // Resposta padrão empática da Lia
+  // Resposta padrão da Lia
   return `Entendi! 😊\nMe conta um pouquinho mais sobre o que você precisa?\nAssim posso te ajudar da melhor forma possível 💙`;
 }

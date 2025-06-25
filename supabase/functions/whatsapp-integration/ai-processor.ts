@@ -5,12 +5,24 @@ import { EscalationManager } from './escalation-manager.ts';
 import { ConversationFlowManager } from './conversation-flow-manager.ts';
 import { AIResponseOrchestrator } from './ai-response-orchestrator.ts';
 import { FeedbackManager } from './feedback-manager.ts';
-import { ErrorHandler } from './error-handler.ts';
+import { ErrorRecoverySystem } from './error-recovery-system.ts';
+import { ConversationFlowTest } from './conversation-flow-test.ts';
 
 export async function processAndRespondWithAI(phoneNumber: string, message: string, supabase: any) {
-  ErrorHandler.logProcessingStart(phoneNumber, message);
+  console.log(`🤖 === PROCESSAMENTO IA HUMANIZADA INICIADO ===`);
+  console.log(`📞 Número: ${phoneNumber}`);
+  console.log(`💬 Mensagem: ${message}`);
   
   try {
+    // Resetar contador de erros em caso de sucesso anterior
+    ErrorRecoverySystem.resetErrorCount(phoneNumber);
+    
+    // Executar testes automatizados a cada 50 mensagens (para monitoramento)
+    if (Math.random() < 0.02) { // 2% de chance = ~1 a cada 50 mensagens
+      console.log('🧪 Executando testes automatizados de qualidade...');
+      setTimeout(() => ConversationFlowTest.runAllTests(), 1000);
+    }
+    
     // Inicializar conversa e detectar intenção
     const { context, userIntent } = await ConversationFlowManager.initializeConversation(phoneNumber, message);
 
@@ -32,14 +44,27 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
       return;
     }
 
-    // Gerar resposta da IA
-    let finalResponse = await AIResponseOrchestrator.generateResponse(
-      contextData, 
-      recentMessages, 
-      message, 
-      phoneNumber,
-      userIntent
-    );
+    // Gerar resposta da IA com sistema de recuperação robusto
+    let finalResponse: string;
+    
+    try {
+      finalResponse = await AIResponseOrchestrator.generateResponse(
+        contextData, 
+        recentMessages, 
+        message, 
+        phoneNumber,
+        userIntent
+      );
+    } catch (aiError) {
+      console.error('❌ Erro na geração principal, usando sistema de recuperação:', aiError);
+      finalResponse = await ErrorRecoverySystem.handleError(phoneNumber, aiError, message);
+    }
+
+    // Verificar se a resposta é válida
+    if (!finalResponse || finalResponse.trim().length === 0) {
+      console.log('⚠️ Resposta vazia, gerando fallback');
+      finalResponse = await ErrorRecoverySystem.generateFallbackResponse(message, contextData);
+    }
 
     // Verificar repetições e gerar variações se necessário
     let responseToSend = AIResponseOrchestrator.checkAndHandleRepetition(phoneNumber, finalResponse);
@@ -77,12 +102,32 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
     const messageCount = context.conversationHistory.length;
     responseToSend = FeedbackManager.addFeedbackToResponse(responseToSend, phoneNumber, messageCount);
 
+    // Validação final da resposta
+    if (responseToSend.toLowerCase().includes('problema técnico') && 
+        responseToSend.length < 50) {
+      console.log('⚠️ Detectada resposta de erro padrão, substituindo por fallback');
+      responseToSend = await ErrorRecoverySystem.generateFallbackResponse(message, contextData);
+    }
+
     // Enviar resposta final
     console.log('📤 Enviando resposta humanizada via WhatsApp...');
     await sendMessageWithRetry(phoneNumber, responseToSend, supabase);
-    ErrorHandler.logProcessingEnd(phoneNumber);
+    console.log(`✅ Resposta humanizada enviada para ${phoneNumber}`);
     
   } catch (error) {
-    await ErrorHandler.handleCriticalError(error, phoneNumber, supabase);
+    console.error('❌ Erro crítico no processamento:', error);
+    
+    // Sistema de recuperação de último recurso
+    try {
+      const recoveryResponse = await ErrorRecoverySystem.handleError(phoneNumber, error, message);
+      await sendMessageWithRetry(phoneNumber, recoveryResponse, supabase);
+      console.log(`✅ Resposta de recuperação enviada para ${phoneNumber}`);
+    } catch (recoveryError) {
+      console.error('❌ Falha total no sistema de recuperação:', recoveryError);
+      
+      // Último recurso - resposta mínima da Lia
+      const lastResortResponse = `Oi! Desculpa, tive um probleminha técnico! 😅\nMas estou aqui para te ajudar!\nPode me contar o que você precisa? 💙`;
+      await sendMessageWithRetry(phoneNumber, lastResortResponse, supabase);
+    }
   }
 }
