@@ -1,77 +1,87 @@
 
 export class ConversationInputAnalyzer {
   static analyzeUserInput(message: string): any {
-    const lowerMessage = message.toLowerCase();
+    const lowerMessage = message.toLowerCase().trim();
     
     return {
+      isAppointmentRequest: this.isAppointmentRequest(message),
+      isSpecialtySelection: this.isSpecialtySelection(message),
       isTimeSelection: this.isTimeSelection(message),
-      isConfirmation: this.isConfirmation(lowerMessage),
-      isSpecialtySelection: this.isSpecialtySelection(lowerMessage),
-      isGreeting: this.isGreeting(lowerMessage),
-      isAppointmentRequest: this.isAppointmentRequest(lowerMessage),
+      isConfirmation: this.isConfirmation(message),
+      extractedSpecialty: this.extractSpecialty(message),
       extractedTime: this.extractTime(message),
-      extractedDate: this.extractDate(message),
-      extractedEmail: this.extractEmail(message),
-      extractedName: this.extractName(message),
-      extractedSpecialty: this.extractSpecialty(lowerMessage)
+      extractedDate: this.extractDate(message)
     };
   }
 
-  static isTimeSelection(message: string): boolean {
-    const timePatterns = [
-      /\b\d{1,2}:\d{2}\b/,
-      /\b\d{1,2}h\b/,
-      /às?\s*\d{1,2}/i,
-      /\d{1,2}\s*da\s*(manhã|tarde)/i
-    ];
-    return timePatterns.some(pattern => pattern.test(message));
+  private static isAppointmentRequest(message: string): boolean {
+    const keywords = ['agendar', 'marcar', 'consulta', 'agendamento'];
+    return keywords.some(keyword => message.toLowerCase().includes(keyword));
   }
 
-  static isConfirmation(lowerMessage: string): boolean {
-    const confirmWords = ['sim', 'confirmo', 'ok', 'está certo', 'perfeito', 'correto'];
-    return confirmWords.some(word => lowerMessage.includes(word));
+  private static isSpecialtySelection(message: string): boolean {
+    const specialties = ['cardiologia', 'dermatologia', 'ginecologia', 'ortopedia', 'pediatria', 'geral'];
+    return specialties.some(spec => message.toLowerCase().includes(spec));
   }
 
-  static isSpecialtySelection(lowerMessage: string): boolean {
-    const specialties = [
-      'ortopedia', 'cardiologia', 'psicologia', 'dermatologia', 
-      'ginecologia', 'pediatria', 'clínica geral', 'geral'
-    ];
-    return specialties.some(specialty => lowerMessage.includes(specialty));
+  private static isTimeSelection(message: string): boolean {
+    // Detectar horários no formato HH:MM ou HHh
+    const timePattern = /\b(\d{1,2}):?(\d{2})?\b|\b(\d{1,2})h\b/;
+    return timePattern.test(message);
   }
 
-  static isGreeting(lowerMessage: string): boolean {
-    const greetings = ['oi', 'olá', 'ola', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hello'];
-    return greetings.some(greeting => lowerMessage.includes(greeting));
+  private static isConfirmation(message: string): boolean {
+    const confirmWords = ['sim', 'confirmo', 'ok', 'correto', 'certo'];
+    const negateWords = ['não', 'nao', 'errado'];
+    const lowerMessage = message.toLowerCase();
+    
+    return confirmWords.some(word => lowerMessage.includes(word)) || 
+           negateWords.some(word => lowerMessage.includes(word));
   }
 
-  static isAppointmentRequest(lowerMessage: string): boolean {
-    const appointmentKeywords = ['agendar', 'agendamento', 'consulta', 'marcar', 'horário', 'médico', 'doutor'];
-    return appointmentKeywords.some(keyword => lowerMessage.includes(keyword));
+  private static extractSpecialty(message: string): string | null {
+    const specialtyMap = {
+      'cardiologia': ['cardio', 'coração', 'cardiologia', 'cardiologista'],
+      'dermatologia': ['derma', 'pele', 'dermatologia', 'dermatologista'],
+      'ginecologia': ['gineco', 'ginecologia', 'ginecologista'],
+      'ortopedia': ['orto', 'osso', 'ortopedia', 'ortopedista'],
+      'pediatria': ['pediatra', 'criança', 'pediatria'],
+      'clínico geral': ['geral', 'clínico', 'clinico geral']
+    };
+
+    const lowerMessage = message.toLowerCase();
+    
+    for (const [specialty, keywords] of Object.entries(specialtyMap)) {
+      if (keywords.some(keyword => lowerMessage.includes(keyword))) {
+        return specialty;
+      }
+    }
+    
+    return null;
   }
 
-  static extractTime(message: string): string {
-    // Padrões para detectar horário
+  private static extractTime(message: string): string | null {
+    // Extrair horário em formatos: 10:00, 10h, às 10h, etc.
     const timePatterns = [
       /(\d{1,2}):(\d{2})/,
       /(\d{1,2})h/,
-      /às?\s*(\d{1,2})/i,
-      /(\d{1,2})\s*da\s*(manhã|tarde)/i
+      /às?\s*(\d{1,2})/i
     ];
 
     for (const pattern of timePatterns) {
       const match = message.match(pattern);
       if (match) {
-        const hour = parseInt(match[1]);
-        if (hour >= 8 && hour <= 18) {
-          return `${hour.toString().padStart(2, '0')}:00`;
+        const hours = parseInt(match[1]);
+        if (hours >= 8 && hours <= 17) {
+          return `${hours.toString().padStart(2, '0')}:00`;
         }
       }
     }
-    return '';
+    
+    return null;
   }
 
-  static extractDate(message: string): string {
+  private static extractDate(message: string): string | null {
     const lowerMessage = message.toLowerCase();
     
     // Detectar "amanhã"
@@ -81,100 +91,17 @@ export class ConversationInputAnalyzer {
       return tomorrow.toLocaleDateString('pt-BR');
     }
     
-    // Detectar datas no formato DD/MM ou DD/MM/YYYY
-    const datePatterns = [
-      /(\d{1,2})\/(\d{1,2})\/(\d{4})/,
-      /(\d{1,2})\/(\d{1,2})/
-    ];
+    // Detectar datas DD/MM ou DD/MM/YYYY
+    const datePattern = /(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/;
+    const match = message.match(datePattern);
     
-    for (const pattern of datePatterns) {
-      const match = message.match(pattern);
-      if (match) {
-        const day = match[1];
-        const month = match[2];
-        const year = match[3] || new Date().getFullYear();
-        return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
-      }
+    if (match) {
+      const day = match[1].padStart(2, '0');
+      const month = match[2].padStart(2, '0');
+      const year = match[3] || new Date().getFullYear();
+      return `${day}/${month}/${year}`;
     }
     
-    return '';
-  }
-
-  static extractEmail(message: string): string | undefined {
-    const emailPattern = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/;
-    const match = message.match(emailPattern);
-    return match ? match[1] : undefined;
-  }
-
-  static extractName(message: string): string {
-    // Melhorar a extração de nome
-    const lines = message.split('\n');
-    const emailPattern = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/;
-    
-    // Procurar por linha que contém "Nome:" seguido do nome
-    for (const line of lines) {
-      if (line.toLowerCase().includes('nome:')) {
-        const name = line.replace(/nome:?/gi, '').trim();
-        if (name && name.length > 1) {
-          return name;
-        }
-      }
-    }
-    
-    // Se não encontrou formato "Nome:", procurar por nomes em linhas separadas
-    for (const line of lines) {
-      const cleanLine = line.trim();
-      // Se a linha não contém email e tem pelo menos 2 palavras com letras
-      if (!emailPattern.test(cleanLine) && cleanLine.length > 2) {
-        const words = cleanLine.split(' ');
-        // Verificar se parece ser um nome (pelo menos 2 palavras, só letras e espaços)
-        if (words.length >= 2 && words.every(word => /^[A-Za-zÀ-ÿ]+$/.test(word))) {
-          return cleanLine;
-        }
-        // Ou se é uma única palavra que parece ser um nome (mais de 2 caracteres, só letras)
-        if (words.length === 1 && /^[A-Za-zÀ-ÿ]{3,}$/.test(cleanLine)) {
-          return cleanLine;
-        }
-      }
-    }
-    
-    // Fallback: se tem apenas texto sem formato específico
-    const cleanMessage = message.replace(emailPattern, '').trim();
-    const words = cleanMessage.split(/\s+/);
-    if (words.length >= 2 && words.every(word => /^[A-Za-zÀ-ÿ]+$/.test(word))) {
-      return cleanMessage;
-    }
-    
-    return '';
-  }
-
-  static extractSpecialty(lowerMessage: string): string {
-    const specialties = {
-      'ortopedia': 'Ortopedia',
-      'ortopedista': 'Ortopedia',
-      'cardiologia': 'Cardiologia',
-      'cardio': 'Cardiologia',
-      'cardiologista': 'Cardiologia',
-      'psicologia': 'Psicologia',
-      'psico': 'Psicologia',
-      'psicologo': 'Psicologia',
-      'dermatologia': 'Dermatologia',
-      'derma': 'Dermatologia',
-      'dermatologista': 'Dermatologia',
-      'ginecologia': 'Ginecologia',
-      'gineco': 'Ginecologia',
-      'ginecologista': 'Ginecologia',
-      'pediatria': 'Pediatria',
-      'pediatra': 'Pediatria',
-      'geral': 'Clínica Geral',
-      'clínica geral': 'Clínica Geral'
-    };
-
-    for (const [key, value] of Object.entries(specialties)) {
-      if (lowerMessage.includes(key)) {
-        return value;
-      }
-    }
-    return '';
+    return null;
   }
 }

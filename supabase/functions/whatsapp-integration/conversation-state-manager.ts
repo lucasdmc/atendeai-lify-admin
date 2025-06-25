@@ -66,6 +66,8 @@ export class ConversationStateManager {
     console.log(`🗑️ Estado limpo para ${phoneNumber}`);
   }
 
-  // Re-export the analyzer method for backward compatibility
-  static analyzeUserInput = ConversationInputAnalyzer.analyzeUserInput;
+  // Método estático para análise de entrada
+  static analyzeUserInput(message: string): any {
+    return ConversationInputAnalyzer.analyzeUserInput(message);
+  }
 }
