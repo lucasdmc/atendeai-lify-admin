@@ -9,6 +9,7 @@ interface ConversationState {
   customerEmail?: string;
   lastActivity: number;
   attempts: number;
+  conversationStarted: boolean;
 }
 
 export class ConversationStateManager {
@@ -24,7 +25,8 @@ export class ConversationStateManager {
       phoneNumber,
       currentState: 'initial',
       lastActivity: Date.now(),
-      attempts: 0
+      attempts: 0,
+      conversationStarted: false
     };
     
     this.states.set(phoneNumber, newState);
@@ -39,6 +41,7 @@ export class ConversationStateManager {
       lastActivity: Date.now()
     };
     this.states.set(phoneNumber, updated);
+    console.log(`🔄 Estado atualizado para ${phoneNumber}:`, JSON.stringify(updated, null, 2));
     return updated;
   }
 
@@ -49,12 +52,40 @@ export class ConversationStateManager {
   static analyzeUserInput(message: string): {
     isTimeSelection: boolean;
     isConfirmation: boolean;
+    isSpecialtySelection: boolean;
     extractedTime?: string;
     extractedDate?: string;
     extractedName?: string;
     extractedEmail?: string;
+    extractedSpecialty?: string;
   } {
     const lowerMessage = message.toLowerCase().trim();
+    
+    // Detectar seleção de especialidade
+    const specialties = {
+      'ortopedia': 'Ortopedia',
+      'ortop': 'Ortopedia',
+      'cardiologia': 'Cardiologia',
+      'cardio': 'Cardiologia',
+      'psicologia': 'Psicologia',
+      'psico': 'Psicologia',
+      'dermatologia': 'Dermatologia',
+      'derma': 'Dermatologia',
+      'ginecologia': 'Ginecologia',
+      'gineco': 'Ginecologia',
+      'pediatria': 'Pediatria',
+      'pediatr': 'Pediatria',
+      'clínica geral': 'Clínica Geral',
+      'geral': 'Clínica Geral'
+    };
+    
+    let extractedSpecialty = '';
+    for (const [key, value] of Object.entries(specialties)) {
+      if (lowerMessage.includes(key)) {
+        extractedSpecialty = value;
+        break;
+      }
+    }
     
     // Detectar seleção de horário
     const timePatterns = [
@@ -75,6 +106,22 @@ export class ConversationStateManager {
       }
     }
 
+    // Detectar data
+    const datePatterns = [
+      /(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/,
+      /dia\s+(\d{1,2})\/(\d{1,2})/i,
+      /(\d{1,2})\s+de\s+(\w+)/i
+    ];
+    
+    let extractedDate = '';
+    for (const pattern of datePatterns) {
+      const match = message.match(pattern);
+      if (match) {
+        extractedDate = match[0];
+        break;
+      }
+    }
+
     // Detectar confirmação
     const confirmationWords = ['sim', 'confirmar', 'confirmo', 'ok', 'certo', 'perfeito', 'pode ser'];
     const isConfirmation = confirmationWords.some(word => lowerMessage.includes(word));
@@ -90,9 +137,12 @@ export class ConversationStateManager {
     return {
       isTimeSelection: !!extractedTime,
       isConfirmation,
+      isSpecialtySelection: !!extractedSpecialty,
       extractedTime,
+      extractedDate,
       extractedEmail,
-      extractedName
+      extractedName,
+      extractedSpecialty
     };
   }
 }

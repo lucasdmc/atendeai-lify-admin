@@ -1,4 +1,3 @@
-
 import { ConversationStateManager } from './conversation-state-manager.ts';
 import { MCPToolsProcessor } from './mcp-tools.ts';
 
@@ -13,43 +12,75 @@ export class SmartConversationHandler {
     const state = ConversationStateManager.getState(phoneNumber);
     const userInput = ConversationStateManager.analyzeUserInput(message);
     
-    console.log(`📊 Current state: ${state.currentState}`);
+    console.log(`📊 Current state: ${state.currentState}, Started: ${state.conversationStarted}`);
     console.log(`🔍 User input analysis:`, userInput);
 
     const lowerMessage = message.toLowerCase().trim();
 
-    // Estado inicial - primeira interação ou saudação
-    if (state.currentState === 'initial' || this.isGreeting(lowerMessage)) {
-      return this.handleInitialContact(phoneNumber, message);
+    // Primeira saudação - estabelecer conversa
+    if (!state.conversationStarted && this.isGreeting(lowerMessage)) {
+      console.log('👋 Primeira saudação detectada');
+      ConversationStateManager.updateState(phoneNumber, { 
+        conversationStarted: true,
+        currentState: 'initial'
+      });
+      return this.getGreetingResponse();
     }
 
-    // Detectar pedido de agendamento
-    if (this.isAppointmentRequest(lowerMessage) && !state.selectedService) {
-      return this.handleServiceRequest(phoneNumber, message);
+    // Se já cumprimentou e usuário quer agendar
+    if (state.conversationStarted && this.isAppointmentRequest(lowerMessage)) {
+      console.log('📅 Solicitação de agendamento detectada');
+      ConversationStateManager.updateState(phoneNumber, { 
+        currentState: 'service_selection'
+      });
+      return this.getServiceSelectionResponse();
     }
 
-    // Estado de seleção de especialidade
-    if (state.currentState === 'service_selection' || (!state.selectedService && this.hasSpecialtyMention(lowerMessage))) {
-      return this.handleServiceSelection(phoneNumber, message);
+    // Seleção de especialidade
+    if (userInput.isSpecialtySelection && userInput.extractedSpecialty) {
+      console.log(`👨‍⚕️ Especialidade selecionada: ${userInput.extractedSpecialty}`);
+      ConversationStateManager.updateState(phoneNumber, { 
+        currentState: 'time_selection',
+        selectedService: userInput.extractedSpecialty
+      });
+      return this.getTimeSelectionResponse(userInput.extractedSpecialty, userInput.extractedDate);
+    }
+
+    // Estado de seleção de especialidade - aguardando resposta
+    if (state.currentState === 'service_selection') {
+      console.log('⏳ Aguardando seleção de especialidade');
+      const specialty = this.detectSpecialtyFromMessage(lowerMessage);
+      if (specialty) {
+        ConversationStateManager.updateState(phoneNumber, { 
+          currentState: 'time_selection',
+          selectedService: specialty
+        });
+        return this.getTimeSelectionResponse(specialty);
+      }
+      return this.getSpecialtyHelpResponse();
     }
 
     // Estado de seleção de horário
-    if (state.currentState === 'time_selection' || (state.selectedService && userInput.isTimeSelection)) {
+    if (state.currentState === 'time_selection') {
+      console.log('⏰ Estado de seleção de horário');
       return await this.handleTimeSelection(phoneNumber, message, userInput, supabase);
     }
 
     // Estado de coleta de informações de contato
     if (state.currentState === 'contact_info') {
+      console.log('📝 Estado de coleta de dados');
       return this.handleContactInfo(phoneNumber, message, userInput);
     }
 
     // Estado de confirmação final
     if (state.currentState === 'confirmation') {
+      console.log('✅ Estado de confirmação');
       return await this.handleFinalConfirmation(phoneNumber, message, userInput, supabase);
     }
 
-    // Fallback para mensagens não compreendidas
-    return this.handleUnknownInput(phoneNumber, message);
+    // Fallback - não entendeu
+    console.log('❓ Mensagem não compreendida');
+    return this.getHelpResponse(state);
   }
 
   private static isGreeting(message: string): boolean {
@@ -62,69 +93,37 @@ export class SmartConversationHandler {
     return keywords.some(keyword => message.includes(keyword));
   }
 
-  private static hasSpecialtyMention(message: string): boolean {
-    const specialties = ['cardiologia', 'cardio', 'psicologia', 'psico', 'dermatologia', 'derma', 'ginecologia', 'gineco'];
-    return specialties.some(specialty => message.includes(specialty));
-  }
-
-  private static handleInitialContact(phoneNumber: string, message: string): string {
-    ConversationStateManager.updateState(phoneNumber, { 
-      currentState: 'initial',
-      attempts: 0 
-    });
-
-    if (this.isAppointmentRequest(message.toLowerCase())) {
-      return this.handleServiceRequest(phoneNumber, message);
-    }
-
-    const greetings = [
-      "Oi! 😊 Sou a Lia, assistente aqui da clínica!\nComo posso te ajudar hoje? 💙",
-      "Olá! Que bom falar com você! 😊\nSou a Lia da clínica. Em que posso ajudar? 💙",
-      "Oi! Seja bem-vindo(a)! 😊\nEu sou a Lia. Como posso te ajudar? 💙"
-    ];
+  private static detectSpecialtyFromMessage(message: string): string | null {
+    const specialties = {
+      'ortopedia': 'Ortopedia',
+      'ortop': 'Ortopedia',
+      'cardiologia': 'Cardiologia', 
+      'cardio': 'Cardiologia',
+      'psicologia': 'Psicologia',
+      'psico': 'Psicologia',
+      'dermatologia': 'Dermatologia',
+      'derma': 'Dermatologia',
+      'ginecologia': 'Ginecologia',
+      'gineco': 'Ginecologia',
+      'pediatria': 'Pediatria',
+      'geral': 'Clínica Geral'
+    };
     
-    return greetings[Math.floor(Math.random() * greetings.length)];
+    for (const [key, value] of Object.entries(specialties)) {
+      if (message.includes(key)) {
+        return value;
+      }
+    }
+    return null;
   }
 
-  private static handleServiceRequest(phoneNumber: string, message: string): string {
-    const lowerMessage = message.toLowerCase();
-    let selectedService = '';
+  private static getGreetingResponse(): string {
+    return `Oi! 😊 Sou a Lia, assistente aqui da clínica!
+Como posso te ajudar hoje? 💙`;
+  }
 
-    // Detectar especialidade na mensagem
-    if (lowerMessage.includes('cardio')) selectedService = 'Cardiologia';
-    else if (lowerMessage.includes('psico')) selectedService = 'Psicologia';
-    else if (lowerMessage.includes('derma')) selectedService = 'Dermatologia';
-    else if (lowerMessage.includes('gineco')) selectedService = 'Ginecologia';
-    else if (lowerMessage.includes('ortop')) selectedService = 'Ortopedia';
-    else if (lowerMessage.includes('pediatr')) selectedService = 'Pediatria';
-    else if (lowerMessage.includes('geral') || lowerMessage.includes('clínic')) selectedService = 'Clínica Geral';
-
-    if (selectedService) {
-      ConversationStateManager.updateState(phoneNumber, { 
-        currentState: 'time_selection',
-        selectedService,
-        attempts: 0
-      });
-
-      return `Perfeito! ${selectedService} é uma ótima escolha! 😊
-
-Para quando você gostaria de agendar?
-📅 Tenho disponibilidade nos próximos dias nos horários:
-
-**Manhã:** 08h, 09h, 10h, 11h
-**Tarde:** 14h, 15h, 16h, 17h
-
-Qual horário funciona melhor para você? 💙`;
-    }
-
-    ConversationStateManager.updateState(phoneNumber, { 
-      currentState: 'service_selection',
-      attempts: 0 
-    });
-
-    return `Entendi que você precisa agendar uma consulta! 😊
-
-Para qual especialidade você gostaria de agendar?
+  private static getServiceSelectionResponse(): string {
+    return `Perfeito! Para qual especialidade você gostaria de agendar? 😊
 
 🩺 **Clínica Geral**
 ❤️ **Cardiologia** 
@@ -137,48 +136,32 @@ Para qual especialidade você gostaria de agendar?
 É só me dizer qual você precisa! 💙`;
   }
 
-  private static handleServiceSelection(phoneNumber: string, message: string): string {
-    const lowerMessage = message.toLowerCase();
-    let selectedService = '';
+  private static getTimeSelectionResponse(specialty: string, date?: string): string {
+    const dateText = date ? ` para ${date}` : ' nos próximos dias';
+    
+    return `Excelente! ${specialty} anotada! 😊
 
-    if (lowerMessage.includes('cardio') || lowerMessage.includes('coração')) selectedService = 'Cardiologia';
-    else if (lowerMessage.includes('psico') || lowerMessage.includes('mental')) selectedService = 'Psicologia';
-    else if (lowerMessage.includes('derma') || lowerMessage.includes('pele')) selectedService = 'Dermatologia';
-    else if (lowerMessage.includes('gineco') || lowerMessage.includes('mulher')) selectedService = 'Ginecologia';
-    else if (lowerMessage.includes('ortop') || lowerMessage.includes('osso')) selectedService = 'Ortopedia';
-    else if (lowerMessage.includes('pediatr') || lowerMessage.includes('criança')) selectedService = 'Pediatria';
-    else if (lowerMessage.includes('geral') || lowerMessage.includes('clínic')) selectedService = 'Clínica Geral';
-
-    if (!selectedService) {
-      const state = ConversationStateManager.getState(phoneNumber);
-      ConversationStateManager.updateState(phoneNumber, { attempts: state.attempts + 1 });
-      
-      if (state.attempts >= 2) {
-        return `Vou te ajudar! 😊 Me diga por exemplo:
-"Preciso de cardiologia" ou "Quero psicologia"
-
-Qual dessas especialidades você precisa? 💙`;
-      }
-      
-      return `Me ajuda a entender melhor! Qual especialidade você está procurando?
-Por exemplo: cardiologia, psicologia, dermatologia... 😊💙`;
-    }
-
-    ConversationStateManager.updateState(phoneNumber, { 
-      currentState: 'time_selection',
-      selectedService,
-      attempts: 0
-    });
-
-    return `Excelente! ${selectedService} anotada! 😊
-
-Agora me diga: que dia e horário seria melhor para você?
+Que dia e horário seria melhor para você${dateText}?
 
 📅 **Horários disponíveis:**
 **Manhã:** 8h, 9h, 10h, 11h
 **Tarde:** 14h, 15h, 16h, 17h
 
-Pode me dizer algo como "amanhã às 10h" ou "sexta 14h"! 💙`;
+Pode me dizer algo como "amanhã às 10h" ou "26/06 às 14h"! 💙`;
+  }
+
+  private static getSpecialtyHelpResponse(): string {
+    return `Me ajuda a entender! Qual dessas especialidades você precisa? 😊
+
+🩺 Clínica Geral
+❤️ Cardiologia
+🧠 Psicologia
+🌟 Dermatologia
+👩‍⚕️ Ginecologia
+🦴 Ortopedia
+👶 Pediatria
+
+É só falar o nome da especialidade! 💙`;
   }
 
   private static async handleTimeSelection(
@@ -189,56 +172,81 @@ Pode me dizer algo como "amanhã às 10h" ou "sexta 14h"! 💙`;
   ): Promise<string> {
     const state = ConversationStateManager.getState(phoneNumber);
     
-    if (userInput.extractedTime) {
-      // Calcular data (próximo dia útil se não especificado)
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const selectedDate = tomorrow.toISOString().split('T')[0];
+    // Se detectou horário e/ou data
+    if (userInput.extractedTime || userInput.extractedDate) {
+      let selectedDate = userInput.extractedDate;
+      let selectedTime = userInput.extractedTime;
+      
+      // Se não tem data, usar próximo dia útil
+      if (!selectedDate) {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        selectedDate = tomorrow.toLocaleDateString('pt-BR');
+      }
+      
+      // Se não tem horário, tentar extrair do contexto ou pedir
+      if (!selectedTime) {
+        const timeFromMessage = this.extractTimeFromMessage(message);
+        if (timeFromMessage) {
+          selectedTime = timeFromMessage;
+        } else {
+          return `Entendi a data! Qual horário você prefere? 😊
+
+📅 **Horários disponíveis:**
+**Manhã:** 8h, 9h, 10h, 11h  
+**Tarde:** 14h, 15h, 16h, 17h
+
+Me diga o horário desejado! 💙`;
+        }
+      }
       
       ConversationStateManager.updateState(phoneNumber, { 
         currentState: 'contact_info',
-        selectedTime: userInput.extractedTime,
-        selectedDate,
-        attempts: 0
+        selectedTime,
+        selectedDate
       });
-
-      const timeFormatted = userInput.extractedTime.replace(':00', 'h');
-      const dateFormatted = tomorrow.toLocaleDateString('pt-BR');
 
       return `Perfeito! 😊
 
 📋 **Resumo do agendamento:**
 👨‍⚕️ **${state.selectedService}**
-📅 **${dateFormatted}** às **${timeFormatted}**
+📅 **${selectedDate}** às **${selectedTime.replace(':00', 'h')}**
 
-Para finalizar, preciso do seu nome completo e email para confirmação.
+Para finalizar, preciso do seu nome completo e email.
 
 Pode me enviar assim:
 **Nome:** Seu Nome Completo
 **Email:** seuemail@exemplo.com 💙`;
     }
 
-    const stateUpdate = ConversationStateManager.updateState(phoneNumber, { 
-      attempts: state.attempts + 1 
-    });
-    
-    if (stateUpdate.attempts >= 3) {
-      return `Deixa eu te ajudar! 😊
-Me diga um horário assim: "10h" ou "às 14h"
-
-Nossos horários são:
-🌅 **8h, 9h, 10h, 11h**
-🌅 **14h, 15h, 16h, 17h**
-
-Qual você prefere? 💙`;
-    }
-
+    // Não conseguiu extrair horário/data
     return `Qual horário funciona melhor para você? 😊
-Pode me dizer algo como "às 10h" ou "14h"
 
-Tenho disponibilidade em:
+📅 **Horários disponíveis:**
 **Manhã:** 8h, 9h, 10h, 11h
-**Tarde:** 14h, 15h, 16h, 17h 💙`;
+**Tarde:** 14h, 15h, 16h, 17h
+
+Pode dizer "10h" ou "às 14h" 💙`;
+  }
+
+  private static extractTimeFromMessage(message: string): string | null {
+    // Extrair horários de formatos diversos
+    const timePatterns = [
+      /(\d{1,2}):?(\d{2})/,
+      /(\d{1,2})\s*h/,
+      /às?\s*(\d{1,2})/i
+    ];
+    
+    for (const pattern of timePatterns) {
+      const match = message.match(pattern);
+      if (match) {
+        const hour = parseInt(match[1]);
+        if (hour >= 8 && hour <= 18) {
+          return `${hour.toString().padStart(2, '0')}:00`;
+        }
+      }
+    }
+    return null;
   }
 
   private static handleContactInfo(phoneNumber: string, message: string, userInput: any): string {
@@ -274,13 +282,10 @@ Tenho disponibilidade em:
       ConversationStateManager.updateState(phoneNumber, { 
         currentState: 'confirmation',
         customerName,
-        customerEmail,
-        attempts: 0
+        customerEmail
       });
 
       const timeFormatted = state.selectedTime?.replace(':00', 'h');
-      const date = new Date(state.selectedDate!);
-      const dateFormatted = date.toLocaleDateString('pt-BR');
 
       return `Quase pronto! 😊
 
@@ -288,14 +293,10 @@ Tenho disponibilidade em:
 👤 **${customerName}**
 📧 **${customerEmail}**
 👨‍⚕️ **${state.selectedService}**
-📅 **${dateFormatted}** às **${timeFormatted}**
+📅 **${state.selectedDate}** às **${timeFormatted}**
 
 Está tudo certo? Digite **SIM** para confirmar! 💙`;
     }
-
-    ConversationStateManager.updateState(phoneNumber, { 
-      attempts: state.attempts + 1 
-    });
 
     return `Preciso do seu nome e email para finalizar! 😊
 
@@ -335,15 +336,13 @@ Ou me diga se quer alterar alguma informação! 💙`;
       ConversationStateManager.clearState(phoneNumber);
 
       const timeFormatted = state.selectedTime?.replace(':00', 'h');
-      const date = new Date(state.selectedDate!);
-      const dateFormatted = date.toLocaleDateString('pt-BR');
 
       return `✅ **Agendamento confirmado com sucesso!**
 
 👤 **${state.customerName}**
 📧 **${state.customerEmail}**
 👨‍⚕️ **${state.selectedService}**
-📅 **${dateFormatted}** às **${timeFormatted}**
+📅 **${state.selectedDate}** às **${timeFormatted}**
 📍 **Clínica**
 
 Você receberá uma confirmação por email! 
@@ -360,15 +359,16 @@ Nossa equipe vai entrar em contato para confirmar todos os detalhes em breve! �
     }
   }
 
-  private static handleUnknownInput(phoneNumber: string, message: string): string {
-    const state = ConversationStateManager.getState(phoneNumber);
+  private static getHelpResponse(state: any): string {
+    if (!state.conversationStarted) {
+      return `Oi! 😊 Sou a Lia!
+Como posso te ajudar hoje? 💙
+
+Posso te ajudar com agendamentos de consultas!`;
+    }
     
-    const responses = [
-      "Não entendi muito bem! 😅\nPode me explicar de outro jeito? 💙",
-      "Me ajuda a entender melhor o que você precisa? 😊💙",
-      "Hmm, não consegui captar! Me dá mais detalhes? 😊💙"
-    ];
-    
-    return responses[Math.floor(Math.random() * responses.length)];
+    return `Não entendi muito bem! 😅
+Posso te ajudar com agendamentos de consultas.
+Me diga a especialidade que você precisa! 💙`;
   }
 }
