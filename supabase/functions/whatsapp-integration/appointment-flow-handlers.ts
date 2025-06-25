@@ -1,9 +1,9 @@
-
 import { FlowHandlerParams } from './conversation-flow-types.ts';
 import { ConversationStateManager } from './conversation-state-manager.ts';
 import { SpecialtyDetector } from './specialty-detection.ts';
 import { TimeExtractor } from './time-extraction.ts';
 import { MCPToolsProcessor } from './mcp-tools.ts';
+import { SmartInputProcessor } from './smart-input-processor.ts';
 
 export class AppointmentFlowHandlers {
   static async handleServiceSelection(params: FlowHandlerParams): Promise<string> {
@@ -91,68 +91,29 @@ Pode me enviar assim:
   }
 
   static async handleContactInfo(params: FlowHandlerParams): Promise<string> {
-    const { phoneNumber, message, userInput, supabase } = params;
-    console.log('👤 Processando informações de contato...');
-    console.log('📝 Mensagem recebida:', message);
-    console.log('🔍 User input analisado:', userInput);
+    const { phoneNumber, message, supabase } = params;
+    console.log('👤 Processando informações de contato com sistema inteligente...');
     
-    const state = await ConversationStateManager.getState(phoneNumber, supabase);
+    // Usar o novo sistema inteligente de processamento
+    const processingResult = SmartInputProcessor.processContactInfo(phoneNumber, message);
     
-    let customerName = userInput.extractedName;
-    let customerEmail = userInput.extractedEmail;
+    console.log('🔍 Resultado do processamento:', processingResult);
     
-    console.log('👤 Nome extraído:', customerName);
-    console.log('📧 Email extraído:', customerEmail);
-    
-    // Tentar extrair de formatos alternativos se não encontrou
-    if (!customerName || !customerEmail) {
-      const lines = message.split('\n');
-      console.log('📋 Analisando linhas separadamente:', lines);
-      
-      for (const line of lines) {
-        const trimmedLine = line.trim();
-        console.log('🔍 Analisando linha:', trimmedLine);
-        
-        if (!customerName && trimmedLine.toLowerCase().includes('nome')) {
-          customerName = trimmedLine.replace(/nome:?/gi, '').trim();
-          console.log('👤 Nome encontrado em linha com "nome":', customerName);
-        } else if (!customerEmail && trimmedLine.includes('@')) {
-          const emailMatch = trimmedLine.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-          if (emailMatch) {
-            customerEmail = emailMatch[1];
-            console.log('📧 Email encontrado:', customerEmail);
-          }
-        }
-      }
-      
-      // Se ainda não encontrou nome, tentar detectar linha com nome completo
-      if (!customerName) {
-        for (const line of lines) {
-          const trimmedLine = line.trim();
-          // Verificar se linha não contém email e parece ser um nome
-          if (!trimmedLine.includes('@') && trimmedLine.length > 2) {
-            const words = trimmedLine.split(' ');
-            // Nome com pelo menos 2 palavras ou uma palavra com mais de 2 caracteres
-            if ((words.length >= 2 && words.every(word => /^[A-Za-zÀ-ÿ]+$/.test(word))) ||
-                (words.length === 1 && /^[A-Za-zÀ-ÿ]{3,}$/.test(trimmedLine))) {
-              customerName = trimmedLine;
-              console.log('👤 Nome detectado sem formato específico:', customerName);
-              break;
-            }
-          }
-        }
-      }
+    // Se precisa de confirmação ou tem problemas, retornar mensagem de confirmação
+    if (processingResult.needsConfirmation || !processingResult.success) {
+      return processingResult.responseMessage;
     }
-
-    console.log('✅ Resultado final - Nome:', customerName, 'Email:', customerEmail);
-
-    if (customerName && customerEmail) {
-      console.log('🎉 Ambas informações coletadas, prosseguindo para confirmação');
+    
+    // Se coletou dados com sucesso, verificar se temos tudo
+    if (processingResult.data?.name && processingResult.data?.email) {
+      console.log('🎉 Dados coletados com sucesso pelo sistema inteligente!');
+      
+      const state = await ConversationStateManager.getState(phoneNumber, supabase);
       
       await ConversationStateManager.updateState(phoneNumber, { 
         currentState: 'confirmation',
-        customerName,
-        customerEmail
+        customerName: processingResult.data.name,
+        customerEmail: processingResult.data.email
       }, supabase);
 
       const timeFormatted = state.selectedTime?.replace(':00', 'h');
@@ -160,28 +121,19 @@ Pode me enviar assim:
       return `Quase pronto! 😊
 
 📋 **Confirme seus dados:**
-👤 **${customerName}**
-📧 **${customerEmail}**
+👤 **${processingResult.data.name}**
+📧 **${processingResult.data.email}**
 👨‍⚕️ **${state.selectedService}**
 📅 **${state.selectedDate}** às **${timeFormatted}**
 
 Está tudo certo? Digite **SIM** para confirmar! 💙`;
     }
-
-    console.log('❌ Informações incompletas, solicitando novamente');
     
-    // Informar quais dados ainda são necessários
-    const missingInfo = [];
-    if (!customerName) missingInfo.push('📝 **Nome completo**');
-    if (!customerEmail) missingInfo.push('📧 **Email**');
+    // Fallback para mensagem padrão se algo deu errado
+    return processingResult.responseMessage || `Por favor, me informe seu nome completo e email:
 
-    return `Preciso ${missingInfo.join(' e ')} para finalizar! 😊
-
-Por favor, me envie assim:
 **Nome:** Seu Nome Completo  
-**Email:** seuemail@exemplo.com
-
-Ou pode enviar em linhas separadas! 💙`;
+**Email:** seuemail@exemplo.com 💙`;
   }
 
   static async handleFinalConfirmation(params: FlowHandlerParams): Promise<string> {
