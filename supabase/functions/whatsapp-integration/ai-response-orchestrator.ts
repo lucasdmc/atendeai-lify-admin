@@ -1,7 +1,6 @@
 
 import { generateEnhancedAIResponse } from './enhanced-openai-service.ts';
 import { isAppointmentRelated } from './appointment-utils.ts';
-import { handleEnhancedAppointmentRequest } from './enhanced-appointment-handler.ts';
 import { ConversationContextManager } from './conversation-context.ts';
 
 export class AIResponseOrchestrator {
@@ -10,24 +9,26 @@ export class AIResponseOrchestrator {
     recentMessages: any[],
     message: string,
     phoneNumber: string,
-    userIntent: any
+    userIntent: any,
+    supabase: any
   ): Promise<string> {
     console.log('🤖 Processando com IA Humanizada + MCP (PRIORIDADE 1)...');
     
-    // Processar com IA HUMANIZADA usando sistema MCP e memória conversacional
+    // Processar com IA HUMANIZADA usando sistema MCP e Supabase real
     const finalResponse = await generateEnhancedAIResponse(
       contextData, 
       recentMessages, 
       message, 
       phoneNumber,
-      userIntent
+      userIntent,
+      supabase // Passar o cliente Supabase real
     );
 
     return finalResponse;
   }
 
   static checkAndHandleRepetition(phoneNumber: string, response: string): string {
-    console.log('🔄 Verificando repetições com contexto emocional (PRIORIDADE 2)...');
+    console.log('🔄 Verificando repetições com contexto emocional...');
     const isRepetitive = ConversationContextManager.checkForRepetition(phoneNumber, response);
     
     if (isRepetitive) {
@@ -45,23 +46,13 @@ export class AIResponseOrchestrator {
     responseToSend: string,
     supabase: any
   ): Promise<string> {
-    // PRIORIDADE 3: Sistema de Agendamentos (integrado com MCP)
+    // Sistema de agendamento já integrado via MCP
+    // Manter apenas como fallback se MCP falhar
     const isAboutAppointment = isAppointmentRelated(message);
-    console.log(`📅 Mensagem sobre agendamento: ${isAboutAppointment ? 'SIM' : 'NÃO'}`);
-
-    // O sistema de agendamento agora é integrado via MCP no generateEnhancedAIResponse
-    // Mas mantemos fallback para casos específicos
-    if (isAboutAppointment && userIntent.confidence < 0.6) {
-      console.log('🔄 Verificando sistema de agendamento como suporte adicional...');
-      try {
-        const appointmentResponse = await handleEnhancedAppointmentRequest(message, phoneNumber, supabase);
-        if (appointmentResponse && !responseToSend.includes('agend')) {
-          console.log('📅 Integrando informações de agendamento na resposta');
-          return `${responseToSend}\n\n${appointmentResponse}`;
-        }
-      } catch (appointmentError) {
-        console.error('❌ Erro no sistema de agendamento:', appointmentError);
-      }
+    
+    if (isAboutAppointment && !responseToSend.includes('agend') && !responseToSend.includes('horário')) {
+      console.log('📅 Adicionando contexto de agendamento...');
+      return `${responseToSend}\n\nPosso te ajudar com agendamentos! Me diga a especialidade e a data que você prefere 😊`;
     }
 
     return responseToSend;

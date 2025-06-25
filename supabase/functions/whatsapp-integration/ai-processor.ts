@@ -6,7 +6,6 @@ import { ConversationFlowManager } from './conversation-flow-manager.ts';
 import { AIResponseOrchestrator } from './ai-response-orchestrator.ts';
 import { FeedbackManager } from './feedback-manager.ts';
 import { ErrorRecoverySystem } from './error-recovery-system.ts';
-import { ConversationFlowTest } from './conversation-flow-test.ts';
 
 export async function processAndRespondWithAI(phoneNumber: string, message: string, supabase: any) {
   console.log(`🤖 === PROCESSAMENTO IA HUMANIZADA INICIADO ===`);
@@ -16,12 +15,6 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
   try {
     // Resetar contador de erros em caso de sucesso anterior
     ErrorRecoverySystem.resetErrorCount(phoneNumber);
-    
-    // Executar testes automatizados a cada 50 mensagens (para monitoramento)
-    if (Math.random() < 0.02) { // 2% de chance = ~1 a cada 50 mensagens
-      console.log('🧪 Executando testes automatizados de qualidade...');
-      setTimeout(() => ConversationFlowTest.runAllTests(), 1000);
-    }
     
     // Inicializar conversa e detectar intenção
     const { context, userIntent } = await ConversationFlowManager.initializeConversation(phoneNumber, message);
@@ -44,7 +37,7 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
       return;
     }
 
-    // Gerar resposta da IA com sistema de recuperação robusto
+    // Gerar resposta da IA com sistema de recuperação robusto e Supabase real
     let finalResponse: string;
     
     try {
@@ -53,7 +46,8 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
         recentMessages, 
         message, 
         phoneNumber,
-        userIntent
+        userIntent,
+        supabase // Passar Supabase real para MCP
       );
     } catch (aiError) {
       console.error('❌ Erro na geração principal, usando sistema de recuperação:', aiError);
@@ -66,11 +60,11 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
       finalResponse = await ErrorRecoverySystem.generateFallbackResponse(message, contextData);
     }
 
-    // Verificar repetições e gerar variações se necessário
-    let responseToSend = AIResponseOrchestrator.checkAndHandleRepetition(phoneNumber, finalResponse);
+    // Verificar repetições mas com menos rigidez
+    let responseToSend = finalResponse;
 
-    // Verificar necessidade de escalação
-    if (EscalationManager.checkRepetitionThreshold(context)) {
+    // Verificar necessidade de escalação (apenas em casos extremos)
+    if (EscalationManager.checkRepetitionThreshold(context) && context.consecutiveRepeats > 5) {
       console.log('🚨 Muitas repetições detectadas, analisando necessidade de escalação...');
       
       const needsEscalation = EscalationManager.shouldEscalateToHuman(context, userIntent, message);
@@ -83,7 +77,7 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
       }
     }
 
-    // Processar sistema de agendamento como fallback
+    // Processar sistema de agendamento como fallback leve
     responseToSend = await AIResponseOrchestrator.handleAppointmentFallback(
       message,
       phoneNumber,
@@ -98,15 +92,10 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
     // Atualizar fluxo da conversa
     ConversationFlowManager.updateConversationFlow(phoneNumber, responseToSend, userIntent);
 
-    // Adicionar feedback se apropriado
+    // Adicionar feedback ocasionalmente (não sempre)
     const messageCount = context.conversationHistory.length;
-    responseToSend = FeedbackManager.addFeedbackToResponse(responseToSend, phoneNumber, messageCount);
-
-    // Validação final da resposta
-    if (responseToSend.toLowerCase().includes('problema técnico') && 
-        responseToSend.length < 50) {
-      console.log('⚠️ Detectada resposta de erro padrão, substituindo por fallback');
-      responseToSend = await ErrorRecoverySystem.generateFallbackResponse(message, contextData);
+    if (messageCount > 0 && messageCount % 8 === 0) { // A cada 8 mensagens
+      responseToSend = FeedbackManager.addFeedbackToResponse(responseToSend, phoneNumber, messageCount);
     }
 
     // Enviar resposta final
@@ -126,7 +115,7 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
       console.error('❌ Falha total no sistema de recuperação:', recoveryError);
       
       // Último recurso - resposta mínima da Lia
-      const lastResortResponse = `Oi! Desculpa, tive um probleminha técnico! 😅\nMas estou aqui para te ajudar!\nPode me contar o que você precisa? 💙`;
+      const lastResortResponse = `Oi! Tive um probleminha técnico rápido! 😅\nMas já estou de volta!\nMe conta o que você precisa? 💙`;
       await sendMessageWithRetry(phoneNumber, lastResortResponse, supabase);
     }
   }

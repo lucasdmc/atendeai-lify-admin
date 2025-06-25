@@ -18,36 +18,13 @@ function shouldRespondQuickly(message: string, recentMessages: any[]): boolean {
   return quickResponseTriggers.some(trigger => lowerMessage.includes(trigger));
 }
 
-// Função utilitária para criar mock do Supabase
-function createSupabaseMock() {
-  return {
-    from: (table: string) => ({
-      select: (columns: string) => ({
-        gte: (column: string, value: any) => ({
-          order: (orderColumn: string, options: any) => ({
-            limit: (limitValue: number) => Promise.resolve({ 
-              data: [], 
-              error: null 
-            })
-          })
-        })
-      })
-    }),
-    functions: {
-      invoke: (functionName: string, options: any) => Promise.resolve({ 
-        data: { success: true }, 
-        error: null 
-      })
-    }
-  };
-}
-
 export async function generateEnhancedAIResponse(
   contextData: any[],
   recentMessages: any[],
   message: string,
   phoneNumber: string,
-  userIntent?: any
+  userIntent?: any,
+  supabase?: any
 ): Promise<string> {
   console.log('🤖 === GERAÇÃO DE RESPOSTA IA HUMANIZADA (LIA) ===');
   console.log(`📞 Número: ${phoneNumber}`);
@@ -59,8 +36,9 @@ export async function generateEnhancedAIResponse(
   }
 
   try {
-    // Verificar se é primeira mensagem
-    const isFirstContact = LiaPersonality.isFirstContact(recentMessages);
+    // Verificar se é primeira mensagem baseado no histórico real
+    const isFirstContact = !recentMessages || recentMessages.length === 0 || 
+                          recentMessages.every(msg => msg.message_type === 'received');
     console.log(`👋 Primeiro contato: ${isFirstContact ? 'SIM' : 'NÃO'}`);
 
     // Se é primeiro contato, responder diretamente com saudação
@@ -69,36 +47,50 @@ export async function generateEnhancedAIResponse(
       return LiaPersonality.getGreetingMessage();
     }
 
-    // Verificar se é uma resposta rápida e direta (não precisa de desculpas)
-    const isQuickResponse = shouldRespondQuickly(message, recentMessages);
+    // Analisar histórico para evitar repetições
+    const lastBotMessages = recentMessages
+      .filter(msg => msg.message_type === 'sent')
+      .slice(0, 3)
+      .map(msg => msg.content);
 
-    // Para respostas diretas, usar respostas da Lia sem IA
-    if (isQuickResponse) {
-      console.log('⚡ Resposta rápida da Lia...');
-      return LiaPersonality.getFollowUpResponse(message);
-    }
+    // Verificar se é agendamento e usar MCP se necessário
+    const isAppointmentRequest = message.toLowerCase().includes('agend') || 
+                                message.toLowerCase().includes('consulta') || 
+                                message.toLowerCase().includes('marcar');
 
-    // Gerar prompt contextual da Lia (sem instruções de desculpas)
-    const liaPrompt = LiaPersonality.generateContextualPrompt(
-      message,
-      contextData,
-      recentMessages,
-      isFirstContact
-    );
+    // Gerar prompt contextual da Lia com histórico
+    const conversationContext = recentMessages.slice(-6).map(msg => 
+      `${msg.message_type === 'received' ? 'Usuário' : 'Lia'}: ${msg.content}`
+    ).join('\n');
 
-    // Configuração da chamada OpenAI com personalidade Lia
+    const liaPrompt = `Você é a Lia, assistente virtual da clínica médica. 
+
+PERSONALIDADE:
+- Natural, empática e acolhedora como uma secretária experiente
+- Conversa de forma fluida sem robotização
+- Só se desculpa quando realmente houve demora ou problema
+- Mantém continuidade na conversa
+
+CONTEXTO DA CONVERSA:
+${conversationContext}
+
+MENSAGEM ATUAL: ${message}
+
+INSTRUÇÕES:
+- Continue a conversa de forma natural baseada no contexto
+- ${isAppointmentRequest ? 'IMPORTANTE: Esta mensagem é sobre agendamento. Use as ferramentas disponíveis para verificar disponibilidade e agendar.' : ''}
+- Não repita informações já ditas
+- Seja específica e útil
+- Use emojis moderadamente (😊, 💙, 📅)
+- NÃO peça desculpas desnecessariamente`;
+
+    // Configuração da chamada OpenAI com ferramentas MCP
     const openAIPayload = {
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
-          content: `${liaPrompt}
-
-IMPORTANTE: 
-- NÃO peça desculpas desnecessariamente
-- Seja natural e direta
-- Só se desculpe se realmente houve demora ou problema
-- Responda de forma fluida e positiva`
+          content: liaPrompt
         },
         {
           role: "user", 
@@ -106,11 +98,11 @@ IMPORTANTE:
         }
       ],
       tools: MCPToolsProcessor.getMCPTools(),
-      tool_choice: "auto",
-      max_tokens: 200,
-      temperature: 0.7,
+      tool_choice: isAppointmentRequest ? "auto" : "none",
+      max_tokens: 300,
+      temperature: 0.8,
       presence_penalty: 0.3,
-      frequency_penalty: 0.2
+      frequency_penalty: 0.4
     };
 
     console.log('📤 Enviando para OpenAI com personalidade Lia...');
@@ -141,18 +133,15 @@ IMPORTANTE:
     const choice = result.choices[0];
     let finalResponse = '';
 
-    // Processar tool calls se houver
-    if (choice.message?.tool_calls && choice.message.tool_calls.length > 0) {
-      console.log('🔧 Processando tool calls...');
+    // Processar tool calls se houver (usando supabase real)
+    if (choice.message?.tool_calls && choice.message.tool_calls.length > 0 && supabase) {
+      console.log('🔧 Processando tool calls com Supabase real...');
       const toolCall = choice.message.tool_calls[0];
-      
-      // Simular supabase para MCP tools
-      const mockSupabase = createSupabaseMock();
       
       const toolResult = await MCPToolsProcessor.processToolCall(
         toolCall.function.name,
         JSON.parse(toolCall.function.arguments || '{}'),
-        mockSupabase
+        supabase
       );
       
       finalResponse = toolResult;
@@ -165,9 +154,13 @@ IMPORTANTE:
       return LiaPersonality.getFollowUpResponse(message);
     }
 
-    // Aplicar filtros de personalidade da Lia (sem desculpas desnecessárias)
-    finalResponse = LiaPersonality.adaptResponseStyle(finalResponse, false, false);
-    
+    // Verificar se está repetindo resposta anterior
+    if (lastBotMessages.some(lastMsg => 
+        lastMsg && finalResponse.includes(lastMsg.substring(0, 50)))) {
+      console.log('🔄 Detectada repetição, variando resposta...');
+      finalResponse = LiaPersonality.generateVariedResponse(finalResponse, message);
+    }
+
     console.log('✅ Resposta final da Lia:', finalResponse);
     return finalResponse;
 
