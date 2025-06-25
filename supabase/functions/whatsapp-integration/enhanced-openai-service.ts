@@ -134,9 +134,9 @@ export async function generateEnhancedAIResponse(
   console.log(`📞 Número: ${phoneNumber}`);
   console.log(`💬 Mensagem: ${message}`);
 
-  // PRIORIDADE 1: Smart Conversation Handler para TODAS as mensagens de agendamento
+  // PRIORIDADE ABSOLUTA: Smart Conversation Handler para TODAS as mensagens
   try {
-    console.log('🎯 Processando com Smart Conversation Handler...');
+    console.log('🎯 Processando com Smart Conversation Handler (PRIORIDADE ABSOLUTA)...');
     const smartResponse = await SmartConversationHandler.processMessage(phoneNumber, message, supabase);
     
     // O Smart Handler sempre retorna uma resposta válida
@@ -148,8 +148,8 @@ export async function generateEnhancedAIResponse(
     console.error('❌ Erro no Smart Conversation Handler:', error);
   }
 
-  // FALLBACK: Se Smart Handler falhar, usar sistema antigo
-  console.log('⚠️ Usando sistema de fallback');
+  // FALLBACK: Se Smart Handler falhar completamente, usar sistema antigo
+  console.log('⚠️ Smart Handler falhou, usando sistema de fallback');
   
   const isFirstContact = LiaPersonality.isFirstContact(recentMessages);
   console.log(`👋 Primeiro contato: ${isFirstContact ? 'SIM' : 'NÃO'}`);
