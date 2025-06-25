@@ -19,14 +19,16 @@ export async function generateEnhancedAIResponse(
   try {
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     if (!OPENAI_API_KEY) {
-      throw new Error('OpenAI API key não configurada');
+      console.warn('⚠️ OpenAI API key não configurada, usando fallback');
+      return this.generateFallbackResponse(userMessage, contextData);
     }
 
     // Gerar prompt contextualizado e humanizado
+    console.log('🧠 Gerando prompt humanizado...');
     const humanizedPrompt = await HumanizedResponseGenerator.generateHumanizedResponse(
       userMessage,
       phoneNumber,
-      { from: () => ({ select: () => ({ eq: () => ({ single: () => ({ data: null, error: null }) }) }) }) }, // Mock supabase
+      null, // Supabase será mockado internamente se necessário
       contextData,
       conversationHistory
     );
@@ -34,7 +36,12 @@ export async function generateEnhancedAIResponse(
     console.log('📝 Prompt humanizado gerado com sucesso');
 
     // Verificar se precisa usar ferramentas MCP
-    const mcpResponse = await MCPTools.processWithMCP(userMessage, userIntent, phoneNumber);
+    let mcpResponse = '';
+    try {
+      mcpResponse = await MCPTools.processWithMCP(userMessage, userIntent, phoneNumber);
+    } catch (mcpError) {
+      console.warn('⚠️ Erro no MCP, continuando sem:', mcpError);
+    }
     
     let systemPrompt = humanizedPrompt;
     if (mcpResponse) {
@@ -50,9 +57,9 @@ export async function generateEnhancedAIResponse(
       }
     ];
 
-    // Adicionar histórico recente (últimas 6 mensagens para contexto)
+    // Adicionar histórico recente (últimas 4 mensagens para contexto)
     if (conversationHistory && conversationHistory.length > 0) {
-      const recentHistory = conversationHistory.slice(-6);
+      const recentHistory = conversationHistory.slice(-4);
       recentHistory.forEach((msg) => {
         if (msg.content && msg.content.trim()) {
           messages.push({
@@ -79,13 +86,13 @@ export async function generateEnhancedAIResponse(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'gpt-4o-mini',
         messages: messages,
-        max_tokens: 800,
-        temperature: 0.8, // Mais criatividade para conversação natural
+        max_tokens: 600,
+        temperature: 0.7, // Balanceado para naturalidade
         top_p: 0.9,
         frequency_penalty: 0.3, // Reduz repetições
-        presence_penalty: 0.4, // Encoraja novos tópicos
+        presence_penalty: 0.2, // Encoraja novos tópicos
         response_format: { type: "text" }
       }),
     });
@@ -93,13 +100,14 @@ export async function generateEnhancedAIResponse(
     if (!response.ok) {
       const errorData = await response.text();
       console.error('❌ Erro na API OpenAI:', errorData);
-      throw new Error(`OpenAI API error: ${response.status}`);
+      return this.generateFallbackResponse(userMessage, contextData);
     }
 
     const data = await response.json();
     
     if (!data.choices || data.choices.length === 0) {
-      throw new Error('Resposta inválida da OpenAI');
+      console.error('❌ Resposta inválida da OpenAI');
+      return this.generateFallbackResponse(userMessage, contextData);
     }
 
     const aiResponse = data.choices[0].message.content.trim();
@@ -111,8 +119,32 @@ export async function generateEnhancedAIResponse(
 
   } catch (error) {
     console.error('❌ Erro crítico no sistema de IA humanizada:', error);
-    
-    // Fallback empático em caso de erro
-    return `Ops! Parece que tive um pequeno problema técnico. 😅 Pode repetir sua mensagem? Prometo que vou conseguir te ajudar melhor desta vez!`;
+    return this.generateFallbackResponse(userMessage, contextData);
   }
+}
+
+function generateFallbackResponse(userMessage: string, contextData: any[]): string {
+  console.log('🔄 Gerando resposta de fallback');
+  
+  const lowerMessage = userMessage.toLowerCase();
+  
+  // Respostas contextuais baseadas na mensagem
+  if (lowerMessage.includes('ola') || lowerMessage.includes('oi') || lowerMessage.includes('olá')) {
+    return `Olá! 😊 Seja muito bem-vindo(a) à nossa clínica! Sou a Dra. Ana, sua assistente virtual. Como posso ajudá-lo(a) hoje? Estou aqui para esclarecer suas dúvidas e auxiliar com agendamentos.`;
+  }
+  
+  if (lowerMessage.includes('agend')) {
+    return `Claro! Ficarei feliz em ajudar com seu agendamento. 📅 Para agendar sua consulta, preciso de algumas informações. Qual especialidade você gostaria? E qual data seria melhor para você?`;
+  }
+  
+  if (lowerMessage.includes('horario') || lowerMessage.includes('horário')) {
+    return `Nossos horários de atendimento são de segunda a sexta, das 8h às 18h. 🕐 Qual dia seria melhor para sua consulta? Posso verificar nossa disponibilidade!`;
+  }
+  
+  if (lowerMessage.includes('doutor') || lowerMessage.includes('medico') || lowerMessage.includes('médico')) {
+    return `Temos excelentes profissionais em nossa equipe! 👨‍⚕️ Para qual especialidade você gostaria de agendar? Posso verificar a disponibilidade dos nossos médicos para você.`;
+  }
+  
+  // Resposta padrão empática
+  return `Entendo sua necessidade e estou aqui para ajudar! 😊 Poderia me contar um pouco mais sobre o que você precisa? Assim posso orientá-lo(a) da melhor forma possível. Nossa equipe está sempre pronta para cuidar bem de você!`;
 }

@@ -1,5 +1,5 @@
 
-interface SentimentAnalysis {
+export interface SentimentAnalysis {
   primaryEmotion: 'joy' | 'anxiety' | 'frustration' | 'urgency' | 'satisfaction' | 'neutral' | 'concern';
   intensity: 'low' | 'medium' | 'high';
   urgencyLevel: 'low' | 'medium' | 'high' | 'urgent';
@@ -10,32 +10,51 @@ interface SentimentAnalysis {
 
 export class SentimentAnalyzer {
   private static urgentWords = [
-    'urgente', 'emergência', 'dor forte', 'muito mal', 'não consigo', 
-    'preciso agora', 'imediato', 'grave', 'sério', 'preocupado'
+    'urgente', 'emergência', 'emergencia', 'dor forte', 'muito mal', 'não consigo', 
+    'preciso agora', 'imediato', 'grave', 'sério', 'preocupado', 'socorro'
   ];
 
   private static anxietyWords = [
-    'preocupado', 'ansioso', 'nervoso', 'medo', 'receio', 
-    'inseguro', 'aflito', 'tenso', 'angustiado'
+    'preocupado', 'preocupada', 'ansioso', 'ansiosa', 'nervoso', 'nervosa', 
+    'medo', 'receio', 'inseguro', 'insegura', 'aflito', 'aflita', 'tenso', 'tensa', 'angustiado', 'angustiada'
   ];
 
   private static frustrationWords = [
-    'irritado', 'chateado', 'decepcionado', 'cansado', 'estressado',
-    'não funciona', 'problema', 'dificuldade', 'complicado'
+    'irritado', 'irritada', 'chateado', 'chateada', 'decepcionado', 'decepcionada', 
+    'cansado', 'cansada', 'estressado', 'estressada', 'não funciona', 'problema', 
+    'dificuldade', 'complicado', 'ruim', 'péssimo', 'péssima'
   ];
 
   private static satisfactionWords = [
-    'obrigado', 'muito bom', 'excelente', 'perfeito', 'adorei',
-    'satisfeito', 'feliz', 'melhor', 'ótimo', 'maravilhoso'
+    'obrigado', 'obrigada', 'muito bom', 'muito boa', 'excelente', 'perfeito', 'perfeita', 
+    'adorei', 'satisfeito', 'satisfeita', 'feliz', 'melhor', 'ótimo', 'ótima', 'maravilhoso', 'maravilhosa'
   ];
 
   private static medicalConcernWords = [
-    'dor', 'sintoma', 'doente', 'mal-estar', 'febre', 'médico',
-    'consulta', 'remédio', 'tratamento', 'exame', 'resultado'
+    'dor', 'sintoma', 'doente', 'mal-estar', 'febre', 'médico', 'medico',
+    'consulta', 'remédio', 'remedio', 'medicamento', 'tratamento', 'exame', 'resultado',
+    'saúde', 'saude', 'enfermo', 'doença', 'doenca'
+  ];
+
+  private static greetingWords = [
+    'ola', 'olá', 'oi', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'eai', 'e ai'
   ];
 
   static analyzeSentiment(message: string): SentimentAnalysis {
     const lowerMessage = message.toLowerCase();
+    
+    // Detectar saudações primeiro
+    const isGreeting = this.greetingWords.some(word => lowerMessage.includes(word));
+    if (isGreeting && lowerMessage.length < 50) {
+      return {
+        primaryEmotion: 'joy',
+        intensity: 'low',
+        urgencyLevel: 'low',
+        medicalConcern: false,
+        emotionalState: 'calm',
+        responseTone: 'empathetic'
+      };
+    }
     
     // Detectar urgência
     const urgencyLevel = this.detectUrgency(lowerMessage);
@@ -69,10 +88,11 @@ export class SentimentAnalyzer {
     const urgentMatches = this.urgentWords.filter(word => message.includes(word)).length;
     const hasExclamation = (message.match(/!/g) || []).length;
     const hasAllCaps = /[A-Z]{3,}/.test(message);
+    const hasMultipleQuestions = (message.match(/\?/g) || []).length >= 2;
 
     if (urgentMatches >= 2 || hasAllCaps || hasExclamation >= 3) {
       return 'urgent';
-    } else if (urgentMatches >= 1 || hasExclamation >= 2) {
+    } else if (urgentMatches >= 1 || hasExclamation >= 2 || hasMultipleQuestions) {
       return 'high';
     } else if (hasExclamation >= 1) {
       return 'medium';
@@ -102,7 +122,7 @@ export class SentimentAnalyzer {
   }
 
   private static detectIntensity(message: string, emotion: string): 'low' | 'medium' | 'high' {
-    const intensifiers = ['muito', 'super', 'extremamente', 'bastante', 'demais', 'insuportável'];
+    const intensifiers = ['muito', 'super', 'extremamente', 'bastante', 'demais', 'insuportável', 'impossível'];
     const hasIntensifier = intensifiers.some(word => message.includes(word));
     const hasRepetition = /(.)\1{2,}/.test(message); // letras repetidas
     const hasMultipleExclamation = (message.match(/!/g) || []).length >= 2;
@@ -167,7 +187,7 @@ export class SentimentAnalyzer {
       anxiety: [
         "Entendo sua preocupação,",
         "Sei que isso pode ser angustiante,",
-        "É normal se sentir assim,"
+        "É natural se sentir assim,"
       ],
       frustration: [
         "Percebo que isso está sendo frustrante para você,",
@@ -188,10 +208,20 @@ export class SentimentAnalyzer {
         "Sua preocupação é compreensível,",
         "Vamos esclarecer isso,",
         "Estou aqui para ajudar,"
+      ],
+      joy: [
+        "Que alegria falar com você!",
+        "Fico feliz em atendê-lo!",
+        "É um prazer recebê-lo!"
+      ],
+      neutral: [
+        "Entendo,",
+        "Claro,",
+        "Compreendo,"
       ]
     };
 
-    const phrases = empathyPhrases[sentiment.primaryEmotion] || [""];
+    const phrases = empathyPhrases[sentiment.primaryEmotion] || empathyPhrases.neutral;
     return phrases[Math.floor(Math.random() * phrases.length)];
   }
 }

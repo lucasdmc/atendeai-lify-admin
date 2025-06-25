@@ -4,6 +4,11 @@ export interface ConversationMemory {
   medicalHistory: string;
   conversationSummary: string;
   lastTopics: string[];
+  personalityProfile: {
+    communicationStyle: 'formal' | 'casual' | 'direct' | 'empathetic';
+    responsePreference: 'brief' | 'detailed' | 'step-by-step';
+  };
+  relationshipStage: 'first_contact' | 'getting_familiar' | 'established' | 'trusted';
   conversationContext: {
     currentTopic: string;
     followUpNeeded: boolean;
@@ -66,7 +71,7 @@ export class ConversationMemoryManager {
 
       const memoryData = data?.memory_data || this.createDefaultMemory();
       console.log('✅ Memória carregada:', Object.keys(memoryData).length, 'entradas');
-      return memoryData;
+      return this.ensureMemoryStructure(memoryData);
     } catch (error) {
       console.error('❌ Erro crítico ao carregar memória:', error);
       return this.createDefaultMemory();
@@ -79,6 +84,11 @@ export class ConversationMemoryManager {
       medicalHistory: '',
       conversationSummary: '',
       lastTopics: [],
+      personalityProfile: {
+        communicationStyle: 'empathetic',
+        responsePreference: 'detailed'
+      },
+      relationshipStage: 'first_contact',
       conversationContext: {
         currentTopic: '',
         followUpNeeded: false,
@@ -86,7 +96,7 @@ export class ConversationMemoryManager {
         interactionHistory: [],
         relationshipLevel: 1,
         personalityAdaptation: {
-          communicationStyle: 'friendly',
+          communicationStyle: 'empathetic',
           responseLength: 'medium',
           formalityLevel: 'informal'
         }
@@ -94,15 +104,38 @@ export class ConversationMemoryManager {
     };
   }
 
+  static ensureMemoryStructure(memoryData: any): ConversationMemory {
+    const defaultMemory = this.createDefaultMemory();
+    
+    return {
+      userPreferences: memoryData.userPreferences || defaultMemory.userPreferences,
+      medicalHistory: memoryData.medicalHistory || defaultMemory.medicalHistory,
+      conversationSummary: memoryData.conversationSummary || defaultMemory.conversationSummary,
+      lastTopics: memoryData.lastTopics || defaultMemory.lastTopics,
+      personalityProfile: {
+        communicationStyle: memoryData.personalityProfile?.communicationStyle || defaultMemory.personalityProfile.communicationStyle,
+        responsePreference: memoryData.personalityProfile?.responsePreference || defaultMemory.personalityProfile.responsePreference
+      },
+      relationshipStage: memoryData.relationshipStage || defaultMemory.relationshipStage,
+      conversationContext: {
+        currentTopic: memoryData.conversationContext?.currentTopic || defaultMemory.conversationContext.currentTopic,
+        followUpNeeded: memoryData.conversationContext?.followUpNeeded || defaultMemory.conversationContext.followUpNeeded,
+        lastInteractionSentiment: memoryData.conversationContext?.lastInteractionSentiment || defaultMemory.conversationContext.lastInteractionSentiment,
+        interactionHistory: memoryData.conversationContext?.interactionHistory || defaultMemory.conversationContext.interactionHistory,
+        relationshipLevel: memoryData.conversationContext?.relationshipLevel || defaultMemory.conversationContext.relationshipLevel,
+        personalityAdaptation: {
+          communicationStyle: memoryData.conversationContext?.personalityAdaptation?.communicationStyle || defaultMemory.conversationContext.personalityAdaptation.communicationStyle,
+          responseLength: memoryData.conversationContext?.personalityAdaptation?.responseLength || defaultMemory.conversationContext.personalityAdaptation.responseLength,
+          formalityLevel: memoryData.conversationContext?.personalityAdaptation?.formalityLevel || defaultMemory.conversationContext.personalityAdaptation.formalityLevel
+        }
+      }
+    };
+  }
+
   static async updateMemoryField(phoneNumber: string, field: string, value: any, supabase: any): Promise<void> {
     try {
-      // Carregar memória atual
       const currentMemory = await this.loadMemory(phoneNumber, supabase);
-      
-      // Atualizar campo específico
       (currentMemory as any)[field] = value;
-      
-      // Salvar memória atualizada
       await this.saveMemory(phoneNumber, currentMemory, supabase);
     } catch (error) {
       console.error('❌ Erro ao atualizar campo da memória:', error);
@@ -110,8 +143,8 @@ export class ConversationMemoryManager {
   }
 
   static formatMemoryForPrompt(memoryData: ConversationMemory): string {
-    if (!memoryData || Object.keys(memoryData).length === 0) {
-      return 'Nenhuma memória conversacional disponível.';
+    if (!memoryData) {
+      return 'Primeira conversa com este paciente.';
     }
 
     let memoryPrompt = 'MEMÓRIA CONVERSACIONAL:\n';
@@ -132,45 +165,44 @@ export class ConversationMemoryManager {
       memoryPrompt += `- Últimos assuntos: ${memoryData.lastTopics.join(', ')}\n`;
     }
 
-    if (memoryData.conversationContext) {
-      const context = memoryData.conversationContext;
-      if (context.currentTopic) {
-        memoryPrompt += `- Tópico atual: ${context.currentTopic}\n`;
-      }
-      if (context.personalityAdaptation) {
-        memoryPrompt += `- Estilo de comunicação: ${context.personalityAdaptation.communicationStyle}\n`;
-      }
+    if (memoryData.personalityProfile) {
+      memoryPrompt += `- Estilo preferido: ${memoryData.personalityProfile.communicationStyle}\n`;
+      memoryPrompt += `- Tipo de resposta: ${memoryData.personalityProfile.responsePreference}\n`;
     }
+
+    if (memoryData.conversationContext?.currentTopic) {
+      memoryPrompt += `- Tópico atual: ${memoryData.conversationContext.currentTopic}\n`;
+    }
+
+    memoryPrompt += `- Nível do relacionamento: ${memoryData.relationshipStage}\n`;
 
     return memoryPrompt;
   }
 
   static adaptPersonality(memory: ConversationMemory, userMessage: string): void {
-    // Adaptar personalidade baseado na mensagem do usuário
     const lowerMessage = userMessage.toLowerCase();
     
-    if (!memory.conversationContext) {
-      memory.conversationContext = this.createDefaultMemory().conversationContext;
-    }
-
-    if (!memory.conversationContext.personalityAdaptation) {
-      memory.conversationContext.personalityAdaptation = {
-        communicationStyle: 'friendly',
-        responseLength: 'medium',
-        formalityLevel: 'informal'
-      };
-    }
-
     // Adaptar baseado no conteúdo da mensagem
     if (lowerMessage.includes('urgente') || lowerMessage.includes('rápido')) {
       memory.conversationContext.personalityAdaptation.responseLength = 'short';
+      memory.personalityProfile.responsePreference = 'brief';
     } else if (lowerMessage.includes('explique') || lowerMessage.includes('detalhe')) {
       memory.conversationContext.personalityAdaptation.responseLength = 'long';
+      memory.personalityProfile.responsePreference = 'detailed';
     }
 
     // Adaptar formalidade
     if (lowerMessage.includes('doutor') || lowerMessage.includes('senhor')) {
       memory.conversationContext.personalityAdaptation.formalityLevel = 'formal';
+      memory.personalityProfile.communicationStyle = 'formal';
+    } else if (lowerMessage.includes('oi') || lowerMessage.includes('ola')) {
+      memory.conversationContext.personalityAdaptation.formalityLevel = 'informal';
+      memory.personalityProfile.communicationStyle = 'casual';
+    }
+
+    // Adaptar estilo emocional
+    if (lowerMessage.includes('preocupado') || lowerMessage.includes('ansioso')) {
+      memory.personalityProfile.communicationStyle = 'empathetic';
     }
   }
 
@@ -180,10 +212,6 @@ export class ConversationMemoryManager {
     sentiment: string, 
     outcome: string
   ): void {
-    if (!memory.conversationContext) {
-      memory.conversationContext = this.createDefaultMemory().conversationContext;
-    }
-
     if (!memory.conversationContext.interactionHistory) {
       memory.conversationContext.interactionHistory = [];
     }
@@ -202,26 +230,30 @@ export class ConversationMemoryManager {
   }
 
   static evolveRelationship(memory: ConversationMemory): void {
-    if (!memory.conversationContext) {
-      memory.conversationContext = this.createDefaultMemory().conversationContext;
-    }
-
-    // Evoluir o nível de relacionamento baseado nas interações
-    if (memory.conversationContext.interactionHistory) {
+    if (memory.conversationContext.interactionHistory && memory.conversationContext.interactionHistory.length > 0) {
       const positiveInteractions = memory.conversationContext.interactionHistory.filter(
         interaction => interaction.sentiment === 'positive' || interaction.outcome === 'success'
       ).length;
 
       const totalInteractions = memory.conversationContext.interactionHistory.length;
+      const positiveRatio = positiveInteractions / totalInteractions;
       
-      if (totalInteractions > 0) {
-        const positiveRatio = positiveInteractions / totalInteractions;
-        
-        if (positiveRatio > 0.7 && memory.conversationContext.relationshipLevel < 5) {
-          memory.conversationContext.relationshipLevel += 1;
-        } else if (positiveRatio < 0.3 && memory.conversationContext.relationshipLevel > 1) {
-          memory.conversationContext.relationshipLevel -= 1;
+      // Evoluir estágio do relacionamento
+      if (totalInteractions >= 5 && positiveRatio > 0.7) {
+        if (memory.relationshipStage === 'first_contact') {
+          memory.relationshipStage = 'getting_familiar';
+        } else if (memory.relationshipStage === 'getting_familiar') {
+          memory.relationshipStage = 'established';
+        } else if (memory.relationshipStage === 'established') {
+          memory.relationshipStage = 'trusted';
         }
+      }
+
+      // Ajustar nível de relacionamento
+      if (positiveRatio > 0.7 && memory.conversationContext.relationshipLevel < 5) {
+        memory.conversationContext.relationshipLevel += 1;
+      } else if (positiveRatio < 0.3 && memory.conversationContext.relationshipLevel > 1) {
+        memory.conversationContext.relationshipLevel -= 1;
       }
     }
   }

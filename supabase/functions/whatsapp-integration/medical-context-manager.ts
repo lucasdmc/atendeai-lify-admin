@@ -3,24 +3,49 @@ import { ConversationMemory } from './conversation-memory.ts';
 
 export class MedicalContextManager {
   static getMedicalContext(memory: ConversationMemory): string {
+    if (!memory) return '';
+    
     let context = '';
     
-    if (memory.personalityProfile.medicalHistory.length > 0) {
-      context += `Histórico médico conhecido: ${memory.personalityProfile.medicalHistory.join(', ')}. `;
+    if (memory.medicalHistory) {
+      context += `HISTÓRICO MÉDICO: ${memory.medicalHistory}\n`;
     }
     
-    if (memory.conversationContext.nextAppointment) {
-      context += `Próxima consulta: ${memory.conversationContext.nextAppointment}. `;
+    if (memory.conversationContext?.interactionHistory) {
+      const medicalTopics = memory.conversationContext.interactionHistory
+        .filter(interaction => this.isMedicalTopic(interaction.topic))
+        .slice(-3); // Últimas 3 interações médicas
+      
+      if (medicalTopics.length > 0) {
+        context += `TÓPICOS MÉDICOS RECENTES: ${medicalTopics.map(t => t.topic).join(', ')}\n`;
+      }
     }
     
-    if (memory.conversationContext.lastAppointment) {
-      context += `Última consulta: ${memory.conversationContext.lastAppointment}. `;
+    return context;
+  }
+  
+  private static isMedicalTopic(topic: string): boolean {
+    const medicalKeywords = [
+      'consulta', 'sintoma', 'dor', 'medicamento', 'exame', 
+      'tratamento', 'médico', 'saúde', 'diagnóstico'
+    ];
+    
+    return medicalKeywords.some(keyword => 
+      topic.toLowerCase().includes(keyword)
+    );
+  }
+  
+  static updateMedicalHistory(memory: ConversationMemory, newInfo: string): void {
+    if (!memory.medicalHistory) {
+      memory.medicalHistory = newInfo;
+    } else {
+      memory.medicalHistory += `\n${newInfo}`;
     }
     
-    if (memory.conversationContext.recentConcerns.length > 0) {
-      context += `Preocupações recentes: ${memory.conversationContext.recentConcerns.join(', ')}.`;
+    // Manter histórico limitado para não ficar muito longo
+    const lines = memory.medicalHistory.split('\n');
+    if (lines.length > 10) {
+      memory.medicalHistory = lines.slice(-10).join('\n');
     }
-    
-    return context || 'Nenhum histórico médico específico conhecido ainda.';
   }
 }
