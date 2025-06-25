@@ -3,6 +3,45 @@ import { openAIApiKey } from './config.ts';
 import { LiaPersonality } from './lia-personality.ts';
 import { MCPToolsProcessor } from './mcp-tools.ts';
 
+// Função utilitária para verificar se deve responder rapidamente
+function shouldRespondQuickly(message: string, recentMessages: any[]): boolean {
+  const lowerMessage = message.toLowerCase();
+  
+  // Respostas rápidas para mensagens simples
+  const quickResponseTriggers = [
+    'oi', 'olá', 'hi', 'hello',
+    'agend', 'consulta', 'marcar',
+    'psicolog', 'cardio', 'dermat',
+    'obrigad', 'valeu', 'ok'
+  ];
+  
+  return quickResponseTriggers.some(trigger => lowerMessage.includes(trigger));
+}
+
+// Função utilitária para criar mock do Supabase
+function createSupabaseMock() {
+  return {
+    from: (table: string) => ({
+      select: (columns: string) => ({
+        gte: (column: string, value: any) => ({
+          order: (orderColumn: string, options: any) => ({
+            limit: (limitValue: number) => Promise.resolve({ 
+              data: [], 
+              error: null 
+            })
+          })
+        })
+      })
+    }),
+    functions: {
+      invoke: (functionName: string, options: any) => Promise.resolve({ 
+        data: { success: true }, 
+        error: null 
+      })
+    }
+  };
+}
+
 export async function generateEnhancedAIResponse(
   contextData: any[],
   recentMessages: any[],
@@ -31,7 +70,7 @@ export async function generateEnhancedAIResponse(
     }
 
     // Verificar se é uma resposta rápida e direta (não precisa de desculpas)
-    const isQuickResponse = this.shouldRespondQuickly(message, recentMessages);
+    const isQuickResponse = shouldRespondQuickly(message, recentMessages);
 
     // Para respostas diretas, usar respostas da Lia sem IA
     if (isQuickResponse) {
@@ -108,7 +147,7 @@ IMPORTANTE:
       const toolCall = choice.message.tool_calls[0];
       
       // Simular supabase para MCP tools
-      const mockSupabase = this.createSupabaseMock();
+      const mockSupabase = createSupabaseMock();
       
       const toolResult = await MCPToolsProcessor.processToolCall(
         toolCall.function.name,
@@ -135,43 +174,6 @@ IMPORTANTE:
   } catch (error) {
     console.error('❌ Erro crítico na geração de resposta:', error);
     return LiaPersonality.getFollowUpResponse(message);
-  }
-
-  private static shouldRespondQuickly(message: string, recentMessages: any[]): boolean {
-    const lowerMessage = message.toLowerCase();
-    
-    // Respostas rápidas para mensagens simples
-    const quickResponseTriggers = [
-      'oi', 'olá', 'hi', 'hello',
-      'agend', 'consulta', 'marcar',
-      'psicolog', 'cardio', 'dermat',
-      'obrigad', 'valeu', 'ok'
-    ];
-    
-    return quickResponseTriggers.some(trigger => lowerMessage.includes(trigger));
-  }
-
-  private static createSupabaseMock() {
-    return {
-      from: (table: string) => ({
-        select: (columns: string) => ({
-          gte: (column: string, value: any) => ({
-            order: (orderColumn: string, options: any) => ({
-              limit: (limitValue: number) => Promise.resolve({ 
-                data: [], 
-                error: null 
-              })
-            })
-          })
-        })
-      }),
-      functions: {
-        invoke: (functionName: string, options: any) => Promise.resolve({ 
-          data: { success: true }, 
-          error: null 
-        })
-      }
-    };
   }
 }
 
