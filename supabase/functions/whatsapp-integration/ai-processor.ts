@@ -1,7 +1,7 @@
 
 import { isAppointmentRelated } from './appointment-utils.ts';
 import { handleEnhancedAppointmentRequest } from './enhanced-appointment-handler.ts';
-import { generateAIResponse } from './openai-service.ts';
+import { generateEnhancedAIResponse } from './enhanced-openai-service.ts';
 import { sendMessageWithRetry } from './message-retry.ts';
 import { ConversationContextManager } from './conversation-context.ts';
 import { IntentDetector } from './intent-detector.ts';
@@ -10,7 +10,7 @@ import { ConversationValidator } from './conversation-validator.ts';
 import { ConversationFeedbackManager } from './conversation-feedback.ts';
 
 export async function processAndRespondWithAI(phoneNumber: string, message: string, supabase: any) {
-  console.log(`🤖 === PROCESSAMENTO IA INICIADO ===`);
+  console.log(`🤖 === PROCESSAMENTO IA HUMANIZADA INICIADO ===`);
   console.log(`📞 Número: ${phoneNumber}`);
   console.log(`💬 Mensagem: ${message}`);
   
@@ -25,7 +25,7 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
     // Analisar estilo do usuário para personalização
     UserProfileManager.analyzeUserStyle(message, phoneNumber);
 
-    // NOVA PRIORIDADE 1: Resposta da IA (OpenAI) - PRIMEIRA PRIORIDADE
+    // NOVA PRIORIDADE 1: Resposta da IA Humanizada - PRIMEIRA PRIORIDADE
     console.log('🏥 Buscando contexto da clínica...');
     const { data: contextData, error: contextError } = await supabase
       .from('contextualization_data')
@@ -90,65 +90,71 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
       return;
     }
 
-    // Processar com IA usando personalizacao
-    console.log('🤖 Processando com IA (PRIORIDADE 1)...');
-    const personalizedContext = UserProfileManager.getPersonalizationContext(phoneNumber);
-    const finalResponse = await generateAIResponse(
+    // Processar com IA HUMANIZADA usando sistema MCP e memória conversacional
+    console.log('🤖 Processando com IA Humanizada + MCP (PRIORIDADE 1)...');
+    const finalResponse = await generateEnhancedAIResponse(
       contextData, 
       recentMessages, 
       message, 
       phoneNumber,
-      personalizedContext,
       userIntent
     );
 
-    // NOVA PRIORIDADE 2: Detecção de Loops/Repetições
-    console.log('🔄 Verificando repetições (PRIORIDADE 2)...');
+    // PRIORIDADE 2: Detecção de Loops/Repetições - Agora mais inteligente
+    console.log('🔄 Verificando repetições com contexto emocional (PRIORIDADE 2)...');
     const isRepetitive = ConversationContextManager.checkForRepetition(phoneNumber, finalResponse);
     let responseToSend = finalResponse;
     
     if (isRepetitive) {
-      console.log('🔄 Repetição detectada, gerando variação...');
+      console.log('🔄 Repetição detectada, gerando variação contextual...');
       responseToSend = ConversationContextManager.generateVariedResponse(phoneNumber, finalResponse);
     }
 
-    if (context.consecutiveRepeats > 2) {
-      console.log('🚨 Muitas repetições detectadas, escalando para humano...');
+    // Sistema de escalação mais inteligente
+    if (context.consecutiveRepeats > 3) {
+      console.log('🚨 Muitas repetições detectadas, analisando necessidade de escalação...');
       
-      // Atualizar conversa para escalada
-      await supabase
-        .from('whatsapp_conversations')
-        .update({
-          escalated_to_human: true,
-          escalation_reason: 'Repetições excessivas detectadas',
-          escalated_at: new Date().toISOString()
-        })
-        .eq('phone_number', phoneNumber);
-
-      const escalationMessage = `Percebi que pode estar confuso com minhas respostas. Vou transferir você para um de nossos atendentes humanos que poderá ajudá-lo melhor. 😊\n\nUm momento, por favor!`;
+      // Verificar se realmente precisa escalar baseado no contexto
+      const needsEscalation = shouldEscalateToHuman(context, userIntent, message);
       
-      // Resetar contador
-      ConversationContextManager.updateContext(phoneNumber, {
-        consecutiveRepeats: 0,
-        conversationStage: 'concluded'
-      });
+      if (needsEscalation) {
+        // Atualizar conversa para escalada
+        await supabase
+          .from('whatsapp_conversations')
+          .update({
+            escalated_to_human: true,
+            escalation_reason: 'Múltiplas repetições e necessidade detectada',
+            escalated_at: new Date().toISOString()
+          })
+          .eq('phone_number', phoneNumber);
 
-      await sendMessageWithRetry(phoneNumber, escalationMessage, supabase);
-      console.log(`✅ Conversa escalada para humano: ${phoneNumber}`);
-      return;
+        const escalationMessage = `Percebi que talvez eu não esteja conseguindo ajudá-lo da melhor forma. Vou conectá-lo com um de nossos atendentes especializados que poderá dar o suporte que você merece. 😊\n\nUm momento, por favor!`;
+        
+        // Resetar contador
+        ConversationContextManager.updateContext(phoneNumber, {
+          consecutiveRepeats: 0,
+          conversationStage: 'concluded'
+        });
+
+        await sendMessageWithRetry(phoneNumber, escalationMessage, supabase);
+        console.log(`✅ Conversa escalada inteligentemente para humano: ${phoneNumber}`);
+        return;
+      }
     }
 
-    // PRIORIDADE 5: Sistema de Agendamentos (apenas se IA não resolveu)
+    // PRIORIDADE 3: Sistema de Agendamentos (integrado com MCP)
     const isAboutAppointment = isAppointmentRelated(message);
     console.log(`📅 Mensagem sobre agendamento: ${isAboutAppointment ? 'SIM' : 'NÃO'}`);
 
-    if (isAboutAppointment && userIntent.confidence < 0.8) {
-      console.log('🔄 Tentando sistema de agendamento como fallback...');
+    // O sistema de agendamento agora é integrado via MCP no generateEnhancedAIResponse
+    // Mas mantemos fallback para casos específicos
+    if (isAboutAppointment && userIntent.confidence < 0.6) {
+      console.log('🔄 Verificando sistema de agendamento como suporte adicional...');
       try {
         const appointmentResponse = await handleEnhancedAppointmentRequest(message, phoneNumber, supabase);
-        if (appointmentResponse) {
-          console.log('📅 Resposta do sistema de agendamento gerada como fallback');
-          responseToSend = appointmentResponse;
+        if (appointmentResponse && !responseToSend.includes('agend')) {
+          console.log('📅 Integrando informações de agendamento na resposta');
+          responseToSend = `${responseToSend}\n\n${appointmentResponse}`;
         }
       } catch (appointmentError) {
         console.error('❌ Erro no sistema de agendamento:', appointmentError);
@@ -169,28 +175,42 @@ export async function processAndRespondWithAI(phoneNumber: string, message: stri
       lastUserIntent: userIntent.primary
     });
 
-    // Verificar se deve solicitar feedback
+    // Sistema de feedback inteligente - menos intrusivo
     const messageCount = context.conversationHistory.length;
-    if (ConversationFeedbackManager.shouldRequestFeedback(phoneNumber, messageCount)) {
+    if (ConversationFeedbackManager.shouldRequestFeedback(phoneNumber, messageCount) && Math.random() < 0.3) {
       const feedbackRequest = ConversationFeedbackManager.requestFeedback(phoneNumber);
       responseToSend += `\n\n${feedbackRequest}`;
     }
 
     // Enviar resposta
-    console.log('📤 Enviando resposta via WhatsApp...');
+    console.log('📤 Enviando resposta humanizada via WhatsApp...');
     await sendMessageWithRetry(phoneNumber, responseToSend, supabase);
-    console.log(`✅ Resposta automática enviada para ${phoneNumber}`);
+    console.log(`✅ Resposta humanizada enviada para ${phoneNumber}`);
     
   } catch (error) {
-    console.error('❌ Erro crítico no processamento com IA:', error);
+    console.error('❌ Erro crítico no processamento humanizado:', error);
     
-    // Tentar enviar mensagem de erro mais natural
+    // Tentar enviar mensagem de erro mais empática
     try {
-      console.log('📤 Enviando mensagem de erro...');
-      const errorMsg = `Ops! Tive um probleminha aqui. Pode tentar de novo? Se persistir, vou te conectar com um atendente! 😊`;
+      console.log('📤 Enviando mensagem de erro empática...');
+      const errorMsg = `Ops! Parece que tive um pequeno problema técnico. 😅 Pode tentar de novo? Prometo que vou conseguir te ajudar melhor desta vez!`;
       await sendMessageWithRetry(phoneNumber, errorMsg, supabase);
     } catch (sendError) {
       console.error('❌ Falha total ao comunicar com usuário:', sendError);
     }
   }
+}
+
+function shouldEscalateToHuman(context: any, userIntent: any, message: string): boolean {
+  // Lógica mais inteligente para escalação
+  const escalationFactors = [
+    userIntent.primary === 'frustration' && userIntent.confidence > 0.8,
+    message.toLowerCase().includes('falar com pessoa'),
+    message.toLowerCase().includes('atendente humano'),
+    message.toLowerCase().includes('não está funcionando'),
+    context.conversationStage === 'concluded',
+    userIntent.urgencyLevel === 'urgent' && context.consecutiveRepeats > 2
+  ];
+  
+  return escalationFactors.filter(Boolean).length >= 2;
 }
