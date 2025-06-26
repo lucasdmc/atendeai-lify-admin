@@ -37,6 +37,12 @@ const menuItems = [
     permission: 'conectar_whatsapp'
   },
   {
+    title: 'Agentes de IA',
+    icon: Brain,
+    href: '/agentes',
+    permission: 'agentes'
+  },
+  {
     title: 'Agendamentos',
     icon: Calendar,
     href: '/agendamentos',
@@ -44,7 +50,7 @@ const menuItems = [
   },
   {
     title: 'Contextualizar',
-    icon: Brain,
+    icon: Sparkles,
     href: '/contextualizar',
     permission: 'contextualizar'
   },

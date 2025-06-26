@@ -1,7 +1,7 @@
 
 import { QRCodeDisplay } from '@/components/whatsapp/QRCodeDisplay';
-import { ConnectionInstructions } from '@/components/whatsapp/ConnectionInstructions';
-import { ConnectionStatus } from '@/components/whatsapp/ConnectionStatus';
+import { QRCodeInstructions } from '@/components/whatsapp/QRCodeInstructions';
+import { WhatsAppStatusCard } from '@/components/whatsapp/WhatsAppStatusCard';
 import { useWhatsAppConnection } from '@/hooks/useWhatsAppConnection';
 
 const ConectarWhatsApp = () => {
@@ -21,8 +21,15 @@ const ConectarWhatsApp = () => {
           <h1 className="text-3xl font-bold">Conectar WhatsApp Business</h1>
           <p className="text-gray-600 mt-2">Conecte seu número do WhatsApp Business ao sistema</p>
         </div>
-        <ConnectionStatus status={connectionStatus} />
       </div>
+
+      {/* Status Card - Nova seção */}
+      <WhatsAppStatusCard
+        connectionStatus={connectionStatus}
+        clientInfo={clientInfo}
+        onReconnect={generateQRCode}
+        onDisconnect={disconnect}
+      />
 
       <div className="grid md:grid-cols-2 gap-6">
         <QRCodeDisplay
@@ -32,9 +39,8 @@ const ConectarWhatsApp = () => {
           onGenerateQR={generateQRCode}
           onDisconnect={disconnect}
         />
-        <ConnectionInstructions
+        <QRCodeInstructions
           connectionStatus={connectionStatus}
-          clientInfo={clientInfo}
         />
       </div>
     </div>

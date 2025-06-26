@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -17,6 +16,7 @@ import Agendamentos from "./pages/Agendamentos";
 import Configuracoes from "./pages/Configuracoes";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import Agentes from "./pages/Agentes";
 
 const queryClient = new QueryClient();
 
@@ -73,6 +73,14 @@ const App = () => {
                   element={
                     <Layout>
                       <ConectarWhatsApp />
+                    </Layout>
+                  }
+                />
+                <Route
+                  path="/agentes"
+                  element={
+                    <Layout>
+                      <Agentes />
                     </Layout>
                   }
                 />
