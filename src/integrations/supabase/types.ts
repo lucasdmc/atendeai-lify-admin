@@ -505,6 +505,30 @@ export type Database = {
         }
         Relationships: []
       }
+      role_permissions: {
+        Row: {
+          can_access: boolean
+          created_at: string | null
+          id: string
+          module_name: string
+          role: Database["public"]["Enums"]["user_role"]
+        }
+        Insert: {
+          can_access?: boolean
+          created_at?: string | null
+          id?: string
+          module_name: string
+          role: Database["public"]["Enums"]["user_role"]
+        }
+        Update: {
+          can_access?: boolean
+          created_at?: string | null
+          id?: string
+          module_name?: string
+          role?: Database["public"]["Enums"]["user_role"]
+        }
+        Relationships: []
+      }
       settings: {
         Row: {
           created_at: string
@@ -850,7 +874,12 @@ export type Database = {
         | "procedimentos_especialidades"
         | "regras_politicas_clinica"
         | "regras_politicas_procedimentos"
-      user_role: "admin" | "suporte_lify" | "atendente"
+      user_role:
+        | "admin"
+        | "suporte_lify"
+        | "atendente"
+        | "admin_lify"
+        | "gestor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -973,7 +1002,7 @@ export const Constants = {
         "regras_politicas_clinica",
         "regras_politicas_procedimentos",
       ],
-      user_role: ["admin", "suporte_lify", "atendente"],
+      user_role: ["admin", "suporte_lify", "atendente", "admin_lify", "gestor"],
     },
   },
 } as const
