@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,6 +15,7 @@ import Contextualizar from "./pages/Contextualizar";
 import GestaoUsuarios from "./pages/GestaoUsuarios";
 import Agendamentos from "./pages/Agendamentos";
 import Configuracoes from "./pages/Configuracoes";
+import Clinicas from "./pages/Clinicas";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Agentes from "./pages/Agentes";
@@ -81,6 +83,14 @@ const App = () => {
                   element={
                     <Layout>
                       <Agentes />
+                    </Layout>
+                  }
+                />
+                <Route
+                  path="/clinicas"
+                  element={
+                    <Layout>
+                      <Clinicas />
                     </Layout>
                   }
                 />

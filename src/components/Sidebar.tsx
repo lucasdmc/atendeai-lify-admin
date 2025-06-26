@@ -13,7 +13,8 @@ import {
   Sparkles,
   Menu,
   X,
-  Calendar
+  Calendar,
+  Building2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -47,6 +48,12 @@ const menuItems = [
     icon: Calendar,
     href: '/agendamentos',
     permission: 'agendamentos'
+  },
+  {
+    title: 'Clínicas',
+    icon: Building2,
+    href: '/clinicas',
+    permission: 'clinicas'
   },
   {
     title: 'Contextualizar',
