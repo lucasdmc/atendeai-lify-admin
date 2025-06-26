@@ -1,9 +1,41 @@
 
-import { Database } from '../../../src/integrations/supabase/types.ts';
+// Agent context management for WhatsApp integration
+type AgentContext = {
+  id: string;
+  agent_id: string;
+  category: 'informacoes_basicas' | 'profissionais' | 'procedimentos_especialidades' | 'regras_politicas_clinica' | 'regras_politicas_procedimentos';
+  title: string;
+  content: string;
+  created_at: string | null;
+  updated_at: string | null;
+};
 
-type AgentContext = Database['public']['Tables']['agent_contexts']['Row'];
-type Agent = Database['public']['Tables']['agents']['Row'];
-type Clinic = Database['public']['Tables']['clinics']['Row'];
+type Agent = {
+  id: string;
+  name: string;
+  description: string | null;
+  personality: string | null;
+  temperature: number | null;
+  clinic_id: string;
+  is_active: boolean | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+type Clinic = {
+  id: string;
+  name: string;
+  cnpj: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  website: string | null;
+  is_active: boolean | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
 
 export class AgentContextManager {
   static async getAgentByPhone(phoneNumber: string, supabase: any): Promise<Agent | null> {
