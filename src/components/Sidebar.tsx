@@ -70,12 +70,23 @@ const menuItems = [
 
 const Sidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { userPermissions } = useAuth();
+  const { userPermissions, userRole } = useAuth();
   const location = useLocation();
 
-  const filteredMenuItems = menuItems.filter(item => {
-    return userPermissions.includes(item.permission);
-  });
+  console.log('Sidebar Debug - User permissions:', userPermissions);
+  console.log('Sidebar Debug - User role:', userRole);
+  console.log('Sidebar Debug - All menu items:', menuItems.map(item => item.permission));
+
+  // Se não há permissões carregadas ainda ou se é admin, mostrar todos os itens
+  const filteredMenuItems = userPermissions.length === 0 && userRole === 'admin' 
+    ? menuItems 
+    : menuItems.filter(item => {
+        const hasPermission = userPermissions.includes(item.permission);
+        console.log(`Permission check for ${item.title} (${item.permission}):`, hasPermission);
+        return hasPermission;
+      });
+
+  console.log('Sidebar Debug - Filtered menu items:', filteredMenuItems.length);
 
   return (
     <>
@@ -106,11 +117,22 @@ const Sidebar = () => {
             </div>
           </div>
 
+          {/* Debug info - remover após resolver o problema */}
+          <div className="p-2 bg-gray-50 text-xs">
+            <div>Role: {userRole || 'Carregando...'}</div>
+            <div>Permissions: {userPermissions.length} módulos</div>
+            <div>Visible items: {filteredMenuItems.length}</div>
+          </div>
+
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-2">
             {filteredMenuItems.length === 0 ? (
               <div className="text-center text-gray-500 text-sm py-4">
-                Nenhum módulo disponível
+                <div>Carregando permissões...</div>
+                <div className="text-xs mt-2">
+                  Role: {userRole || 'indefinido'}<br/>
+                  Permissions: {JSON.stringify(userPermissions)}
+                </div>
               </div>
             ) : (
               filteredMenuItems.map((item) => {
