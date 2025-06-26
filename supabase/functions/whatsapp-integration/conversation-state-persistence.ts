@@ -1,19 +1,24 @@
-
 import { ConversationState } from './conversation-state-types.ts';
 
 export class ConversationStatePersistence {
   // Salvar estado no banco de dados para persistência real
   static async saveStateToDB(phoneNumber: string, state: ConversationState, supabase: any) {
     try {
-      await supabase
+      const { error } = await supabase
         .from('whatsapp_conversation_memory')
         .upsert({
           phone_number: phoneNumber,
-          memory_data: state
+          memory_data: state,
+          updated_at: new Date().toISOString()
         });
-      console.log(`💾 Estado salvo no banco para ${phoneNumber}`);
+
+      if (error) {
+        console.error('❌ Erro ao salvar estado no banco:', error);
+      } else {
+        console.log(`💾 Estado salvo no banco para ${phoneNumber}`);
+      }
     } catch (error) {
-      console.error('❌ Erro ao salvar estado no banco:', error);
+      console.error('❌ Erro crítico ao salvar estado:', error);
     }
   }
 
@@ -26,33 +31,42 @@ export class ConversationStatePersistence {
         .eq('phone_number', phoneNumber)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('❌ Erro ao carregar estado do banco:', error);
+      if (error) {
+        console.log(`📝 Nenhum estado salvo encontrado para ${phoneNumber}`);
         return null;
       }
 
-      if (data?.memory_data) {
-        console.log(`📂 Estado carregado do banco para ${phoneNumber}`);
-        return data.memory_data as ConversationState;
-      }
+      const state = data.memory_data as ConversationState;
+      console.log(`📖 Estado carregado do banco para ${phoneNumber}`);
+      return state;
     } catch (error) {
-      console.error('❌ Erro ao carregar estado:', error);
+      console.error('❌ Erro ao carregar estado do banco:', error);
+      return null;
     }
-    return null;
   }
 
-  static createNewState(phoneNumber: string): ConversationState {
+  static createNewState(phoneNumber: string, agentData?: { agentId?: string; clinicId?: string }): ConversationState {
     return {
       phoneNumber,
-      currentState: 'initial',
+      currentState: 'greeting',
+      conversationStarted: Date.now(),
       lastActivity: Date.now(),
-      attempts: 0,
-      conversationStarted: false,
-      messageCount: 0
+      messageCount: 0,
+      selectedService: null,
+      selectedTime: null,
+      selectedDate: null,
+      customerName: null,
+      customerEmail: null,
+      bookingConfirmed: false,
+      contextData: {},
+      agentId: agentData?.agentId || null,
+      clinicId: agentData?.clinicId || null
     };
   }
 
   static isStateExpired(state: ConversationState): boolean {
-    return Date.now() - state.lastActivity > 30 * 60 * 1000; // 30 minutes
+    const now = Date.now();
+    const maxAge = 30 * 60 * 1000; // 30 minutos
+    return (now - state.lastActivity) > maxAge;
   }
 }

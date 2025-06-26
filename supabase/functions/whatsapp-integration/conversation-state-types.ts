@@ -1,27 +1,41 @@
 
 export interface ConversationState {
   phoneNumber: string;
-  currentState: 'initial' | 'service_selection' | 'time_selection' | 'contact_info' | 'confirmation' | 'completed';
-  selectedService?: string;
-  selectedDate?: string;
-  selectedTime?: string;
-  customerName?: string;
-  customerEmail?: string;
+  currentState: string;
+  conversationStarted: number;
   lastActivity: number;
-  attempts: number;
-  conversationStarted: boolean;
   messageCount: number;
+  selectedService: string | null;
+  selectedTime: string | null;
+  selectedDate: string | null;
+  customerName: string | null;
+  customerEmail: string | null;
+  bookingConfirmed: boolean;
+  contextData: Record<string, any>;
+  agentId: string | null;
+  clinicId: string | null;
 }
 
-export interface UserInputAnalysis {
-  isTimeSelection: boolean;
-  isConfirmation: boolean;
-  isSpecialtySelection: boolean;
-  isGreeting: boolean;
-  isAppointmentRequest: boolean;
-  extractedTime?: string;
-  extractedDate?: string;
-  extractedName?: string;
-  extractedEmail?: string;
-  extractedSpecialty?: string;
+export interface ConversationContext {
+  phoneNumber: string;
+  messageHistory: string[];
+  currentIntent: string;
+  userPreferences: Record<string, any>;
+  sessionData: Record<string, any>;
+}
+
+export interface AgentConfig {
+  id: string;
+  name: string;
+  personality: string;
+  temperature: number;
+  clinicId: string;
+  contexts: AgentContext[];
+}
+
+export interface AgentContext {
+  id: string;
+  category: string;
+  title: string;
+  content: string;
 }

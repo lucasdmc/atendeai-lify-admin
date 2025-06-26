@@ -9,6 +9,133 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      agent_contexts: {
+        Row: {
+          agent_id: string
+          category: Database["public"]["Enums"]["context_category"]
+          content: string
+          created_at: string | null
+          id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          agent_id: string
+          category: Database["public"]["Enums"]["context_category"]
+          content: string
+          created_at?: string | null
+          id?: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          agent_id?: string
+          category?: Database["public"]["Enums"]["context_category"]
+          content?: string
+          created_at?: string | null
+          id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_contexts_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_phone_associations: {
+        Row: {
+          agent_id: string
+          clinic_id: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          phone_number: string
+          updated_at: string | null
+        }
+        Insert: {
+          agent_id: string
+          clinic_id: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          phone_number: string
+          updated_at?: string | null
+        }
+        Update: {
+          agent_id?: string
+          clinic_id?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          phone_number?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_phone_associations_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_phone_associations_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agents: {
+        Row: {
+          clinic_id: string
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          personality: string | null
+          temperature: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          personality?: string | null
+          temperature?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          personality?: string | null
+          temperature?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agents_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calendar_events: {
         Row: {
           attendees: Json | null
@@ -150,9 +277,91 @@ export type Database = {
         }
         Relationships: []
       }
+      clinic_users: {
+        Row: {
+          clinic_id: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          role: Database["public"]["Enums"]["user_role"]
+          user_id: string
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          role?: Database["public"]["Enums"]["user_role"]
+          user_id: string
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          role?: Database["public"]["Enums"]["user_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_users_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinics: {
+        Row: {
+          address: string | null
+          city: string | null
+          cnpj: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          phone: string | null
+          state: string | null
+          updated_at: string | null
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          cnpj?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          phone?: string | null
+          state?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          cnpj?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          phone?: string | null
+          state?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
       contextualization_data: {
         Row: {
+          agent_id: string | null
           answer: string | null
+          category: Database["public"]["Enums"]["context_category"] | null
           clinic_id: string | null
           created_at: string
           id: string
@@ -162,7 +371,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          agent_id?: string | null
           answer?: string | null
+          category?: Database["public"]["Enums"]["context_category"] | null
           clinic_id?: string | null
           created_at?: string
           id?: string
@@ -172,7 +383,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          agent_id?: string | null
           answer?: string | null
+          category?: Database["public"]["Enums"]["context_category"] | null
           clinic_id?: string | null
           created_at?: string
           id?: string
@@ -181,7 +394,15 @@ export type Database = {
           question?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "contextualization_data_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       dashboard_metrics: {
         Row: {
@@ -206,6 +427,50 @@ export type Database = {
           metric_value?: number
         }
         Relationships: []
+      }
+      file_uploads: {
+        Row: {
+          agent_id: string
+          created_at: string | null
+          extracted_content: string | null
+          file_size: number | null
+          file_type: string
+          filename: string
+          id: string
+          processed_at: string | null
+          processing_status: string | null
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string | null
+          extracted_content?: string | null
+          file_size?: number | null
+          file_type: string
+          filename: string
+          id?: string
+          processed_at?: string | null
+          processing_status?: string | null
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string | null
+          extracted_content?: string | null
+          file_size?: number | null
+          file_type?: string
+          filename?: string
+          id?: string
+          processed_at?: string | null
+          processing_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_uploads_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       google_calendar_tokens: {
         Row: {
@@ -395,6 +660,8 @@ export type Database = {
       }
       whatsapp_conversations: {
         Row: {
+          agent_id: string | null
+          clinic_id: string | null
           consecutive_same_responses: number | null
           country_code: string | null
           created_at: string
@@ -412,6 +679,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          agent_id?: string | null
+          clinic_id?: string | null
           consecutive_same_responses?: number | null
           country_code?: string | null
           created_at?: string
@@ -429,6 +698,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          agent_id?: string | null
+          clinic_id?: string | null
           consecutive_same_responses?: number | null
           country_code?: string | null
           created_at?: string
@@ -445,7 +716,22 @@ export type Database = {
           unread_count?: number | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversations_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       whatsapp_loop_events: {
         Row: {
@@ -540,12 +826,30 @@ export type Database = {
         Args: { phone_number: string }
         Returns: string
       }
+      get_user_clinics: {
+        Args: { user_id: string }
+        Returns: {
+          clinic_id: string
+          clinic_name: string
+          user_role: Database["public"]["Enums"]["user_role"]
+        }[]
+      }
       get_user_role: {
         Args: { user_id: string }
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      is_lify_admin: {
+        Args: { user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
+      context_category:
+        | "informacoes_basicas"
+        | "profissionais"
+        | "procedimentos_especialidades"
+        | "regras_politicas_clinica"
+        | "regras_politicas_procedimentos"
       user_role: "admin" | "suporte_lify" | "atendente"
     }
     CompositeTypes: {
@@ -662,6 +966,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      context_category: [
+        "informacoes_basicas",
+        "profissionais",
+        "procedimentos_especialidades",
+        "regras_politicas_clinica",
+        "regras_politicas_procedimentos",
+      ],
       user_role: ["admin", "suporte_lify", "atendente"],
     },
   },
