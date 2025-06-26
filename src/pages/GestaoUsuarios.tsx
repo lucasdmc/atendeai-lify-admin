@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,7 +36,7 @@ interface User {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'suporte_lify' | 'atendente';
+  role: 'admin' | 'suporte_lify' | 'atendente' | 'admin_lify' | 'gestor';
   status: boolean;
   created_at: string;
 }
@@ -56,22 +57,13 @@ const GestaoUsuarios = () => {
   });
   const { toast } = useToast();
 
-  const permissions = [
-    { id: 'dashboard', label: 'Dashboard' },
-    { id: 'conversas', label: 'Conversas' },
-    { id: 'conectar_whatsapp', label: 'Conectar WhatsApp' },
-    { id: 'agentes', label: 'Agentes de IA' },
-    { id: 'contextualizar', label: 'Contextualizar' },
-    { id: 'gestao_usuarios', label: 'Gestão de Usuários' },
-    { id: 'agendamentos', label: 'Agendamentos' },
-    { id: 'configuracoes', label: 'Configurações' }
-  ];
-
-  // Define permissões por função - agentes incluído para admin e suporte_lify
+  // Define permissões por função
   const rolePermissions = {
-    atendente: ['dashboard', 'conversas', 'conectar_whatsapp', 'agendamentos'],
+    atendente: ['dashboard', 'conversas', 'agendamentos'],
+    gestor: ['dashboard', 'conversas', 'conectar_whatsapp', 'agentes', 'agendamentos', 'contextualizar', 'configuracoes'],
     admin: ['dashboard', 'conversas', 'conectar_whatsapp', 'agentes', 'contextualizar', 'gestao_usuarios', 'agendamentos', 'configuracoes'],
-    suporte_lify: ['dashboard', 'conversas', 'conectar_whatsapp', 'agentes', 'contextualizar', 'gestao_usuarios', 'agendamentos', 'configuracoes']
+    suporte_lify: ['dashboard', 'conversas', 'conectar_whatsapp', 'agentes', 'contextualizar', 'gestao_usuarios', 'agendamentos', 'clinicas', 'configuracoes'],
+    admin_lify: ['dashboard', 'conversas', 'conectar_whatsapp', 'agentes', 'contextualizar', 'gestao_usuarios', 'agendamentos', 'clinicas', 'criar_clinicas', 'configuracoes']
   };
 
   useEffect(() => {
@@ -173,26 +165,6 @@ const GestaoUsuarios = () => {
 
       console.log('Perfil atualizado com sucesso');
 
-      // Definir permissões baseadas no role
-      const userPermissions = rolePermissions[newUser.role];
-
-      // Atualizar permissões baseadas na função
-      for (const permission of permissions) {
-        const hasAccess = userPermissions.includes(permission.id);
-        
-        const { error: permError } = await supabase
-          .from('user_permissions')
-          .update({ can_access: hasAccess })
-          .eq('user_id', authData.user.id)
-          .eq('module_name', permission.id);
-
-        if (permError) {
-          console.error(`Erro ao atualizar permissão ${permission.id}:`, permError);
-        }
-      }
-
-      console.log('Permissões atualizadas');
-
       // Recarregar a lista de usuários
       await fetchUsers();
 
@@ -272,46 +244,12 @@ const GestaoUsuarios = () => {
     }
   };
 
-  const handleTogglePermission = async (userId: string, moduleId: string) => {
-    try {
-      // Buscar a permissão atual
-      const { data: currentPermission, error: fetchError } = await supabase
-        .from('user_permissions')
-        .select('can_access')
-        .eq('user_id', userId)
-        .eq('module_name', moduleId)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      const newAccess = !currentPermission.can_access;
-
-      const { error } = await supabase
-        .from('user_permissions')
-        .update({ can_access: newAccess })
-        .eq('user_id', userId)
-        .eq('module_name', moduleId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Permissão atualizada",
-        description: `Permissão para ${moduleId} foi ${newAccess ? 'concedida' : 'removida'}.`,
-      });
-    } catch (error) {
-      console.error('Error updating permission:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível atualizar a permissão.",
-        variant: "destructive",
-      });
-    }
-  };
-
   const getRoleLabel = (role: string) => {
     const roleLabels = {
-      admin: 'Administrador',
+      admin_lify: 'Administrador Lify',
       suporte_lify: 'Suporte Lify',
+      admin: 'Administrador',
+      gestor: 'Gestor',
       atendente: 'Atendente'
     };
     return roleLabels[role as keyof typeof roleLabels] || role;
@@ -319,22 +257,23 @@ const GestaoUsuarios = () => {
 
   const getRoleColor = (role: string) => {
     switch (role) {
-      case 'admin': return 'bg-red-100 text-red-800';
+      case 'admin_lify': return 'bg-purple-100 text-purple-800';
       case 'suporte_lify': return 'bg-blue-100 text-blue-800';
+      case 'admin': return 'bg-red-100 text-red-800';
+      case 'gestor': return 'bg-yellow-100 text-yellow-800';
       default: return 'bg-green-100 text-green-800';
     }
   };
 
-  const getRolePermissionDescription = (role: 'admin' | 'suporte_lify' | 'atendente') => {
-    switch (role) {
-      case 'atendente':
-        return 'Acesso a: Dashboard, Conversas, Conectar WhatsApp e Agendamentos';
-      case 'admin':
-      case 'suporte_lify':
-        return 'Acesso completo a todos os módulos incluindo Agentes de IA';
-      default:
-        return '';
-    }
+  const getRolePermissionDescription = (role: 'admin' | 'suporte_lify' | 'atendente' | 'admin_lify' | 'gestor') => {
+    const descriptions = {
+      atendente: 'Acesso a: Dashboard, Conversas e Agendamentos',
+      gestor: 'Acesso a: Dashboard, Conversas, WhatsApp, Agentes, Agendamentos, Contextualizar e Configurações',
+      admin: 'Acesso completo a uma clínica específica',
+      suporte_lify: 'Acesso total exceto criação de clínicas',
+      admin_lify: 'Acesso total incluindo criação de clínicas'
+    };
+    return descriptions[role] || '';
   };
 
   const filteredUsers = users.filter(user =>
@@ -404,8 +343,10 @@ const GestaoUsuarios = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="atendente">Atendente</SelectItem>
+                    <SelectItem value="gestor">Gestor</SelectItem>
                     <SelectItem value="admin">Administrador</SelectItem>
                     <SelectItem value="suporte_lify">Suporte Lify</SelectItem>
+                    <SelectItem value="admin_lify">Administrador Lify</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-gray-600 mt-1">

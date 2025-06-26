@@ -862,6 +862,10 @@ export type Database = {
         Args: { user_id: string }
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      is_admin_lify: {
+        Args: { user_id: string }
+        Returns: boolean
+      }
       is_lify_admin: {
         Args: { user_id: string }
         Returns: boolean

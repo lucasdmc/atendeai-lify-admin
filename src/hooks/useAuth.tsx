@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoadingUserData(true);
       console.log('Fetching user data for ID:', userId);
       
-      // Fetch user profile and permissions
+      // Fetch user profile
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
         .select('role')
@@ -55,25 +55,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (profile) {
         setUserRole(profile.role);
         console.log('User role set to:', profile.role);
-      }
 
-      const { data: permissions, error: permissionsError } = await supabase
-        .from('user_permissions')
-        .select('module_name')
-        .eq('user_id', userId)
-        .eq('can_access', true);
-      
-      if (permissionsError) {
-        console.error('Error fetching permissions:', permissionsError);
-        setUserPermissions([]);
-        return;
-      }
+        // Fetch permissions based on role from role_permissions table
+        const { data: rolePermissions, error: rolePermissionsError } = await supabase
+          .from('role_permissions')
+          .select('module_name')
+          .eq('role', profile.role)
+          .eq('can_access', true);
+        
+        if (rolePermissionsError) {
+          console.error('Error fetching role permissions:', rolePermissionsError);
+          setUserPermissions([]);
+          return;
+        }
 
-      console.log('Permissions fetched:', permissions);
-      
-      const moduleNames = permissions?.map(p => p.module_name) || [];
-      setUserPermissions(moduleNames);
-      console.log('User permissions set to:', moduleNames);
+        console.log('Role permissions fetched:', rolePermissions);
+        
+        const moduleNames = rolePermissions?.map(p => p.module_name) || [];
+        setUserPermissions(moduleNames);
+        console.log('User permissions set to:', moduleNames);
+      }
       
     } catch (error) {
       console.error('Error fetching user data:', error);
