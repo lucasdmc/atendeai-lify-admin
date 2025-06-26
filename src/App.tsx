@@ -1,10 +1,12 @@
-
+import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { LoadingPage } from "@/components/ui/loading";
+import { validateConfig } from "@/config/environment";
 import Auth from "./pages/Auth";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
@@ -20,13 +22,26 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Agentes from "./pages/Agentes";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 5 * 60 * 1000, // 5 minutos
+    },
+  },
+});
 
 const App = () => {
   const { session, loading } = useAuth();
 
+  // Validar configuração na inicialização
+  React.useEffect(() => {
+    validateConfig();
+  }, []);
+
   if (loading) {
-    return <div>Loading...</div>;
+    return <LoadingPage text="Carregando aplicação..." />;
   }
 
   return (
