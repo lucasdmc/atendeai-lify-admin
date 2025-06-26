@@ -28,7 +28,7 @@ export const getRolePermissionDescription = (role: UserRole) => {
   const descriptions = {
     atendente: 'Acesso a: Dashboard, Conversas e Agendamentos',
     gestor: 'Acesso a: Dashboard, Conversas, WhatsApp, Agentes, Agendamentos, Contextualizar e Configurações',
-    admin: 'Acesso completo a uma clínica específica',
+    admin: 'Acesso completo a uma clínica específica incluindo gestão de clínicas',
     suporte_lify: 'Acesso total exceto criação de clínicas',
     admin_lify: 'Acesso total incluindo criação de clínicas'
   };
@@ -38,7 +38,7 @@ export const getRolePermissionDescription = (role: UserRole) => {
 export const rolePermissions = {
   atendente: ['dashboard', 'conversas', 'agendamentos'],
   gestor: ['dashboard', 'conversas', 'conectar_whatsapp', 'agentes', 'agendamentos', 'contextualizar', 'configuracoes'],
-  admin: ['dashboard', 'conversas', 'conectar_whatsapp', 'agentes', 'contextualizar', 'gestao_usuarios', 'agendamentos', 'configuracoes'],
+  admin: ['dashboard', 'conversas', 'conectar_whatsapp', 'agentes', 'contextualizar', 'gestao_usuarios', 'agendamentos', 'clinicas', 'configuracoes'],
   suporte_lify: ['dashboard', 'conversas', 'conectar_whatsapp', 'agentes', 'contextualizar', 'gestao_usuarios', 'agendamentos', 'clinicas', 'configuracoes'],
   admin_lify: ['dashboard', 'conversas', 'conectar_whatsapp', 'agentes', 'contextualizar', 'gestao_usuarios', 'agendamentos', 'clinicas', 'criar_clinicas', 'configuracoes']
 };
