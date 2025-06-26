@@ -58,17 +58,18 @@ const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalPr
     { id: 'dashboard', label: 'Dashboard' },
     { id: 'conversas', label: 'Conversas' },
     { id: 'conectar_whatsapp', label: 'Conectar WhatsApp' },
+    { id: 'agentes', label: 'Agentes de IA' },
     { id: 'agendamentos', label: 'Agendamentos' },
     { id: 'contextualizar', label: 'Contextualizar' },
     { id: 'gestao_usuarios', label: 'Gestão de Usuários' },
     { id: 'configuracoes', label: 'Configurações' }
   ];
 
-  // Define permissões por função - agendamentos incluído para todas
+  // Define permissões por função - agentes incluído para admin e suporte_lify
   const rolePermissions = {
     atendente: ['dashboard', 'conversas', 'conectar_whatsapp', 'agendamentos'],
-    admin: ['dashboard', 'conversas', 'conectar_whatsapp', 'agendamentos', 'contextualizar', 'gestao_usuarios', 'configuracoes'],
-    suporte_lify: ['dashboard', 'conversas', 'conectar_whatsapp', 'agendamentos', 'contextualizar', 'gestao_usuarios', 'configuracoes']
+    admin: ['dashboard', 'conversas', 'conectar_whatsapp', 'agentes', 'agendamentos', 'contextualizar', 'gestao_usuarios', 'configuracoes'],
+    suporte_lify: ['dashboard', 'conversas', 'conectar_whatsapp', 'agentes', 'agendamentos', 'contextualizar', 'gestao_usuarios', 'configuracoes']
   };
 
   useEffect(() => {
@@ -155,7 +156,7 @@ const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalPr
         return 'Acesso a: Dashboard, Conversas, Conectar WhatsApp e Agendamentos';
       case 'admin':
       case 'suporte_lify':
-        return 'Acesso completo a todos os módulos';
+        return 'Acesso completo a todos os módulos incluindo Agentes de IA';
       default:
         return '';
     }

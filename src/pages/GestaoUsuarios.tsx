@@ -60,17 +60,18 @@ const GestaoUsuarios = () => {
     { id: 'dashboard', label: 'Dashboard' },
     { id: 'conversas', label: 'Conversas' },
     { id: 'conectar_whatsapp', label: 'Conectar WhatsApp' },
+    { id: 'agentes', label: 'Agentes de IA' },
     { id: 'contextualizar', label: 'Contextualizar' },
     { id: 'gestao_usuarios', label: 'Gestão de Usuários' },
     { id: 'agendamentos', label: 'Agendamentos' },
     { id: 'configuracoes', label: 'Configurações' }
   ];
 
-  // Define permissões por função
+  // Define permissões por função - agentes incluído para admin e suporte_lify
   const rolePermissions = {
     atendente: ['dashboard', 'conversas', 'conectar_whatsapp', 'agendamentos'],
-    admin: ['dashboard', 'conversas', 'conectar_whatsapp', 'contextualizar', 'gestao_usuarios', 'agendamentos', 'configuracoes'],
-    suporte_lify: ['dashboard', 'conversas', 'conectar_whatsapp', 'contextualizar', 'gestao_usuarios', 'agendamentos', 'configuracoes']
+    admin: ['dashboard', 'conversas', 'conectar_whatsapp', 'agentes', 'contextualizar', 'gestao_usuarios', 'agendamentos', 'configuracoes'],
+    suporte_lify: ['dashboard', 'conversas', 'conectar_whatsapp', 'agentes', 'contextualizar', 'gestao_usuarios', 'agendamentos', 'configuracoes']
   };
 
   useEffect(() => {
@@ -330,7 +331,7 @@ const GestaoUsuarios = () => {
         return 'Acesso a: Dashboard, Conversas, Conectar WhatsApp e Agendamentos';
       case 'admin':
       case 'suporte_lify':
-        return 'Acesso completo a todos os módulos';
+        return 'Acesso completo a todos os módulos incluindo Agentes de IA';
       default:
         return '';
     }
