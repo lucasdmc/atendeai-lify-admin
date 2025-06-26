@@ -31,29 +31,33 @@ import { UserPlus, Search, Edit, Trash2, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import EditUserModal from '@/components/users/EditUserModal';
+import type { Database } from '@/integrations/supabase/types';
 
-interface User {
+// Use the database type directly to avoid conflicts
+type UserRole = Database['public']['Enums']['user_role'];
+
+interface GestaoUser {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'suporte_lify' | 'atendente' | 'admin_lify' | 'gestor';
+  role: UserRole;
   status: boolean;
   created_at: string;
 }
 
 const GestaoUsuarios = () => {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<GestaoUser[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editingUser, setEditingUser] = useState<GestaoUser | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
     password: '',
-    role: 'atendente' as const
+    role: 'atendente' as UserRole
   });
   const { toast } = useToast();
 
@@ -200,7 +204,7 @@ const GestaoUsuarios = () => {
     }
   };
 
-  const handleEditUser = (user: User) => {
+  const handleEditUser = (user: GestaoUser) => {
     setEditingUser(user);
     setIsEditModalOpen(true);
   };
@@ -265,7 +269,7 @@ const GestaoUsuarios = () => {
     }
   };
 
-  const getRolePermissionDescription = (role: 'admin' | 'suporte_lify' | 'atendente' | 'admin_lify' | 'gestor') => {
+  const getRolePermissionDescription = (role: UserRole) => {
     const descriptions = {
       atendente: 'Acesso a: Dashboard, Conversas e Agendamentos',
       gestor: 'Acesso a: Dashboard, Conversas, WhatsApp, Agentes, Agendamentos, Contextualizar e Configurações',
@@ -337,7 +341,7 @@ const GestaoUsuarios = () => {
               </div>
               <div>
                 <label className="text-sm font-medium">Função</label>
-                <Select value={newUser.role} onValueChange={(value: any) => setNewUser(prev => ({ ...prev, role: value }))}>
+                <Select value={newUser.role} onValueChange={(value: UserRole) => setNewUser(prev => ({ ...prev, role: value }))}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
