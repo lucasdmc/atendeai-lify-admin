@@ -1,37 +1,24 @@
+
 import { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle 
-} from '@/components/ui/dialog';
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Check } from 'lucide-react';
+import type { Database } from '@/integrations/supabase/types';
+
+type UserRole = Database['public']['Enums']['user_role'];
 
 interface User {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'suporte_lify' | 'atendente';
+  role: UserRole;
   status: boolean;
   created_at: string;
-}
-
-interface Permission {
-  module_name: string;
-  can_access: boolean;
 }
 
 interface EditUserModalProps {
@@ -42,94 +29,49 @@ interface EditUserModalProps {
 }
 
 const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalProps) => {
-  const [editingUser, setEditingUser] = useState<{
-    name: string;
-    role: 'admin' | 'suporte_lify' | 'atendente';
-    status: boolean;
-  }>({
+  const [formData, setFormData] = useState({
     name: '',
-    role: 'atendente',
+    role: 'atendente' as UserRole,
     status: true
   });
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const permissions = [
-    { id: 'dashboard', label: 'Dashboard' },
-    { id: 'conversas', label: 'Conversas' },
-    { id: 'conectar_whatsapp', label: 'Conectar WhatsApp' },
-    { id: 'agentes', label: 'Agentes de IA' },
-    { id: 'agendamentos', label: 'Agendamentos' },
-    { id: 'contextualizar', label: 'Contextualizar' },
-    { id: 'gestao_usuarios', label: 'Gestão de Usuários' },
-    { id: 'configuracoes', label: 'Configurações' }
-  ];
-
-  // Define permissões por função - agentes incluído para admin e suporte_lify
-  const rolePermissions = {
-    atendente: ['dashboard', 'conversas', 'conectar_whatsapp', 'agendamentos'],
-    admin: ['dashboard', 'conversas', 'conectar_whatsapp', 'agentes', 'agendamentos', 'contextualizar', 'gestao_usuarios', 'configuracoes'],
-    suporte_lify: ['dashboard', 'conversas', 'conectar_whatsapp', 'agentes', 'agendamentos', 'contextualizar', 'gestao_usuarios', 'configuracoes']
-  };
-
   useEffect(() => {
-    if (user && isOpen) {
-      setEditingUser({
+    if (user) {
+      setFormData({
         name: user.name,
         role: user.role,
         status: user.status
       });
     }
-  }, [user, isOpen]);
+  }, [user]);
 
-  const updateUserPermissions = async (userId: string, role: 'admin' | 'suporte_lify' | 'atendente') => {
-    const allowedPermissions = rolePermissions[role];
-
-    // Atualizar todas as permissões baseadas na função
-    for (const permission of permissions) {
-      const hasAccess = allowedPermissions.includes(permission.id);
-      
-      const { error } = await supabase
-        .from('user_permissions')
-        .update({ can_access: hasAccess })
-        .eq('user_id', userId)
-        .eq('module_name', permission.id);
-
-      if (error) {
-        console.error(`Error updating permission ${permission.id}:`, error);
-        throw error;
-      }
-    }
-  };
-
-  const handleUpdateUser = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!user) return;
 
     setIsLoading(true);
     try {
-      // Atualizar perfil do usuário
-      const { error: profileError } = await supabase
+      const { error } = await supabase
         .from('user_profiles')
         .update({
-          name: editingUser.name,
-          role: editingUser.role,
-          status: editingUser.status
+          name: formData.name,
+          role: formData.role,
+          status: formData.status
         })
         .eq('id', user.id);
 
-      if (profileError) throw profileError;
-
-      // Atualizar permissões baseadas na função
-      await updateUserPermissions(user.id, editingUser.role);
+      if (error) throw error;
 
       toast({
         title: "Usuário atualizado",
-        description: "As informações e permissões do usuário foram atualizadas com sucesso.",
+        description: "As informações do usuário foram atualizadas com sucesso.",
       });
 
       onUserUpdated();
       onClose();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating user:', error);
       toast({
         title: "Erro",
@@ -143,123 +85,93 @@ const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalPr
 
   const getRoleLabel = (role: string) => {
     const roleLabels = {
-      admin: 'Administrador',
+      admin_lify: 'Administrador Lify',
       suporte_lify: 'Suporte Lify',
+      admin: 'Administrador',
+      gestor: 'Gestor',
       atendente: 'Atendente'
     };
     return roleLabels[role as keyof typeof roleLabels] || role;
   };
 
-  const getRolePermissionDescription = (role: 'admin' | 'suporte_lify' | 'atendente') => {
-    switch (role) {
-      case 'atendente':
-        return 'Acesso a: Dashboard, Conversas, Conectar WhatsApp e Agendamentos';
-      case 'admin':
-      case 'suporte_lify':
-        return 'Acesso completo a todos os módulos incluindo Agentes de IA';
-      default:
-        return '';
-    }
+  const getRolePermissionDescription = (role: UserRole) => {
+    const descriptions = {
+      atendente: 'Acesso a: Dashboard, Conversas e Agendamentos',
+      gestor: 'Acesso a: Dashboard, Conversas, WhatsApp, Agentes, Agendamentos, Contextualizar e Configurações',
+      admin: 'Acesso completo a uma clínica específica',
+      suporte_lify: 'Acesso total exceto criação de clínicas',
+      admin_lify: 'Acesso total incluindo criação de clínicas'
+    };
+    return descriptions[role] || '';
   };
 
   if (!user) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Editar Usuário</DialogTitle>
         </DialogHeader>
-        
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium">Nome</label>
-              <Input
-                value={editingUser.name}
-                onChange={(e) => setEditingUser(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Nome completo"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Email</label>
-              <Input
-                value={user.email}
-                disabled
-                className="bg-gray-100"
-              />
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Nome</Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+              required
+            />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium">Função</label>
-              <Select 
-                value={editingUser.role} 
-                onValueChange={(value: 'admin' | 'suporte_lify' | 'atendente') => setEditingUser(prev => ({ ...prev, role: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="atendente">Atendente</SelectItem>
-                  <SelectItem value="admin">Administrador</SelectItem>
-                  <SelectItem value="suporte_lify">Suporte Lify</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-gray-600 mt-1">
-                {getRolePermissionDescription(editingUser.role)}
-              </p>
-            </div>
-            <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium">Status</label>
-              <Switch
-                checked={editingUser.status}
-                onCheckedChange={(checked) => setEditingUser(prev => ({ ...prev, status: checked }))}
-              />
-              <span className="text-sm text-gray-600">
-                {editingUser.status ? 'Ativo' : 'Inativo'}
-              </span>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              value={user.email}
+              disabled
+              className="bg-gray-100"
+            />
+            <p className="text-xs text-gray-500">O email não pode ser alterado</p>
           </div>
 
-          <div>
-            <label className="text-sm font-medium mb-3 block">Permissões de Acesso</label>
-            <div className="grid grid-cols-2 gap-3">
-              {permissions.map((permission) => {
-                const allowedPermissions = rolePermissions[editingUser.role];
-                const hasAccess = allowedPermissions.includes(permission.id);
-                
-                return (
-                  <div key={permission.id} className={`flex items-center justify-between p-3 border rounded-lg ${hasAccess ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
-                    <span className={`text-sm font-medium ${hasAccess ? 'text-green-700' : 'text-gray-500'}`}>
-                      {permission.label}
-                    </span>
-                    {hasAccess && (
-                      <Check className="h-4 w-4 text-green-600" />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              * As permissões são configuradas automaticamente baseadas na função selecionada
+          <div className="space-y-2">
+            <Label htmlFor="role">Função</Label>
+            <Select value={formData.role} onValueChange={(value: UserRole) => setFormData(prev => ({ ...prev, role: value }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="atendente">Atendente</SelectItem>
+                <SelectItem value="gestor">Gestor</SelectItem>
+                <SelectItem value="admin">Administrador</SelectItem>
+                <SelectItem value="suporte_lify">Suporte Lify</SelectItem>
+                <SelectItem value="admin_lify">Administrador Lify</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-gray-600">
+              {getRolePermissionDescription(formData.role)}
             </p>
           </div>
 
-          <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={onClose}>
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="status"
+              checked={formData.status}
+              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, status: checked }))}
+            />
+            <Label htmlFor="status">Usuário ativo</Label>
+          </div>
+
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button 
-              onClick={handleUpdateUser}
-              disabled={isLoading}
-              className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600"
-            >
-              {isLoading ? 'Salvando...' : 'Salvar Alterações'}
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? 'Salvando...' : 'Salvar'}
             </Button>
           </div>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );
