@@ -39,6 +39,7 @@ interface GoogleTokens {
   refresh_token?: string
   expires_in: number
   token_type: string
+  scope?: string
 }
 
 interface GoogleCalendar {
@@ -207,7 +208,13 @@ async function handleGoogleCallback(code: string, state: string, supabase: any, 
       JSON.stringify({ 
         success: true, 
         message: 'Calendars connected successfully',
-        calendarsCount: calendars.length
+        calendarsCount: calendars.length,
+        tokens: {
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+          scope: tokens.scope,
+        }
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

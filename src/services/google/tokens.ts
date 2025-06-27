@@ -10,12 +10,19 @@ export class GoogleTokenManager {
     const config = googleAuthManager.getOAuthConfig();
     console.log('Using redirect URI for token exchange:', config.redirectUri);
     
+    // Obter o usuário atual
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+    
     // Usar a Edge Function em vez de fazer a troca diretamente
     const { data, error } = await supabase.functions.invoke('google-user-auth', {
       body: {
         action: 'handle-callback',
         code: code,
-        state: 'dummy_state', // O state será processado pela Edge Function
+        state: `${user.id}:dummy_state`, // Incluir userId no state
+        userId: user.id, // Também enviar userId separadamente
       }
     });
 
