@@ -2,14 +2,14 @@
 export const config = {
   // Google OAuth
   google: {
-    clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-    clientSecret: import.meta.env.VITE_GOOGLE_CLIENT_SECRET,
-    scopes: 'https://www.googleapis.com/auth/calendar',
+    clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '367439444210-phr1e6oiu8hnh5vm57lpoud5lhrdda2o.apps.googleusercontent.com',
+    // Client Secret não deve estar no frontend por segurança
+    scopes: 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events',
   },
 
   // Supabase
   supabase: {
-    url: import.meta.env.VITE_SUPABASE_URL,
+    url: import.meta.env.VITE_SUPABASE_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co',
     anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
   },
 
@@ -57,9 +57,6 @@ function getRedirectUri(): string {
 // Validação das variáveis obrigatórias
 export const validateConfig = () => {
   const requiredVars = [
-    'VITE_GOOGLE_CLIENT_ID',
-    'VITE_GOOGLE_CLIENT_SECRET',
-    'VITE_SUPABASE_URL',
     'VITE_SUPABASE_ANON_KEY',
   ];
 
@@ -73,6 +70,8 @@ export const validateConfig = () => {
   }
 
   console.log('✅ Todas as variáveis de ambiente estão configuradas');
+  console.log('🔧 Google Client ID:', config.google.clientId);
+  console.log('🔧 Supabase URL:', config.supabase.url);
   return true;
 };
 
