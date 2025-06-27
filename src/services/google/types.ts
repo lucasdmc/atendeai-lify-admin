@@ -1,4 +1,3 @@
-
 export interface GoogleCalendarEvent {
   id: string;
   summary: string;
@@ -21,7 +20,7 @@ export interface GoogleCalendarEvent {
 
 export interface CalendarToken {
   access_token: string;
-  refresh_token?: string;
+  refresh_token?: string | null;
   expires_at: string;
   scope: string;
 }

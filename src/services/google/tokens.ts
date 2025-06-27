@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { CalendarToken } from './types';
 import { googleAuthManager } from './auth';
@@ -6,68 +5,44 @@ import { googleAuthManager } from './auth';
 export class GoogleTokenManager {
   async exchangeCodeForTokens(code: string): Promise<CalendarToken> {
     console.log('=== TOKEN EXCHANGE PROCESS ===');
-    console.log('Exchanging authorization code for tokens...');
+    console.log('Exchanging authorization code for tokens via Edge Function...');
     
     const config = googleAuthManager.getOAuthConfig();
     console.log('Using redirect URI for token exchange:', config.redirectUri);
     
-    const requestBody = new URLSearchParams({
-      client_id: config.clientId,
-      client_secret: config.clientSecret,
-      code,
-      grant_type: 'authorization_code',
-      redirect_uri: config.redirectUri,
-    });
-
-    console.log('Token exchange request details:', {
-      client_id: config.clientId,
-      grant_type: 'authorization_code',
-      redirect_uri: config.redirectUri,
-      code_length: code.length,
-      code_preview: code.substring(0, 20) + '...'
-    });
-    
-    try {
-      const response = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: requestBody,
-      });
-
-      console.log('Token exchange response status:', response.status);
-
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error('Token exchange failed:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorData,
-          headers: Object.fromEntries(response.headers.entries())
-        });
-        throw new Error(`Failed to exchange code for tokens: ${response.status} ${errorData}`);
+    // Usar a Edge Function em vez de fazer a troca diretamente
+    const { data, error } = await supabase.functions.invoke('google-user-auth', {
+      body: {
+        action: 'handle-callback',
+        code: code,
+        state: 'dummy_state', // O state será processado pela Edge Function
       }
+    });
 
-      const data = await response.json();
-      console.log('Token exchange successful');
-      console.log('Received token data keys:', Object.keys(data));
-      
-      const expiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString();
+    console.log('Edge Function response:', { data, error });
 
-      const tokens = {
-        access_token: data.access_token,
-        refresh_token: data.refresh_token,
-        expires_at: expiresAt,
-        scope: data.scope,
-      };
-      
-      console.log('=== END TOKEN EXCHANGE ===');
-      return tokens;
-    } catch (error) {
-      console.error('Token exchange error:', error);
-      throw error;
+    if (error) {
+      console.error('Token exchange failed via Edge Function:', error);
+      throw new Error(`Failed to exchange code for tokens: ${error.message}`);
     }
+
+    if (!data || !data.tokens) {
+      console.error('No tokens received from Edge Function');
+      throw new Error('No tokens received from server');
+    }
+
+    console.log('Token exchange successful via Edge Function');
+    console.log('Received token data keys:', Object.keys(data.tokens));
+    
+    const tokens = {
+      access_token: data.tokens.access_token,
+      refresh_token: data.tokens.refresh_token,
+      expires_at: data.tokens.expires_at,
+      scope: data.tokens.scope,
+    };
+    
+    console.log('=== END TOKEN EXCHANGE ===');
+    return tokens;
   }
 
   async saveTokens(tokens: CalendarToken): Promise<void> {
@@ -85,7 +60,7 @@ export class GoogleTokenManager {
       .upsert({
         user_id: user.id,
         access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
+        refresh_token: tokens.refresh_token || null,
         expires_at: tokens.expires_at,
         scope: tokens.scope,
       });
