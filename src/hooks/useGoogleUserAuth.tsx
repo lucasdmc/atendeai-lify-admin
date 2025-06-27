@@ -3,6 +3,8 @@ import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
 import { UserCalendar, GoogleAuthState } from '@/types/calendar'
+import { googleAuthManager } from '@/services/google/auth'
+import { useGoogleAuthRedirect } from '@/hooks/useGoogleAuthRedirect'
 
 export const useGoogleUserAuth = () => {
   const { user } = useAuth()
@@ -61,7 +63,7 @@ export const useGoogleUserAuth = () => {
     }
   }, [user])
 
-  // Iniciar processo de autenticação
+  // Iniciar processo de autenticação - USANDO A LÓGICA QUE FUNCIONA
   const initiateAuth = useCallback(async () => {
     if (!user) {
       toast({
@@ -75,20 +77,8 @@ export const useGoogleUserAuth = () => {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }))
       
-      const { data, error } = await supabase.functions.invoke('google-user-auth', {
-        body: { 
-          action: 'initiate-auth',
-          state: 'auth_' + Date.now(),
-          userId: user.id
-        }
-      })
-
-      if (error) {
-        throw new Error(error.message)
-      }
-
-      // Redirecionar para o Google OAuth
-      window.location.href = data.authUrl
+      // Usar a lógica que funciona do sistema antigo
+      await googleAuthManager.initiateAuth()
     } catch (error) {
       console.error('Erro ao iniciar autenticação:', error)
       setState(prev => ({ 
@@ -105,48 +95,11 @@ export const useGoogleUserAuth = () => {
     }
   }, [user, toast])
 
-  // Processar callback do Google OAuth
-  const handleCallback = useCallback(async (code: string, state: string) => {
-    if (!user) return
-
-    try {
-      setState(prev => ({ ...prev, isLoading: true, error: null }))
-      
-      const { data, error } = await supabase.functions.invoke('google-user-auth', {
-        body: { 
-          action: 'handle-callback',
-          code,
-          state,
-          userId: user.id
-        }
-      })
-
-      if (error) {
-        throw new Error(error.message)
-      }
-
-      // Recarregar calendários após autenticação bem-sucedida
-      await checkAuthentication()
-      
-      toast({
-        title: 'Sucesso',
-        description: `${data.calendarsCount} calendários conectados com sucesso!`,
-      })
-    } catch (error) {
-      console.error('Erro ao processar callback:', error)
-      setState(prev => ({ 
-        ...prev, 
-        error: error instanceof Error ? error.message : 'Erro ao processar autenticação',
-        isLoading: false
-      }))
-      
-      toast({
-        title: 'Erro',
-        description: 'Falha ao processar autenticação',
-        variant: 'destructive',
-      })
-    }
-  }, [user, checkAuthentication, toast])
+  // Processar callback do Google OAuth usando o sistema que funciona
+  useGoogleAuthRedirect(() => {
+    // Recarregar calendários após autenticação bem-sucedida
+    checkAuthentication()
+  })
 
   // Adicionar calendário específico
   const addCalendar = useCallback(async (
@@ -196,47 +149,6 @@ export const useGoogleUserAuth = () => {
     }
   }, [user, checkAuthentication, toast])
 
-  // Renovar token
-  const refreshToken = useCallback(async () => {
-    if (!user) return
-
-    try {
-      setState(prev => ({ ...prev, isLoading: true, error: null }))
-      
-      const { data, error } = await supabase.functions.invoke('google-user-auth', {
-        body: { 
-          action: 'refresh-token',
-          userId: user.id
-        }
-      })
-
-      if (error) {
-        throw new Error(error.message)
-      }
-
-      // Recarregar calendários
-      await checkAuthentication()
-      
-      toast({
-        title: 'Sucesso',
-        description: 'Token renovado com sucesso!',
-      })
-    } catch (error) {
-      console.error('Erro ao renovar token:', error)
-      setState(prev => ({ 
-        ...prev, 
-        error: error instanceof Error ? error.message : 'Erro ao renovar token',
-        isLoading: false
-      }))
-      
-      toast({
-        title: 'Erro',
-        description: 'Falha ao renovar token',
-        variant: 'destructive',
-      })
-    }
-  }, [user, checkAuthentication, toast])
-
   // Desconectar calendários
   const disconnectCalendars = useCallback(async () => {
     if (!user) return
@@ -263,8 +175,8 @@ export const useGoogleUserAuth = () => {
       }))
       
       toast({
-        title: 'Sucesso',
-        description: 'Calendários desconectados com sucesso!',
+        title: 'Desconectado',
+        description: 'Google Calendar desconectado com sucesso',
       })
     } catch (error) {
       console.error('Erro ao desconectar calendários:', error)
@@ -282,37 +194,16 @@ export const useGoogleUserAuth = () => {
     }
   }, [user, toast])
 
-  // Verificar autenticação na inicialização
+  // Verificar autenticação quando o usuário mudar
   useEffect(() => {
-    if (user) {
-      checkAuthentication()
-    }
+    checkAuthentication()
   }, [user, checkAuthentication])
-
-  // Verificar se há código de autorização na URL (callback do Google)
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search)
-    const code = urlParams.get('code')
-    const state = urlParams.get('state')
-    
-    if (code && state && user) {
-      handleCallback(code, state)
-      
-      // Limpar parâmetros da URL
-      const newUrl = new URL(window.location.href)
-      newUrl.searchParams.delete('code')
-      newUrl.searchParams.delete('state')
-      window.history.replaceState({}, '', newUrl.toString())
-    }
-  }, [user, handleCallback])
 
   return {
     ...state,
     initiateAuth,
-    handleCallback,
     addCalendar,
-    refreshToken,
     disconnectCalendars,
-    checkAuthentication
+    checkAuthentication,
   }
 } 

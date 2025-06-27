@@ -25,9 +25,34 @@ export const config = {
 
   // URLs
   urls: {
-    redirectUri: `${window.location.origin}/agendamentos`,
+    redirectUri: getRedirectUri(),
   },
 } as const;
+
+// Função para detectar a URL de redirecionamento baseada no ambiente
+function getRedirectUri(): string {
+  const hostname = window.location.hostname;
+  const protocol = window.location.protocol;
+  const port = window.location.port;
+  
+  // Desenvolvimento local
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return `${protocol}//${hostname}:${port}/agendamentos`;
+  }
+  
+  // Preview environment
+  if (hostname.includes('preview--atendeai-lify-admin.lovable.app')) {
+    return 'https://preview--atendeai-lify-admin.lovable.app/agendamentos';
+  }
+  
+  // Production environment
+  if (hostname.includes('atendeai.lify.com.br')) {
+    return 'https://atendeai.lify.com.br/agendamentos';
+  }
+  
+  // Fallback para desenvolvimento
+  return `${protocol}//${hostname}${port ? `:${port}` : ''}/agendamentos`;
+}
 
 // Validação das variáveis obrigatórias
 export const validateConfig = () => {

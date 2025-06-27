@@ -12,7 +12,27 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 // Configurações OAuth2 do Google
 const GOOGLE_CLIENT_ID = Deno.env.get('VITE_GOOGLE_CLIENT_ID')!
 const GOOGLE_CLIENT_SECRET = Deno.env.get('VITE_GOOGLE_CLIENT_SECRET')!
-const REDIRECT_URI = `${supabaseUrl}/functions/v1/google-user-auth/callback`
+
+// Função para detectar a URL de redirecionamento baseada no origin
+function getRedirectUri(origin: string): string {
+  // Desenvolvimento local
+  if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+    return 'http://localhost:8080/agendamentos'
+  }
+  
+  // Preview environment
+  if (origin.includes('preview--atendeai-lify-admin.lovable.app')) {
+    return 'https://preview--atendeai-lify-admin.lovable.app/agendamentos'
+  }
+  
+  // Production environment
+  if (origin.includes('atendeai.lify.com.br')) {
+    return 'https://atendeai.lify.com.br/agendamentos'
+  }
+  
+  // Fallback para desenvolvimento
+  return `${origin}/agendamentos`
+}
 
 interface GoogleTokens {
   access_token: string
@@ -38,15 +58,16 @@ serve(async (req) => {
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
     const { action, code, state, userId } = await req.json()
+    const origin = req.headers.get('origin') || ''
 
     console.log(`Google User Auth - Action: ${action}`)
 
     switch (action) {
       case 'initiate-auth':
-        return await initiateGoogleAuth(state, userId)
+        return await initiateGoogleAuth(state, userId, origin)
       
       case 'handle-callback':
-        return await handleGoogleCallback(code, state, supabase)
+        return await handleGoogleCallback(code, state, supabase, origin)
       
       case 'list-calendars':
         return await listUserCalendars(userId, supabase)
@@ -76,15 +97,21 @@ serve(async (req) => {
   }
 })
 
-async function initiateGoogleAuth(state: string, userId: string): Promise<Response> {
+async function initiateGoogleAuth(state: string, userId: string, origin?: string): Promise<Response> {
+  console.log('🔧 Iniciando autenticação Google...')
+  console.log('📋 Client ID:', GOOGLE_CLIENT_ID)
+  console.log('🔗 Redirect URI:', getRedirectUri(origin || ''))
+  
   const authUrl = new URL('https://accounts.google.com/oauth/authorize')
   authUrl.searchParams.set('client_id', GOOGLE_CLIENT_ID)
-  authUrl.searchParams.set('redirect_uri', REDIRECT_URI)
+  authUrl.searchParams.set('redirect_uri', getRedirectUri(origin || ''))
   authUrl.searchParams.set('response_type', 'code')
   authUrl.searchParams.set('scope', 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events')
   authUrl.searchParams.set('access_type', 'offline')
   authUrl.searchParams.set('prompt', 'consent')
   authUrl.searchParams.set('state', `${userId}:${state}`)
+
+  console.log('🌐 URL de autorização gerada:', authUrl.toString())
 
   return new Response(
     JSON.stringify({ authUrl: authUrl.toString() }),
@@ -95,7 +122,7 @@ async function initiateGoogleAuth(state: string, userId: string): Promise<Respon
   )
 }
 
-async function handleGoogleCallback(code: string, state: string, supabase: any): Promise<Response> {
+async function handleGoogleCallback(code: string, state: string, supabase: any, origin?: string): Promise<Response> {
   try {
     console.log('Handling Google callback...')
     
@@ -113,7 +140,7 @@ async function handleGoogleCallback(code: string, state: string, supabase: any):
         client_secret: GOOGLE_CLIENT_SECRET,
         code,
         grant_type: 'authorization_code',
-        redirect_uri: REDIRECT_URI,
+        redirect_uri: getRedirectUri(origin || ''),
       }),
     })
 
