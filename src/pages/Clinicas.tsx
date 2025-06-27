@@ -250,6 +250,7 @@ const Clinicas = () => {
               <div>Role: {userRole}</div>
               <div>Permissions: {userPermissions.join(', ')}</div>
               <div>Can create clinics: {userPermissions.includes('criar_clinicas') ? '✅' : '❌'}</div>
+              <div>Can delete clinics: {userRole === 'admin_lify' || userPermissions.includes('deletar_clinicas') ? '✅' : '❌'}</div>
             </div>
           </CardContent>
         </Card>
@@ -345,8 +346,18 @@ const Clinicas = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDeleteClinic(clinic)}
-                        className="text-red-600 hover:text-red-700"
-                        disabled={clinic.id === '00000000-0000-0000-0000-000000000001'}
+                        className="text-red-600 hover:text-red-700 disabled:text-gray-400 disabled:cursor-not-allowed"
+                        disabled={
+                          clinic.id === '00000000-0000-0000-0000-000000000001' ||
+                          (userRole !== 'admin_lify' && !userPermissions.includes('deletar_clinicas'))
+                        }
+                        title={
+                          clinic.id === '00000000-0000-0000-0000-000000000001'
+                            ? 'Clínica Principal não pode ser excluída'
+                            : userRole !== 'admin_lify' && !userPermissions.includes('deletar_clinicas')
+                            ? 'Você não tem permissão para excluir clínicas'
+                            : 'Excluir clínica'
+                        }
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

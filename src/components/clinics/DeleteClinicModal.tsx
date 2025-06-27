@@ -42,8 +42,8 @@ const DeleteClinicModal = ({ clinic, isOpen, onClose, onClinicDeleted }: DeleteC
   const handleDeleteClinic = async () => {
     if (!clinic) return;
 
-    // Verificar permissões
-    if (!userPermissions.includes('criar_clinicas') && userRole !== 'admin_lify') {
+    // Verificar permissões - admin_lify tem acesso total, ou verificar permissão específica
+    if (userRole !== 'admin_lify' && !userPermissions.includes('deletar_clinicas')) {
       toast({
         title: "Erro de Permissão",
         description: "Você não tem permissão para excluir clínicas.",
@@ -63,6 +63,8 @@ const DeleteClinicModal = ({ clinic, isOpen, onClose, onClinicDeleted }: DeleteC
     }
 
     console.log('🗑️ Excluindo clínica:', clinic);
+    console.log('👤 Permissões do usuário:', userPermissions);
+    console.log('👤 Role do usuário:', userRole);
 
     setIsLoading(true);
     try {
