@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,21 +21,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userPermissions, setUserPermissions] = useState<string[]>([]);
-  const [isLoadingUserData, setIsLoadingUserData] = useState(false);
   const { toast } = useToast();
 
   const fetchUserData = async (userId: string) => {
-    // Prevent multiple simultaneous calls
-    if (isLoadingUserData) {
-      console.log('Already fetching user data, skipping...');
-      return;
-    }
-
     try {
-      setIsLoadingUserData(true);
-      console.log('Fetching user data for ID:', userId);
+      console.log('🔄 Fetching user data for ID:', userId);
       
-      // Fetch user profile
+      // Buscar perfil do usuário
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
         .select('role')
@@ -44,44 +35,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
       
       if (profileError) {
-        console.error('Error fetching profile:', profileError);
+        console.error('❌ Error fetching profile:', profileError);
         setUserRole(null);
         setUserPermissions([]);
         return;
       }
 
-      console.log('Profile fetched:', profile);
+      console.log('✅ Profile fetched:', profile);
       
       if (profile) {
         setUserRole(profile.role);
-        console.log('User role set to:', profile.role);
+        console.log('✅ User role set to:', profile.role);
 
-        // Fetch permissions based on role from role_permissions table
-        const { data: rolePermissions, error: rolePermissionsError } = await supabase
-          .from('role_permissions')
-          .select('module_name')
-          .eq('role', profile.role)
-          .eq('can_access', true);
-        
-        if (rolePermissionsError) {
-          console.error('Error fetching role permissions:', rolePermissionsError);
-          setUserPermissions([]);
-          return;
+        // Se for admin_lify, dar acesso total
+        if (profile.role === 'admin_lify') {
+          const allPermissions = [
+            'dashboard',
+            'conversas',
+            'conectar_whatsapp',
+            'agentes',
+            'agendamentos',
+            'clinicas',
+            'contextualizar',
+            'gestao_usuarios',
+            'configuracoes'
+          ];
+          setUserPermissions(allPermissions);
+          console.log('🎯 Admin Lify - All permissions granted:', allPermissions);
+        } else {
+          // Para outros roles, buscar permissões específicas
+          const { data: rolePermissions, error: rolePermissionsError } = await supabase
+            .from('role_permissions')
+            .select('module_name')
+            .eq('role', profile.role)
+            .eq('can_access', true);
+          
+          if (rolePermissionsError) {
+            console.error('❌ Error fetching role permissions:', rolePermissionsError);
+            setUserPermissions([]);
+            return;
+          }
+
+          const moduleNames = rolePermissions?.map(p => p.module_name) || [];
+          setUserPermissions(moduleNames);
+          console.log('✅ User permissions set to:', moduleNames);
         }
-
-        console.log('Role permissions fetched:', rolePermissions);
-        
-        const moduleNames = rolePermissions?.map(p => p.module_name) || [];
-        setUserPermissions(moduleNames);
-        console.log('User permissions set to:', moduleNames);
       }
       
     } catch (error) {
-      console.error('Error fetching user data:', error);
+      console.error('❌ Error fetching user data:', error);
       setUserRole(null);
       setUserPermissions([]);
     } finally {
-      setIsLoadingUserData(false);
       setLoading(false);
     }
   };
@@ -89,12 +94,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
         
-        console.log('Auth state changed:', event, session?.user?.id);
+        console.log('🔄 Auth state changed:', event, session?.user?.id);
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -108,11 +112,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    // Check for existing session
+    // Verificar sessão inicial
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!mounted) return;
       
-      console.log('Initial session check:', session?.user?.id);
+      console.log('🔄 Initial session check:', session?.user?.id);
       setSession(session);
       setUser(session?.user ?? null);
       

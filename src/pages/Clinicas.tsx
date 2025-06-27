@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,50 +19,66 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Building2, Search, Edit, Trash2, Plus, MapPin, Phone, Mail } from 'lucide-react';
+import { Building2, Search, Edit, Trash2, Plus, MapPin, Phone, Mail, Bug } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import EditClinicModal from '@/components/clinics/EditClinicModal';
 import CreateClinicModal from '@/components/clinics/CreateClinicModal';
+import DeleteClinicModal from '@/components/clinics/DeleteClinicModal';
+import { testClinicCreation, checkUserPermissions, testClinicViewing } from '@/utils/clinicTest';
 
 interface Clinic {
   id: string;
   name: string;
-  cnpj?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  city?: string;
-  state?: string;
-  website?: string;
-  is_active: boolean;
-  created_at: string;
+  cnpj?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  website?: string | null;
+  is_active: boolean | null;
+  created_at: string | null;
 }
 
 const Clinicas = () => {
-  const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [clinics, setClinics] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [editingClinic, setEditingClinic] = useState<Clinic | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [deletingClinic, setDeletingClinic] = useState<Clinic | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const { toast } = useToast();
+  const { userRole, userPermissions } = useAuth();
 
   useEffect(() => {
     fetchClinics();
   }, []);
 
   const fetchClinics = async () => {
+    console.log('🔄 Buscando clínicas...');
     try {
       const { data, error } = await supabase
         .from('clinics')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setClinics(data || []);
+      console.log('📡 Resposta do Supabase:', { data, error });
+
+      if (error) {
+        console.error('❌ Erro ao buscar clínicas:', error);
+        throw error;
+      }
+
+      console.log('✅ Clínicas carregadas:', data);
+      console.log('📊 Número de clínicas:', data?.length || 0);
+      
+      setClinics((data as Clinic[]) || []);
     } catch (error) {
-      console.error('Error fetching clinics:', error);
+      console.error('❌ Erro completo ao buscar clínicas:', error);
       toast({
         title: "Erro",
         description: "Não foi possível carregar as clínicas.",
@@ -84,8 +99,22 @@ const Clinicas = () => {
     setIsEditModalOpen(false);
   };
 
+  const handleDeleteClinic = (clinic: Clinic) => {
+    setDeletingClinic(clinic);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleCloseDeleteModal = () => {
+    setDeletingClinic(null);
+    setIsDeleteModalOpen(false);
+  };
+
   const handleClinicUpdated = () => {
-    fetchClinics();
+    console.log('🔄 Atualizando lista de clínicas após criação/edição...');
+    // Aguardar um pouco para garantir que o banco foi atualizado
+    setTimeout(() => {
+      fetchClinics();
+    }, 500);
   };
 
   const handleToggleClinicStatus = async (clinicId: string) => {
@@ -118,11 +147,49 @@ const Clinicas = () => {
     }
   };
 
+  const handleTestClinicCreation = async () => {
+    console.log('🧪 Iniciando teste de criação de clínica...');
+    
+    // Verificar permissões do usuário
+    const userInfo = await checkUserPermissions();
+    console.log('👤 Informações do usuário:', userInfo);
+    
+    // Executar teste completo
+    await testClinicCreation();
+    
+    toast({
+      title: "Teste Executado",
+      description: "Verifique o console do navegador para ver os resultados do teste.",
+    });
+  };
+
+  const handleTestClinicViewing = async () => {
+    console.log('�� Iniciando teste de visualização de clínica...');
+    
+    // Verificar permissões do usuário
+    const userInfo = await checkUserPermissions();
+    console.log('👤 Informações do usuário:', userInfo);
+    
+    // Executar teste completo
+    await testClinicViewing();
+    
+    toast({
+      title: "Teste Executado",
+      description: "Verifique o console do navegador para ver os resultados do teste.",
+    });
+  };
+
   const filteredClinics = clinics.filter(clinic =>
     clinic.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     clinic.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     clinic.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  console.log('📊 Estado atual das clínicas:');
+  console.log('🔍 Total de clínicas:', clinics.length);
+  console.log('🔍 Clínicas filtradas:', filteredClinics.length);
+  console.log('🔍 Termo de busca:', searchTerm);
+  console.log('🔍 Clínicas:', clinics);
 
   if (isLoading) {
     return (
@@ -140,14 +207,53 @@ const Clinicas = () => {
           <p className="text-gray-600 mt-2">Gerencie as clínicas do sistema</p>
         </div>
         
-        <Button 
-          onClick={() => setIsCreateModalOpen(true)}
-          className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Nova Clínica
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Botão de teste - apenas em desenvolvimento */}
+          {process.env.NODE_ENV === 'development' && (
+            <>
+              <Button 
+                variant="outline"
+                onClick={handleTestClinicCreation}
+                className="text-orange-600 border-orange-200 hover:bg-orange-50"
+              >
+                <Bug className="h-4 w-4 mr-2" />
+                Testar Criação
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={handleTestClinicViewing}
+                className="text-blue-600 border-blue-200 hover:bg-blue-50"
+              >
+                <Bug className="h-4 w-4 mr-2" />
+                Testar Visualização
+              </Button>
+            </>
+          )}
+          
+          <Button 
+            onClick={() => setIsCreateModalOpen(true)}
+            disabled={!userPermissions.includes('criar_clinicas')}
+            className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Nova Clínica
+          </Button>
+        </div>
       </div>
+
+      {/* Debug Info - apenas em desenvolvimento */}
+      {process.env.NODE_ENV === 'development' && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardContent className="pt-4">
+            <div className="text-sm">
+              <div><strong>Debug Info:</strong></div>
+              <div>Role: {userRole}</div>
+              <div>Permissions: {userPermissions.join(', ')}</div>
+              <div>Can create clinics: {userPermissions.includes('criar_clinicas') ? '✅' : '❌'}</div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -222,7 +328,7 @@ const Clinicas = () => {
                   </TableCell>
                   <TableCell>
                     <Switch
-                      checked={clinic.is_active}
+                      checked={clinic.is_active ?? false}
                       onCheckedChange={() => handleToggleClinicStatus(clinic.id)}
                     />
                   </TableCell>
@@ -238,7 +344,9 @@ const Clinicas = () => {
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => handleDeleteClinic(clinic)}
                         className="text-red-600 hover:text-red-700"
+                        disabled={clinic.id === '00000000-0000-0000-0000-000000000001'}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -258,10 +366,17 @@ const Clinicas = () => {
       />
 
       <EditClinicModal
-        clinic={editingClinic}
+        clinic={editingClinic as any}
         isOpen={isEditModalOpen}
         onClose={handleCloseEditModal}
         onClinicUpdated={handleClinicUpdated}
+      />
+
+      <DeleteClinicModal
+        clinic={deletingClinic}
+        isOpen={isDeleteModalOpen}
+        onClose={handleCloseDeleteModal}
+        onClinicDeleted={handleClinicUpdated}
       />
     </div>
   );
