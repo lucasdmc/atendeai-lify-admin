@@ -180,9 +180,11 @@ const Clinicas = () => {
   };
 
   const filteredClinics = clinics.filter(clinic =>
-    clinic.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    // Filtrar a Clínica Principal (não mostrar na lista)
+    clinic.id !== '00000000-0000-0000-0000-000000000001' &&
+    (clinic.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     clinic.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    clinic.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    clinic.email?.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   console.log('📊 Estado atual das clínicas:');
@@ -251,6 +253,9 @@ const Clinicas = () => {
               <div>Permissions: {userPermissions.join(', ')}</div>
               <div>Can create clinics: {userPermissions.includes('criar_clinicas') ? '✅' : '❌'}</div>
               <div>Can delete clinics: {userRole === 'admin_lify' || userPermissions.includes('deletar_clinicas') ? '✅' : '❌'}</div>
+              <div>Total clinics in DB: {clinics.length}</div>
+              <div>Visible clinics: {filteredClinics.length}</div>
+              <div>Admin Lify oculta: {clinics.some(c => c.id === '00000000-0000-0000-0000-000000000001') ? '✅' : '❌'}</div>
             </div>
           </CardContent>
         </Card>
@@ -353,7 +358,7 @@ const Clinicas = () => {
                         }
                         title={
                           clinic.id === '00000000-0000-0000-0000-000000000001'
-                            ? 'Clínica Principal não pode ser excluída'
+                            ? 'Admin Lify não pode ser excluída'
                             : userRole !== 'admin_lify' && !userPermissions.includes('deletar_clinicas')
                             ? 'Você não tem permissão para excluir clínicas'
                             : 'Excluir clínica'
