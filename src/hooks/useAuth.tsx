@@ -47,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUserRole(profile.role);
         console.log('✅ User role set to:', profile.role);
 
-        // Se for admin_lify, dar acesso total
+        // Se for admin_lify, dar acesso total incluindo permissões específicas
         if (profile.role === 'admin_lify') {
           const allPermissions = [
             'dashboard',
@@ -56,6 +56,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             'agentes',
             'agendamentos',
             'clinicas',
+            'criar_clinicas',
+            'deletar_clinicas',
             'contextualizar',
             'gestao_usuarios',
             'configuracoes'

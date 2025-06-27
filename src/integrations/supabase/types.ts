@@ -151,6 +151,7 @@ export type Database = {
           title: string
           updated_at: string
           user_id: string
+          user_calendar_id: string | null
         }
         Insert: {
           attendees?: Json | null
@@ -166,6 +167,7 @@ export type Database = {
           title: string
           updated_at?: string
           user_id: string
+          user_calendar_id?: string | null
         }
         Update: {
           attendees?: Json | null
@@ -181,8 +183,17 @@ export type Database = {
           title?: string
           updated_at?: string
           user_id?: string
+          user_calendar_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_user_calendar_id_fkey"
+            columns: ["user_calendar_id"]
+            isOneToOne: false
+            referencedRelation: "user_calendars"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       clinic_availability: {
         Row: {
@@ -831,6 +842,97 @@ export type Database = {
             referencedRelation: "whatsapp_conversations"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      user_calendars: {
+        Row: {
+          id: string
+          user_id: string
+          google_calendar_id: string
+          calendar_name: string
+          calendar_color: string | null
+          is_primary: boolean
+          is_active: boolean
+          access_token: string
+          refresh_token: string | null
+          expires_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          google_calendar_id: string
+          calendar_name: string
+          calendar_color?: string | null
+          is_primary?: boolean
+          is_active?: boolean
+          access_token: string
+          refresh_token?: string | null
+          expires_at: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          google_calendar_id?: string
+          calendar_name?: string
+          calendar_color?: string | null
+          is_primary?: boolean
+          is_active?: boolean
+          access_token?: string
+          refresh_token?: string | null
+          expires_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_calendars_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      calendar_sync_logs: {
+        Row: {
+          id: string
+          user_calendar_id: string
+          sync_type: string
+          event_id: string | null
+          status: string
+          error_message: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_calendar_id: string
+          sync_type: string
+          event_id?: string | null
+          status: string
+          error_message?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_calendar_id?: string
+          sync_type?: string
+          event_id?: string | null
+          status?: string
+          error_message?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_sync_logs_user_calendar_id_fkey"
+            columns: ["user_calendar_id"]
+            isOneToOne: false
+            referencedRelation: "user_calendars"
+            referencedColumns: ["id"]
+          }
         ]
       }
     }

@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -64,24 +63,82 @@ function createDateTime(date: string, time: string): string {
   }
 }
 
-async function createGoogleCalendarEvent(appointmentData: AppointmentRequest, supabase: any) {
+async function createGoogleCalendarEvent(appointmentData: AppointmentRequest, supabase: any, userCalendarId?: string) {
   try {
     console.log('🗓️ Tentando criar evento no Google Calendar...');
     
-    // Chamar a função Google Service Auth para obter token
-    const { data: tokenData, error: tokenError } = await supabase.functions.invoke('google-service-auth', {
-      body: { action: 'get-access-token' }
-    });
+    let accessToken: string | null = null;
+    let calendarId: string | null = null;
+    
+    if (userCalendarId) {
+      // Usar calendário específico do usuário
+      console.log(`📅 Usando calendário do usuário: ${userCalendarId}`);
+      
+      const { data: userCalendar, error: calendarError } = await supabase
+        .from('user_calendars')
+        .select('access_token, refresh_token, expires_at, google_calendar_id')
+        .eq('id', userCalendarId)
+        .eq('is_active', true)
+        .single();
+      
+      if (calendarError || !userCalendar) {
+        console.log('⚠️ Calendário do usuário não encontrado, tentando service account');
+      } else {
+        // Verificar se o token ainda é válido
+        const tokenExpiry = new Date(userCalendar.expires_at);
+        if (tokenExpiry <= new Date()) {
+          console.log('🔄 Token expirado, renovando...');
+          // Renovar token
+          const { data: refreshData, error: refreshError } = await supabase.functions.invoke('google-user-auth', {
+            body: { 
+              action: 'refresh-token', 
+              userId: userCalendar.user_id 
+            }
+          });
+          
+          if (refreshError) {
+            console.log('⚠️ Erro ao renovar token, tentando service account');
+          } else {
+            // Buscar token renovado
+            const { data: updatedCalendar } = await supabase
+              .from('user_calendars')
+              .select('access_token')
+              .eq('id', userCalendarId)
+              .single();
+            
+            if (updatedCalendar) {
+              accessToken = updatedCalendar.access_token;
+              calendarId = userCalendar.google_calendar_id;
+            }
+          }
+        } else {
+          accessToken = userCalendar.access_token;
+          calendarId = userCalendar.google_calendar_id;
+        }
+      }
+    }
+    
+    // Fallback para service account se não conseguir usar calendário do usuário
+    if (!accessToken || !calendarId) {
+      console.log('🔄 Usando service account como fallback...');
+      
+      const { data: tokenData, error: tokenError } = await supabase.functions.invoke('google-service-auth', {
+        body: { action: 'get-access-token' }
+      });
 
-    if (tokenError || !tokenData?.access_token) {
-      console.log('⚠️ Google Calendar não disponível, continuando apenas com banco de dados');
-      return null;
+      if (tokenError || !tokenData?.access_token) {
+        console.log('⚠️ Google Calendar não disponível, continuando apenas com banco de dados');
+        return null;
+      }
+      
+      accessToken = tokenData.access_token;
+      calendarId = 'fb2b1dfb1e6c600594b05785de5cf04fb38bd0376bd3f5e5d1c08c60d4c894df@group.calendar.google.com';
     }
 
     const startDateTime = createDateTime(appointmentData.date, appointmentData.startTime);
     const endDateTime = createDateTime(appointmentData.date, appointmentData.endTime);
 
-    // Criar evento no Google Calendar SEM attendees para evitar erro 403
+    // Criar evento no Google Calendar
     const eventData = {
       summary: appointmentData.title,
       description: appointmentData.description || `Agendamento via WhatsApp`,
@@ -97,15 +154,14 @@ async function createGoogleCalendarEvent(appointmentData: AppointmentRequest, su
     };
 
     console.log('📅 Dados do evento:', JSON.stringify(eventData, null, 2));
-
-    const calendarId = 'fb2b1dfb1e6c600594b05785de5cf04fb38bd0376bd3f5e5d1c08c60d4c894df@group.calendar.google.com';
+    console.log(`📅 Usando calendário: ${calendarId}`);
 
     const response = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events`,
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${tokenData.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(eventData),
