@@ -7,6 +7,7 @@ import {
   DialogHeader, 
   DialogTitle 
 } from '@/components/ui/dialog';
+import { AddressInput } from '@/components/ui/address-input';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -197,10 +198,15 @@ const CreateClinicModal = ({ isOpen, onClose, onClinicCreated }: CreateClinicMod
 
           <div>
             <label className="text-sm font-medium">Endereço</label>
-            <Input
+            <AddressInput
               value={formData.address}
-              onChange={(e) => handleInputChange('address', e.target.value)}
-              placeholder="Rua, número, bairro"
+              onChange={(value) => handleInputChange('address', value)}
+              onAddressComplete={(addressData) => {
+                handleInputChange('address', addressData.address);
+                handleInputChange('city', addressData.city);
+                handleInputChange('state', addressData.state);
+              }}
+              placeholder="Digite o endereço ou CEP"
             />
           </div>
 

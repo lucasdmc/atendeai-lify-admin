@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +8,7 @@ import {
   DialogTitle 
 } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
+import { AddressInput } from '@/components/ui/address-input';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -169,10 +169,15 @@ const EditClinicModal = ({ clinic, isOpen, onClose, onClinicUpdated }: EditClini
 
           <div>
             <label className="text-sm font-medium">Endereço</label>
-            <Input
+            <AddressInput
               value={formData.address}
-              onChange={(e) => handleInputChange('address', e.target.value)}
-              placeholder="Rua, número, bairro"
+              onChange={(value) => handleInputChange('address', value)}
+              onAddressComplete={(addressData) => {
+                handleInputChange('address', addressData.address);
+                handleInputChange('city', addressData.city);
+                handleInputChange('state', addressData.state);
+              }}
+              placeholder="Digite o endereço ou CEP"
             />
           </div>
 
