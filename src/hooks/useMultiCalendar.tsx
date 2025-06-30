@@ -21,18 +21,24 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
     timeMin?: string,
     timeMax?: string
   ) => {
+    console.log('[DEBUG] 🎯 fetchEventsFromCalendars - Called with calendarIds:', calendarIds)
+    console.log('[DEBUG] 🎯 fetchEventsFromCalendars - user:', user?.id)
+    
     if (!user || calendarIds.length === 0) {
+      console.log('[DEBUG] 🎯 fetchEventsFromCalendars - Early return: no user or no calendars')
       setState(prev => ({ ...prev, events: [], isLoading: false }))
       return
     }
 
     try {
+      console.log('[DEBUG] 🎯 fetchEventsFromCalendars - Starting to fetch events...')
       setState(prev => ({ ...prev, isLoading: true, error: null }))
       
       const allEvents: GoogleCalendarEvent[] = []
       
       // Buscar eventos de cada calendário selecionado
       for (const calendarId of calendarIds) {
+        console.log('[DEBUG] 🎯 fetchEventsFromCalendars - Fetching from calendar:', calendarId)
         try {
           const { data, error } = await supabase.functions.invoke('calendar-manager', {
             body: { 
@@ -40,9 +46,13 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
               calendarId,
               userId: user.id,
               timeMin: timeMin || new Date().toISOString(),
-              timeMax: timeMax || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+              timeMax: timeMax || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              // Forçar busca mais recente
+              forceRefresh: true
             }
           })
+
+          console.log('[DEBUG] 🎯 fetchEventsFromCalendars - Response for calendar', calendarId, ':', { data, error })
 
           if (error) {
             console.error(`Erro ao buscar eventos do calendário ${calendarId}:`, error)
@@ -50,6 +60,13 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
           }
 
           if (data.success && data.events) {
+            console.log('[DEBUG] 🎯 fetchEventsFromCalendars - Adding', data.events.length, 'events from calendar', calendarId)
+            console.log('[DEBUG] 🎯 fetchEventsFromCalendars - Events details:', data.events.map((e: any) => ({
+              id: e.id,
+              summary: e.summary,
+              start: e.start,
+              created: e.created
+            })))
             allEvents.push(...data.events)
           }
         } catch (error) {
@@ -62,15 +79,22 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
         new Date(a.start.dateTime).getTime() - new Date(b.start.dateTime).getTime()
       )
 
-      setState(prev => ({
-        ...prev,
-        events: sortedEvents,
-        isLoading: false
-      }))
+      console.log('[DEBUG] 🎯 fetchEventsFromCalendars - Final sorted events:', sortedEvents.length)
+
+      setState(prev => {
+        console.log('[DEBUG] 🎯 fetchEventsFromCalendars - Previous state:', prev)
+        const newState = {
+          ...prev,
+          events: sortedEvents,
+          isLoading: false
+        }
+        console.log('[DEBUG] 🎯 fetchEventsFromCalendars - New state:', newState)
+        return newState
+      })
 
       console.log(`✅ ${sortedEvents.length} eventos carregados de ${calendarIds.length} calendários`)
     } catch (error) {
-      console.error('Erro ao buscar eventos:', error)
+      console.error('[DEBUG] 🎯 fetchEventsFromCalendars - Error:', error)
       setState(prev => ({ 
         ...prev, 
         error: error instanceof Error ? error.message : 'Erro ao buscar eventos',
@@ -90,11 +114,16 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
     calendarId: string,
     eventData: Omit<GoogleCalendarEvent, 'id' | 'status'>
   ): Promise<GoogleCalendarEvent> => {
+    console.log('[DEBUG] 🎯 useMultiCalendar.createEvent - calendarId:', calendarId)
+    console.log('[DEBUG] 🎯 useMultiCalendar.createEvent - eventData:', eventData)
+    console.log('[DEBUG] 🎯 useMultiCalendar.createEvent - user:', user?.id)
+    
     if (!user) {
       throw new Error('Usuário não autenticado')
     }
 
     try {
+      console.log('[DEBUG] 🎯 useMultiCalendar.createEvent - Invoking calendar-manager...')
       const { data, error } = await supabase.functions.invoke('calendar-manager', {
         body: { 
           action: 'create-event',
@@ -104,14 +133,23 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
         }
       })
 
+      console.log('[DEBUG] 🎯 useMultiCalendar.createEvent - Response:', { data, error })
+
       if (error) {
+        console.error('[DEBUG] 🎯 useMultiCalendar.createEvent - Supabase error:', error)
         throw new Error(error.message)
       }
 
       if (!data.success) {
+        console.error('[DEBUG] 🎯 useMultiCalendar.createEvent - Data not successful:', data)
         throw new Error('Falha ao criar evento')
       }
 
+      console.log('[DEBUG] 🎯 useMultiCalendar.createEvent - Event created, waiting 2 seconds before reloading...')
+      // Aguardar um pouco para o Google Calendar processar
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      console.log('[DEBUG] 🎯 useMultiCalendar.createEvent - Now reloading events...')
       // Recarregar eventos
       await fetchEventsFromCalendars(selectedCalendars)
       
@@ -120,9 +158,10 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
         description: 'Evento criado com sucesso!',
       })
 
+      console.log('[DEBUG] 🎯 useMultiCalendar.createEvent - Success, returning:', data.event)
       return data.event
     } catch (error) {
-      console.error('Erro ao criar evento:', error)
+      console.error('[DEBUG] 🎯 useMultiCalendar.createEvent - Error:', error)
       
       toast({
         title: 'Erro',

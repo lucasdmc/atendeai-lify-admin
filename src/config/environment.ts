@@ -40,13 +40,13 @@ function getRedirectUri(): string {
     return `${protocol}//${hostname}:${port}/agendamentos`;
   }
   
-  // Preview environment
+  // Preview environment (Lovable)
   if (hostname.includes('preview--atendeai-lify-admin.lovable.app')) {
     return 'https://preview--atendeai-lify-admin.lovable.app/agendamentos';
   }
   
-  // Production environment
-  if (hostname.includes('atendeai.lify.com.br')) {
+  // Production environment (Lify)
+  if (hostname.includes('atendeai.lify.com.br') || hostname.includes('lify.com.br')) {
     return 'https://atendeai.lify.com.br/agendamentos';
   }
   

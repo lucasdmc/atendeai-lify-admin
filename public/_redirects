@@ -1,0 +1,4 @@
+# Configuração de redirecionamentos para SPA
+# Garante que todas as rotas sejam direcionadas para index.html
+
+/*    /index.html   200 

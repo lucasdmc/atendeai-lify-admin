@@ -10,71 +10,60 @@ export class GoogleTokenManager {
     const config = googleAuthManager.getOAuthConfig();
     console.log('Using redirect URI for token exchange:', config.redirectUri);
     
-    // Obter o usuário atual e sessão
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-    
-    if (!session) {
-      throw new Error('No active session found');
-    }
-    
-    console.log('User authenticated:', user.email);
-    console.log('Session token present:', !!session.access_token);
-    
-    // Usar fetch diretamente para garantir que o payload seja enviado corretamente
-    const response = await fetch('https://niakqdolcdwxtrkbqmdi.supabase.co/functions/v1/google-user-auth', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxODI1NTksImV4cCI6MjA2NTc1ODU1OX0.90ihAk2geP1JoHIvMj_pxeoMe6dwRwH-rBbJwbFeomw',
-      },
-      body: JSON.stringify({
-        action: 'complete-auth',
-        code: code,
-        redirect_uri: config.redirectUri
-      })
-    });
-    
-    console.log('Response status:', response.status);
-    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-    
-    const responseText = await response.text();
-    console.log('Response body:', responseText);
-    
-    if (!response.ok) {
-      console.error('Token exchange failed via Edge Function');
-      throw new Error(`Failed to exchange code for tokens: ${response.status} - ${responseText}`);
-    }
-    
-    let data;
     try {
-      data = JSON.parse(responseText);
-    } catch (e) {
-      throw new Error(`Invalid JSON response: ${responseText}`);
-    }
+      // Usa a Edge Function para trocar o código por tokens
+      // Isso mantém o client_secret seguro no servidor
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await supabase.functions.invoke('google-user-auth', {
+        body: {
+          code,
+          redirectUri: config.redirectUri,
+        },
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
 
-    if (!data || !data.tokens) {
-      console.error('No tokens received from Edge Function');
-      throw new Error('No tokens received from server');
-    }
+      console.log('Edge function response:', response);
 
-    console.log('Token exchange successful via Edge Function');
-    console.log('Received token data keys:', Object.keys(data.tokens));
-    
-    const tokens = {
-      access_token: data.tokens.access_token,
-      refresh_token: data.tokens.refresh_token,
-      expires_at: data.tokens.expires_at,
-      scope: data.tokens.scope,
-    };
-    
-    console.log('=== END TOKEN EXCHANGE ===');
-    return tokens;
+      if (response.error) {
+        console.error('Edge function error:', response.error);
+        throw new Error(response.error.message || 'Failed to exchange code for tokens');
+      }
+
+      if (!response.data) {
+        throw new Error('No data received from edge function');
+      }
+
+      console.log('Token exchange successful');
+      console.log('User profile:', response.data.user_profile);
+      
+      const tokens = {
+        access_token: response.data.access_token,
+        refresh_token: response.data.refresh_token,
+        expires_at: response.data.expires_at,
+        scope: response.data.scope,
+      };
+      
+      console.log('=== END TOKEN EXCHANGE ===');
+      return tokens;
+    } catch (error) {
+      console.error('Token exchange error:', error);
+      
+      // Tenta fornecer mensagens de erro mais úteis
+      if (error instanceof Error) {
+        if (error.message.includes('redirect_uri_mismatch')) {
+          throw new Error('A URL de redirecionamento não corresponde à configurada no Google Cloud Console.');
+        } else if (error.message.includes('invalid_grant')) {
+          throw new Error('Código de autorização inválido ou expirado. Por favor, tente novamente.');
+        } else if (error.message.includes('invalid_client')) {
+          throw new Error('Client ID ou Client Secret inválidos.');
+        }
+      }
+      
+      throw error;
+    }
   }
 
   async saveTokens(tokens: CalendarToken): Promise<void> {
@@ -87,12 +76,12 @@ export class GoogleTokenManager {
 
     console.log('Saving tokens for user:', user.id);
 
-    const { error } = await (supabase as any)
-      .from('google_tokens')
+    const { error } = await supabase
+      .from('google_calendar_tokens')
       .upsert({
         user_id: user.id,
         access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token || null,
+        refresh_token: tokens.refresh_token ?? null,
         expires_at: tokens.expires_at,
         scope: tokens.scope,
       });
@@ -115,11 +104,13 @@ export class GoogleTokenManager {
     console.log('Fetching stored tokens for user:', user.id);
 
     try {
-      const { data, error } = await (supabase as any)
-        .from('google_tokens')
+      const { data, error } = await supabase
+        .from('google_calendar_tokens')
         .select('*')
         .eq('user_id', user.id)
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
 
       if (error) {
         console.log('Error fetching stored tokens:', error);
@@ -175,7 +166,7 @@ export class GoogleTokenManager {
 
     const newTokens = {
       access_token: data.access_token,
-      refresh_token: refreshToken,
+      refresh_token: data.refresh_token || refreshToken, // Google nem sempre retorna um novo refresh_token
       expires_at: expiresAt,
       scope: data.scope,
     };
@@ -194,11 +185,20 @@ export class GoogleTokenManager {
 
     const now = new Date();
     const expiresAt = new Date(tokens.expires_at);
+    
+    // Adiciona margem de 5 minutos para evitar expiração durante o uso
+    const expirationBuffer = new Date(expiresAt.getTime() - 5 * 60 * 1000);
 
-    if (now >= expiresAt && tokens.refresh_token) {
-      console.log('Token expired, refreshing...');
-      const refreshedTokens = await this.refreshTokens(tokens.refresh_token);
-      return refreshedTokens.access_token;
+    if (now >= expirationBuffer && tokens.refresh_token) {
+      console.log('Token expired or expiring soon, refreshing...');
+      try {
+        const refreshedTokens = await this.refreshTokens(tokens.refresh_token);
+        return refreshedTokens.access_token;
+      } catch (error) {
+        console.error('Failed to refresh token:', error);
+        // Se falhar ao renovar, retorna null para forçar nova autenticação
+        return null;
+      }
     }
 
     console.log('Using existing valid token');
@@ -210,13 +210,14 @@ export class GoogleTokenManager {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
-    const { error } = await (supabase as any)
-      .from('google_tokens')
+    const { error } = await supabase
+      .from('google_calendar_tokens')
       .delete()
       .eq('user_id', user.id);
 
     if (error) throw error;
 
+    // Também remove eventos do calendário se existirem
     await supabase
       .from('calendar_events')
       .delete()

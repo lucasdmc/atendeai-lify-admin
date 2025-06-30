@@ -8,6 +8,7 @@ import CalendarSelector from '@/components/agendamentos/CalendarSelector'
 import GoogleAuthSetup from '@/components/agendamentos/GoogleAuthSetup'
 import LoadingState from '@/components/agendamentos/LoadingState'
 import { GoogleCalendarEvent } from '@/types/calendar'
+import { Button } from '@/components/ui/button'
 
 const Agendamentos = () => {
   // Hook para autenticação Google
@@ -35,17 +36,37 @@ const Agendamentos = () => {
     createEvent,
     updateEvent,
     deleteEvent,
-    syncCalendar
+    syncCalendar,
+    fetchEventsFromCalendars
   } = useMultiCalendar(selectedCalendars)
 
+  // DEBUG: Log eventos e calendários selecionados - Comentado para limpar console
+  // console.log('[DEBUG] 🎯 Events state:', {
+  //   eventsCount: events.length,
+  //   selectedCalendarsCount: selectedCalendars.length,
+  //   selectedCalendars,
+  //   eventsLoading,
+  //   eventsError,
+  //   events: events.slice(0, 2) // Mostrar apenas os 2 primeiros eventos para debug
+  // })
+
+  // DEBUG LOG - Comentado para limpar console
+  // console.log('[DEBUG] showCalendarSelector:', showCalendarSelector, 'availableCalendars:', availableCalendars)
+  // console.log('[DEBUG] showCalendarSelector type:', typeof showCalendarSelector)
+  // console.log('[DEBUG] availableCalendars.length:', availableCalendars.length)
+  // console.log('[DEBUG] availableCalendars type:', typeof availableCalendars)
+  // console.log('[DEBUG] Condition check:', showCalendarSelector && availableCalendars.length > 0)
+  
   // Selecionar calendários ativos automaticamente
   useEffect(() => {
+    // console.log('[DEBUG] 🎯 Auto-select calendars - userCalendars:', userCalendars.length, 'selectedCalendars:', selectedCalendars.length)
     if (userCalendars.length > 0 && selectedCalendars.length === 0) {
       // Selecionar calendários ativos por padrão
       const activeCalendars = userCalendars
         .filter(cal => cal.is_active)
         .map(cal => cal.google_calendar_id)
       
+      // console.log('[DEBUG] 🎯 Auto-selecting calendars:', activeCalendars)
       setSelectedCalendars(activeCalendars)
     }
   }, [userCalendars, selectedCalendars.length])
@@ -117,12 +138,47 @@ const Agendamentos = () => {
     await deleteEvent(targetCalendar.google_calendar_id, eventId)
   }
 
+  // Função para atualizar eventos manualmente
+  const handleRefreshEvents = async () => {
+    await fetchEventsFromCalendars(selectedCalendars)
+  }
+
   // Loading inicial
+  // console.log('[DEBUG] 🎯 CHECKING AUTH LOADING:', authLoading)
   if (authLoading) {
+    // console.log('[DEBUG] 🎯 RETURNING LOADING STATE')
     return <LoadingState />
   }
 
+  // Se está mostrando o seletor de calendários (PRIORIDADE MÁXIMA)
+  // console.log('[DEBUG] 🎯 CHECKING CALENDAR SELECTOR CONDITION')
+  // console.log('[DEBUG] 🎯 showCalendarSelector:', showCalendarSelector)
+  // console.log('[DEBUG] 🎯 availableCalendars.length:', availableCalendars.length)
+  // console.log('[DEBUG] 🎯 Condition result:', showCalendarSelector && availableCalendars.length > 0)
+  // console.log('[DEBUG] 🎯 Will enter condition?', showCalendarSelector && availableCalendars.length > 0)
+  
+  if (showCalendarSelector && availableCalendars.length > 0) {
+    // console.log('[DEBUG] 🎯 RENDERING CALENDAR SELECTOR - CONDITION MET')
+    // console.log('[DEBUG] 🎯 showCalendarSelector:', showCalendarSelector)
+    // console.log('[DEBUG] 🎯 availableCalendars.length:', availableCalendars.length)
+    // console.log('[DEBUG] 🎯 availableCalendars:', availableCalendars)
+    
+    return (
+      <div className="space-y-4 p-6">
+        <div className="max-w-2xl mx-auto">
+          <CalendarSelector
+            calendars={availableCalendars}
+            onCalendarsSelected={onCalendarsSelected}
+            onCancel={onCancelSelection}
+          />
+        </div>
+      </div>
+    )
+  }
+
   // Se não está autenticado, mostrar setup do Google
+  // console.log('[DEBUG] 🎯 CHECKING AUTHENTICATION:', isAuthenticated)
+  // console.log('[DEBUG] 🎯 Will show Google setup?', !isAuthenticated)
   if (!isAuthenticated) {
     return (
       <div className="space-y-4 p-6">
@@ -141,26 +197,16 @@ const Agendamentos = () => {
     )
   }
 
-  // Se está mostrando o seletor de calendários
-  if (showCalendarSelector && availableCalendars.length > 0) {
-    return (
-      <div className="space-y-4 p-6">
-        <div className="max-w-2xl mx-auto">
-          <CalendarSelector
-            calendars={availableCalendars}
-            onCalendarsSelected={onCalendarsSelected}
-            onCancel={onCancelSelection}
-          />
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-4 p-6">
+      {/* Botão de atualizar eventos */}
+      <div className="flex justify-end mb-2">
+        <Button onClick={handleRefreshEvents} disabled={eventsLoading} variant="outline">
+          {eventsLoading ? 'Atualizando...' : 'Atualizar eventos'}
+        </Button>
+      </div>
       {/* Header com estatísticas */}
       <AgendamentosHeader 
-        onRefetch={() => {}} // Removido checkAuthentication
         isConnected={isAuthenticated}
         onCreateEvent={handleCreateEvent}
         eventsCount={events.length}

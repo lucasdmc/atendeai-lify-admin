@@ -135,6 +135,10 @@ const CalendarSelector = ({
 
   // Se estamos mostrando calendários disponíveis para seleção
   if (calendars.length > 0) {
+    // console.log('[DEBUG] 🎯 CalendarSelector: Renderizando modo de seleção de calendários')
+    // console.log('[DEBUG] 🎯 CalendarSelector: calendars.length:', calendars.length)
+    // console.log('[DEBUG] 🎯 CalendarSelector: calendars:', calendars)
+    
     return (
       <Card>
         <CardHeader>

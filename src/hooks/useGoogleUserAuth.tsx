@@ -51,12 +51,16 @@ export const useGoogleUserAuth = () => {
       const tokens = await googleTokenManager.getStoredTokens()
       const hasValidTokens = tokens && new Date(tokens.expires_at) > new Date()
       
-      setState(prev => ({
-        ...prev,
-        isAuthenticated: Boolean(userCalendars && userCalendars.length > 0 && hasValidTokens),
-        userCalendars: userCalendars || [],
-        isLoading: false
-      }))
+      setState(prev => {
+        const newState = {
+          ...prev,
+          isAuthenticated: Boolean(userCalendars && userCalendars.length > 0 && hasValidTokens),
+          userCalendars: userCalendars || [],
+          isLoading: false
+        }
+        console.log('[DEBUG] 🎯 Setting state in checkAuthentication:', newState)
+        return newState
+      })
 
       console.log(`✅ ${userCalendars?.length || 0} calendários encontrados para o usuário`)
     } catch (error) {
@@ -105,14 +109,13 @@ export const useGoogleUserAuth = () => {
 
   // Processar callback do Google OAuth usando o sistema que funciona
   useGoogleAuthRedirect(async (calendars) => {
+    console.log('[DEBUG] Callback useGoogleAuthRedirect', calendars)
     if (calendars && calendars.length > 0) {
-      // Mostrar seletor de calendários
       setAvailableCalendars(calendars)
       setShowCalendarSelector(true)
-    } else {
-      // Se não há calendários, recarregar status
-      await checkAuthentication()
+      console.log('[DEBUG] setShowCalendarSelector(true)')
     }
+    // Removido checkAuthentication() aqui para evitar conflitos
   })
 
   // Função para quando calendários são selecionados
@@ -224,9 +227,12 @@ export const useGoogleUserAuth = () => {
     }
   }, [user, toast])
 
+  // Verificar autenticação apenas uma vez quando o componente monta
   useEffect(() => {
-    checkAuthentication()
-  }, [checkAuthentication])
+    if (user) {
+      checkAuthentication()
+    }
+  }, [user]) // Dependência apenas no user, não no checkAuthentication
 
   return {
     ...state,

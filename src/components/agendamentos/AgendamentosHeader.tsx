@@ -5,7 +5,6 @@ import NewAppointmentModal from './NewAppointmentModal';
 import { GoogleCalendarEvent } from '@/types/calendar';
 
 interface AgendamentosHeaderProps {
-  onRefetch: () => void;
   isConnected: boolean;
   onCreateEvent: (eventData: Omit<GoogleCalendarEvent, 'id' | 'status'>) => Promise<GoogleCalendarEvent>;
   eventsCount?: number;
@@ -13,7 +12,6 @@ interface AgendamentosHeaderProps {
 }
 
 const AgendamentosHeader = ({ 
-  onRefetch, 
   isConnected, 
   onCreateEvent, 
   eventsCount = 0,
@@ -44,14 +42,6 @@ const AgendamentosHeader = ({
         </div>
         
         <div className="flex gap-2">
-          <Button 
-            variant="outline"
-            onClick={onRefetch}
-            className="flex items-center gap-2"
-          >
-            <Settings className="h-4 w-4" />
-            Atualizar
-          </Button>
           <Button 
             className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600"
             onClick={() => setShowNewModal(true)}

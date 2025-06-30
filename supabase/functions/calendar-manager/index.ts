@@ -67,7 +67,14 @@ serve(async (req) => {
 })
 
 async function handleListEvents(supabaseClient: any, user: any, params: any) {
+  console.log('[DEBUG] 🎯 Edge Function - handleListEvents - params:', params)
+  console.log('[DEBUG] 🎯 Edge Function - handleListEvents - user:', user.id)
+  
   const { calendarId, timeMin, timeMax } = params
+  
+  console.log('[DEBUG] 🎯 Edge Function - handleListEvents - calendarId:', calendarId)
+  console.log('[DEBUG] 🎯 Edge Function - handleListEvents - timeMin:', timeMin)
+  console.log('[DEBUG] 🎯 Edge Function - handleListEvents - timeMax:', timeMax)
   
   // Get user calendar tokens
   const { data: userCalendar, error: calendarError } = await supabaseClient
@@ -76,6 +83,9 @@ async function handleListEvents(supabaseClient: any, user: any, params: any) {
     .eq('user_id', user.id)
     .eq('google_calendar_id', calendarId)
     .single()
+
+  console.log('[DEBUG] 🎯 Edge Function - handleListEvents - userCalendar:', userCalendar)
+  console.log('[DEBUG] 🎯 Edge Function - handleListEvents - calendarError:', calendarError)
 
   if (calendarError || !userCalendar) {
     throw new Error('Calendar not found or not authorized')
@@ -92,21 +102,39 @@ async function handleListEvents(supabaseClient: any, user: any, params: any) {
     new URLSearchParams({
       singleEvents: 'true',
       orderBy: 'startTime',
-      timeMin: timeMin || new Date().toISOString(),
+      timeMin: timeMin || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // Buscar eventos dos últimos 7 dias
       timeMax: timeMax || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      maxResults: '100', // Aumentar o limite de resultados
     })
 
+  console.log('[DEBUG] 🎯 Edge Function - handleListEvents - URL:', url)
+
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${userCalendar.access_token}`,
+  }
+
+  // Adicionar headers de cache-busting se forceRefresh for true
+  if (params.forceRefresh) {
+    headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    headers['Pragma'] = 'no-cache'
+    headers['Expires'] = '0'
+  }
+
   const response = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${userCalendar.access_token}`,
-    },
+    headers,
   })
 
+  console.log('[DEBUG] 🎯 Edge Function - handleListEvents - Response status:', response.status)
+  console.log('[DEBUG] 🎯 Edge Function - handleListEvents - Response ok:', response.ok)
+
   if (!response.ok) {
+    const errorData = await response.text()
+    console.error('[DEBUG] 🎯 Edge Function - handleListEvents - Google API error:', errorData)
     throw new Error('Failed to fetch events from Google Calendar')
   }
 
   const data = await response.json()
+  console.log('[DEBUG] 🎯 Edge Function - handleListEvents - Events count:', data.items?.length || 0)
   
   return new Response(
     JSON.stringify({
@@ -121,7 +149,13 @@ async function handleListEvents(supabaseClient: any, user: any, params: any) {
 }
 
 async function handleCreateEvent(supabaseClient: any, user: any, params: any) {
+  console.log('[DEBUG] 🎯 Edge Function - handleCreateEvent - params:', params)
+  console.log('[DEBUG] 🎯 Edge Function - handleCreateEvent - user:', user.id)
+  
   const { calendarId, eventData } = params
+  
+  console.log('[DEBUG] 🎯 Edge Function - handleCreateEvent - calendarId:', calendarId)
+  console.log('[DEBUG] 🎯 Edge Function - handleCreateEvent - eventData:', eventData)
   
   // Get user calendar tokens
   const { data: userCalendar, error: calendarError } = await supabaseClient
@@ -131,11 +165,18 @@ async function handleCreateEvent(supabaseClient: any, user: any, params: any) {
     .eq('google_calendar_id', calendarId)
     .single()
 
+  console.log('[DEBUG] 🎯 Edge Function - handleCreateEvent - userCalendar:', userCalendar)
+  console.log('[DEBUG] 🎯 Edge Function - handleCreateEvent - calendarError:', calendarError)
+
   if (calendarError || !userCalendar) {
     throw new Error('Calendar not found or not authorized')
   }
 
   // Create event in Google Calendar
+  console.log('[DEBUG] 🎯 Edge Function - handleCreateEvent - Making request to Google Calendar API...')
+  console.log('[DEBUG] 🎯 Edge Function - handleCreateEvent - URL:', `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events`)
+  console.log('[DEBUG] 🎯 Edge Function - handleCreateEvent - Request body:', JSON.stringify(eventData))
+  
   const response = await fetch(
     `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events`,
     {
@@ -148,12 +189,17 @@ async function handleCreateEvent(supabaseClient: any, user: any, params: any) {
     }
   )
 
+  console.log('[DEBUG] 🎯 Edge Function - handleCreateEvent - Response status:', response.status)
+  console.log('[DEBUG] 🎯 Edge Function - handleCreateEvent - Response ok:', response.ok)
+
   if (!response.ok) {
     const errorData = await response.text()
+    console.error('[DEBUG] 🎯 Edge Function - handleCreateEvent - Google API error:', errorData)
     throw new Error(`Failed to create event: ${errorData}`)
   }
 
   const createdEvent = await response.json()
+  console.log('[DEBUG] 🎯 Edge Function - handleCreateEvent - Created event:', createdEvent)
 
   // Log the sync operation
   await supabaseClient
