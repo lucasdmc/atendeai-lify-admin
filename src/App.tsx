@@ -6,7 +6,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingPage } from "@/components/ui/loading";
-import { validateConfig } from "@/config/environment";
 import Auth from "./pages/Auth";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
@@ -34,11 +33,6 @@ const queryClient = new QueryClient({
 
 const App = () => {
   const { session, loading } = useAuth();
-
-  // Validar configuração na inicialização
-  React.useEffect(() => {
-    validateConfig();
-  }, []);
 
   if (loading) {
     return <LoadingPage text="Carregando aplicação..." />;

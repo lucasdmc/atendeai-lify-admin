@@ -17,7 +17,10 @@ const Agendamentos = () => {
     isLoading: authLoading,
     error: authError,
     initiateAuth,
-    checkAuthentication,
+    showCalendarSelector,
+    availableCalendars,
+    onCalendarsSelected,
+    onCancelSelection,
     disconnectCalendars
   } = useGoogleUserAuth()
 
@@ -41,7 +44,7 @@ const Agendamentos = () => {
       // Selecionar calendários ativos por padrão
       const activeCalendars = userCalendars
         .filter(cal => cal.is_active)
-        .map(cal => cal.id)
+        .map(cal => cal.google_calendar_id)
       
       setSelectedCalendars(activeCalendars)
     }
@@ -66,16 +69,16 @@ const Agendamentos = () => {
 
     // Criar no primeiro calendário selecionado (ou calendário principal)
     const targetCalendar = userCalendars.find(cal => 
-      selectedCalendars.includes(cal.id) && cal.is_primary
+      selectedCalendars.includes(cal.google_calendar_id) && cal.is_primary
     ) || userCalendars.find(cal => 
-      selectedCalendars.includes(cal.id)
+      selectedCalendars.includes(cal.google_calendar_id)
     )
 
     if (!targetCalendar) {
       throw new Error('Nenhum calendário válido selecionado')
     }
 
-    return await createEvent(targetCalendar.id, eventData)
+    return await createEvent(targetCalendar.google_calendar_id, eventData)
   }
 
   // Atualizar evento
@@ -86,14 +89,14 @@ const Agendamentos = () => {
 
     // Encontrar o calendário que contém o evento
     const targetCalendar = userCalendars.find(cal => 
-      selectedCalendars.includes(cal.id)
+      selectedCalendars.includes(cal.google_calendar_id)
     )
 
     if (!targetCalendar) {
       throw new Error('Nenhum calendário válido selecionado')
     }
 
-    await updateEvent(targetCalendar.id, eventId, eventData)
+    await updateEvent(targetCalendar.google_calendar_id, eventId, eventData)
   }
 
   // Deletar evento
@@ -104,14 +107,14 @@ const Agendamentos = () => {
 
     // Encontrar o calendário que contém o evento
     const targetCalendar = userCalendars.find(cal => 
-      selectedCalendars.includes(cal.id)
+      selectedCalendars.includes(cal.google_calendar_id)
     )
 
     if (!targetCalendar) {
       throw new Error('Nenhum calendário válido selecionado')
     }
 
-    await deleteEvent(targetCalendar.id, eventId)
+    await deleteEvent(targetCalendar.google_calendar_id, eventId)
   }
 
   // Loading inicial
@@ -130,8 +133,23 @@ const Agendamentos = () => {
             isLoading={authLoading}
             error={authError}
             onInitiateAuth={initiateAuth}
-            onRefreshCalendars={checkAuthentication}
+            onRefreshCalendars={() => {}} // Removido checkAuthentication
             onDisconnectCalendars={disconnectCalendars}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  // Se está mostrando o seletor de calendários
+  if (showCalendarSelector && availableCalendars.length > 0) {
+    return (
+      <div className="space-y-4 p-6">
+        <div className="max-w-2xl mx-auto">
+          <CalendarSelector
+            calendars={availableCalendars}
+            onCalendarsSelected={onCalendarsSelected}
+            onCancel={onCancelSelection}
           />
         </div>
       </div>
@@ -142,7 +160,7 @@ const Agendamentos = () => {
     <div className="space-y-4 p-6">
       {/* Header com estatísticas */}
       <AgendamentosHeader 
-        onRefetch={checkAuthentication} 
+        onRefetch={() => {}} // Removido checkAuthentication
         isConnected={isAuthenticated}
         onCreateEvent={handleCreateEvent}
         eventsCount={events.length}
@@ -156,7 +174,7 @@ const Agendamentos = () => {
             userCalendars={userCalendars}
             selectedCalendars={selectedCalendars}
             onCalendarToggle={handleCalendarToggle}
-            onRefreshCalendars={checkAuthentication}
+            onRefreshCalendars={() => {}} // Removido checkAuthentication
             onDisconnectCalendars={disconnectCalendars}
             onAddCalendar={initiateAuth}
             isLoading={authLoading || eventsLoading}

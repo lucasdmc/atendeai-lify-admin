@@ -1,423 +1,264 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+};
 
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-
-// Configurações OAuth2 do Google
-const GOOGLE_CLIENT_ID = Deno.env.get('VITE_GOOGLE_CLIENT_ID')!
-const GOOGLE_CLIENT_SECRET = Deno.env.get('VITE_GOOGLE_CLIENT_SECRET')!
-
-// Função para detectar a URL de redirecionamento baseada no origin
-function getRedirectUri(origin: string): string {
-  // Desenvolvimento local
-  if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-    return 'http://localhost:8080/agendamentos'
-  }
-  
-  // Preview environment
-  if (origin.includes('preview--atendeai-lify-admin.lovable.app')) {
-    return 'https://preview--atendeai-lify-admin.lovable.app/agendamentos'
-  }
-  
-  // Production environment
-  if (origin.includes('atendeai.lify.com.br')) {
-    return 'https://atendeai.lify.com.br/agendamentos'
-  }
-  
-  // Fallback para desenvolvimento
-  return `${origin}/agendamentos`
-}
-
-interface GoogleTokens {
-  access_token: string
-  refresh_token?: string
-  expires_in: number
-  token_type: string
-  scope?: string
-}
-
-interface GoogleCalendar {
-  id: string
-  summary: string
-  description?: string
-  primary?: boolean
-  backgroundColor?: string
-  foregroundColor?: string
-}
-
-serve(async (req) => {
+Deno.serve(async (req: Request) => {
+  // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-    const { action, code, state, userId } = await req.json()
-    const origin = req.headers.get('origin') || ''
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    // Create a Supabase client with service role key for admin operations
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log(`Google User Auth - Action: ${action}`)
+    // Parse request body
+    const body = await req.json();
+    const { action, code, redirect_uri, client_id } = body;
+
+    console.log('=== GOOGLE USER AUTH FUNCTION ===');
+    console.log('Action:', action);
+    console.log('Code length:', code?.length || 0);
+    console.log('Code preview:', code?.substring(0, 20) + '...' || 'undefined');
+    console.log('Redirect URI:', redirect_uri);
+    console.log('Client ID:', client_id);
+
+    // Verify user authentication
+    const authHeader = req.headers.get('authorization');
+    console.log('Auth header present:', !!authHeader);
+    
+    if (!authHeader) {
+      console.error('❌ No authorization header found');
+      return new Response(
+        JSON.stringify({ error: 'No authorization header found' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401,
+        }
+      );
+    }
+
+    // Verify JWT token
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      console.error('❌ Authentication failed:', authError?.message);
+      return new Response(
+        JSON.stringify({ error: 'Authentication failed', details: authError?.message }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401,
+        }
+      );
+    }
+
+    console.log('✅ User authenticated:', user.email);
 
     switch (action) {
-      case 'initiate-auth':
-        return await initiateGoogleAuth(state, userId, origin)
+      case 'check-env':
+        return await checkEnvironment();
       
-      case 'handle-callback':
-        return await handleGoogleCallback(code, state, supabase, origin)
-      
-      case 'list-calendars':
-        return await listUserCalendars(userId, supabase)
-      
-      case 'add-calendar':
-        const { calendarId, calendarName, calendarColor } = await req.json()
-        return await addUserCalendar(userId, calendarId, calendarName, calendarColor, supabase)
-      
-      case 'refresh-token':
-        return await refreshUserToken(userId, supabase)
-      
-      case 'disconnect-calendar':
-        return await disconnectCalendar(userId, supabase)
+      case 'complete-auth':
+        return await completeAuth(code, redirect_uri, user, supabase);
       
       default:
-        throw new Error('Invalid action')
+        console.error('❌ Invalid action:', action);
+        return new Response(
+          JSON.stringify({ error: 'Invalid action' }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 400,
+          }
+        );
     }
   } catch (error) {
-    console.error('Error in google-user-auth:', error)
+    console.error('❌ Error in google-user-auth:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: 500,
       }
-    )
+    );
   }
-})
+});
 
-async function initiateGoogleAuth(state: string, userId: string, origin?: string): Promise<Response> {
-  console.log('🔧 Iniciando autenticação Google...')
-  console.log('📋 Client ID:', GOOGLE_CLIENT_ID)
-  console.log('🔗 Redirect URI:', getRedirectUri(origin || ''))
-  
-  const authUrl = new URL('https://accounts.google.com/oauth/authorize')
-  authUrl.searchParams.set('client_id', GOOGLE_CLIENT_ID)
-  authUrl.searchParams.set('redirect_uri', getRedirectUri(origin || ''))
-  authUrl.searchParams.set('response_type', 'code')
-  authUrl.searchParams.set('scope', 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events')
-  authUrl.searchParams.set('access_type', 'offline')
-  authUrl.searchParams.set('prompt', 'consent')
-  authUrl.searchParams.set('state', `${userId}:${state}`)
-
-  console.log('🌐 URL de autorização gerada:', authUrl.toString())
-
-  return new Response(
-    JSON.stringify({ authUrl: authUrl.toString() }),
-    {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
-    }
-  )
-}
-
-async function handleGoogleCallback(code: string, state: string, supabase: any, origin?: string): Promise<Response> {
+async function checkEnvironment() {
   try {
-    console.log('Handling Google callback...')
+    console.log('🔍 Checking environment variables...');
     
-    // Extrair userId do state
-    const [userId, originalState] = state.split(':')
+    const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
+    const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
-    // Trocar código por tokens
-    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        client_id: GOOGLE_CLIENT_ID,
-        client_secret: GOOGLE_CLIENT_SECRET,
-        code,
-        grant_type: 'authorization_code',
-        redirect_uri: getRedirectUri(origin || ''),
-      }),
-    })
-
-    if (!tokenResponse.ok) {
-      const error = await tokenResponse.text()
-      console.error('Token exchange failed:', error)
-      throw new Error('Failed to exchange code for tokens')
-    }
-
-    const tokens: GoogleTokens = await tokenResponse.json()
-    
-    // Buscar informações do usuário
-    const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-      headers: {
-        'Authorization': `Bearer ${tokens.access_token}`,
-      },
-    })
-
-    if (!userInfoResponse.ok) {
-      throw new Error('Failed to get user info')
-    }
-
-    const userInfo = await userInfoResponse.json()
-    
-    // Buscar calendários do usuário
-    const calendarsResponse = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
-      headers: {
-        'Authorization': `Bearer ${tokens.access_token}`,
-      },
-    })
-
-    if (!calendarsResponse.ok) {
-      throw new Error('Failed to get calendars')
-    }
-
-    const calendarsData = await calendarsResponse.json()
-    const calendars: GoogleCalendar[] = calendarsData.items || []
-    
-    // Salvar tokens e calendários no banco
-    for (const calendar of calendars) {
-      const expiresAt = new Date()
-      expiresAt.setSeconds(expiresAt.getSeconds() + tokens.expires_in)
-      
-      await supabase
-        .from('user_calendars')
-        .upsert({
-          user_id: userId,
-          google_calendar_id: calendar.id,
-          calendar_name: calendar.summary,
-          calendar_color: calendar.backgroundColor || '#4285f4',
-          is_primary: calendar.primary || false,
-          is_active: true,
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token,
-          expires_at: expiresAt.toISOString(),
-        }, {
-          onConflict: 'user_id,google_calendar_id'
-        })
-    }
-
-    console.log(`Saved ${calendars.length} calendars for user ${userId}`)
+    console.log('Client ID configured:', !!clientId);
+    console.log('Client Secret configured:', !!clientSecret);
+    console.log('Supabase URL configured:', !!supabaseUrl);
+    console.log('Supabase Service Key configured:', !!supabaseServiceKey);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: 'Calendars connected successfully',
-        calendarsCount: calendars.length,
-        tokens: {
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token,
-          expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-          scope: tokens.scope,
+      JSON.stringify({
+        success: true,
+        environment: {
+          google_client_id: !!clientId,
+          google_client_secret: !!clientSecret,
+          supabase_url: !!supabaseUrl,
+          supabase_service_key: !!supabaseServiceKey,
         }
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       }
-    )
+    );
   } catch (error) {
-    console.error('Error handling callback:', error)
-    throw error
+    console.error('❌ Error checking environment:', error);
+    throw error;
   }
 }
 
-async function listUserCalendars(userId: string, supabase: any): Promise<Response> {
+async function completeAuth(code: string, redirect_uri: string, user: any, supabase: any) {
   try {
-    const { data: calendars, error } = await supabase
-      .from('user_calendars')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('is_active', true)
-      .order('is_primary', { ascending: false })
-      .order('calendar_name')
-
-    if (error) {
-      throw error
-    }
-
-    return new Response(
-      JSON.stringify({ calendars: calendars || [] }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    )
-  } catch (error) {
-    console.error('Error listing calendars:', error)
-    throw error
-  }
-}
-
-async function addUserCalendar(
-  userId: string, 
-  calendarId: string, 
-  calendarName: string, 
-  calendarColor: string, 
-  supabase: any
-): Promise<Response> {
-  try {
-    // Verificar se o usuário tem tokens válidos
-    const { data: existingCalendar } = await supabase
-      .from('user_calendars')
-      .select('access_token, refresh_token, expires_at')
-      .eq('user_id', userId)
-      .eq('is_active', true)
-      .limit(1)
-      .single()
-
-    if (!existingCalendar) {
-      throw new Error('No active calendars found. Please authenticate with Google first.')
-    }
-
-    // Verificar se o token ainda é válido
-    const tokenExpiry = new Date(existingCalendar.expires_at)
-    if (tokenExpiry <= new Date()) {
-      // Token expirado, tentar renovar
-      await refreshUserToken(userId, supabase)
-    }
-
-    // Buscar informações do calendário específico
-    const calendarResponse = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}`, {
-      headers: {
-        'Authorization': `Bearer ${existingCalendar.access_token}`,
-      },
-    })
-
-    if (!calendarResponse.ok) {
-      throw new Error('Failed to get calendar information')
-    }
-
-    const calendarInfo = await calendarResponse.json()
+    console.log('🔄 Starting complete auth process...');
     
-    // Salvar o novo calendário
-    const { data: newCalendar, error } = await supabase
-      .from('user_calendars')
-      .insert({
-        user_id: userId,
-        google_calendar_id: calendarId,
-        calendar_name: calendarName || calendarInfo.summary,
-        calendar_color: calendarColor || calendarInfo.backgroundColor || '#4285f4',
-        is_primary: false,
-        is_active: true,
-        access_token: existingCalendar.access_token,
-        refresh_token: existingCalendar.refresh_token,
-        expires_at: existingCalendar.expires_at,
-      })
-      .select()
-      .single()
-
-    if (error) {
-      throw error
+    // Validate required parameters
+    if (!code) {
+      throw new Error('Authorization code is required');
+    }
+    if (!redirect_uri) {
+      throw new Error('Redirect URI is required');
     }
 
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        calendar: newCalendar,
-        message: 'Calendar added successfully'
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    )
-  } catch (error) {
-    console.error('Error adding calendar:', error)
-    throw error
-  }
-}
+    // Get Google credentials from environment
+    const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
+    const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
+    
+    console.log('Client ID configured:', !!clientId);
+    console.log('Client Secret configured:', !!clientSecret);
 
-async function refreshUserToken(userId: string, supabase: any): Promise<Response> {
-  try {
-    // Buscar refresh token do usuário
-    const { data: calendar, error } = await supabase
-      .from('user_calendars')
-      .select('refresh_token')
-      .eq('user_id', userId)
-      .eq('is_active', true)
-      .limit(1)
-      .single()
-
-    if (error || !calendar?.refresh_token) {
-      throw new Error('No refresh token found')
+    if (!clientId || !clientSecret) {
+      throw new Error('Google credentials not configured');
     }
 
-    // Renovar token
+    // Exchange code for tokens
+    console.log('🔄 Exchanging code for tokens...');
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
-        client_id: GOOGLE_CLIENT_ID,
-        client_secret: GOOGLE_CLIENT_SECRET,
-        refresh_token: calendar.refresh_token,
-        grant_type: 'refresh_token',
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri,
+        grant_type: 'authorization_code',
       }),
-    })
+    });
 
+    console.log('Token response status:', tokenResponse.status);
+    
     if (!tokenResponse.ok) {
-      throw new Error('Failed to refresh token')
+      const errorText = await tokenResponse.text();
+      console.error('❌ Token exchange failed:', errorText);
+      throw new Error(`Token exchange failed: ${errorText}`);
     }
 
-    const tokens: GoogleTokens = await tokenResponse.json()
-    
-    // Atualizar tokens em todos os calendários do usuário
-    const expiresAt = new Date()
-    expiresAt.setSeconds(expiresAt.getSeconds() + tokens.expires_in)
-    
-    await supabase
-      .from('user_calendars')
-      .update({
-        access_token: tokens.access_token,
-        expires_at: expiresAt.toISOString(),
-      })
-      .eq('user_id', userId)
-      .eq('is_active', true)
+    const tokenData = await tokenResponse.json();
+    console.log('✅ Tokens obtained successfully');
+    console.log('Access token length:', tokenData.access_token?.length || 0);
+    console.log('Refresh token present:', !!tokenData.refresh_token);
+
+    // Get user profile from Google
+    console.log('🔄 Fetching user profile...');
+    const profileResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: {
+        'Authorization': `Bearer ${tokenData.access_token}`,
+      },
+    });
+
+    if (!profileResponse.ok) {
+      throw new Error('Failed to fetch user profile');
+    }
+
+    const profile = await profileResponse.json();
+    console.log('✅ User profile fetched:', profile.email);
+
+    // Get user's calendars
+    console.log('🔄 Fetching user calendars...');
+    const calendarsResponse = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
+      headers: {
+        'Authorization': `Bearer ${tokenData.access_token}`,
+      },
+    });
+
+    let calendars = [];
+    if (calendarsResponse.ok) {
+      const calendarsData = await calendarsResponse.json();
+      calendars = calendarsData.items || [];
+      console.log('✅ Calendars fetched:', calendars.length);
+    } else {
+      console.warn('⚠️ Failed to fetch calendars, but continuing...');
+    }
+
+    // Save tokens to database (temporary storage)
+    console.log('🔄 Saving tokens to database...');
+    const { error: saveError } = await supabase
+      .from('google_tokens')
+      .upsert({
+        user_id: user.id,
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token,
+        expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
+        scope: tokenData.scope,
+        google_email: profile.email,
+        created_at: new Date().toISOString(),
+      });
+
+    if (saveError) {
+      console.warn('⚠️ Failed to save tokens:', saveError.message);
+      // Continue anyway, tokens are still valid for this session
+    } else {
+      console.log('✅ Tokens saved to database');
+    }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: 'Token refreshed successfully',
-        expires_at: expiresAt.toISOString()
+      JSON.stringify({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          google_email: profile.email,
+        },
+        calendars: calendars.map((cal: any) => ({
+          id: cal.id,
+          summary: cal.summary,
+          primary: cal.primary || false,
+          accessRole: cal.accessRole,
+        })),
+        tokens: {
+          access_token: tokenData.access_token,
+          expires_in: tokenData.expires_in,
+          scope: tokenData.scope,
+        }
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       }
-    )
+    );
   } catch (error) {
-    console.error('Error refreshing token:', error)
-    throw error
-  }
-}
-
-async function disconnectCalendar(userId: string, supabase: any): Promise<Response> {
-  try {
-    // Desativar todos os calendários do usuário
-    await supabase
-      .from('user_calendars')
-      .update({ is_active: false })
-      .eq('user_id', userId)
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: 'Calendars disconnected successfully'
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    )
-  } catch (error) {
-    console.error('Error disconnecting calendars:', error)
-    throw error
+    console.error('❌ Error in completeAuth:', error);
+    throw error;
   }
 } 

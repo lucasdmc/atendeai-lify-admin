@@ -1,180 +1,183 @@
-# AtendeAI - Sistema de Gestão de Atendimento
+# Supabase CLI
 
-Sistema completo para gestão de atendimento via WhatsApp com IA, agendamentos e integração com Google Calendar.
+[![Coverage Status](https://coveralls.io/repos/github/supabase/cli/badge.svg?branch=main)](https://coveralls.io/github/supabase/cli?branch=main) [![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/supabase-cli/setup-cli/master?style=flat-square&label=Bitbucket%20Canary)](https://bitbucket.org/supabase-cli/setup-cli/pipelines) [![Gitlab Pipeline Status](https://img.shields.io/gitlab/pipeline-status/sweatybridge%2Fsetup-cli?label=Gitlab%20Canary)
+](https://gitlab.com/sweatybridge/setup-cli/-/pipelines)
 
-## 🚀 Melhorias Aplicadas
+[Supabase](https://supabase.io) is an open source Firebase alternative. We're building the features of Firebase using enterprise-grade open source tools.
 
-### Segurança
-- ✅ Removidas credenciais hardcoded
-- ✅ Implementado sistema de variáveis de ambiente
-- ✅ Configuração TypeScript mais rigorosa
-- ✅ Sistema de logging estruturado
+This repository contains all the functionality for Supabase CLI.
 
-### Performance
-- ✅ Hook de memoização para otimização
-- ✅ Sistema de cache inteligente
-- ✅ Componentes de loading reutilizáveis
-- ✅ Tratamento de erros padronizado
+- [x] Running Supabase locally
+- [x] Managing database migrations
+- [x] Creating and deploying Supabase Functions
+- [x] Generating types directly from your database schema
+- [x] Making authenticated HTTP requests to [Management API](https://supabase.com/docs/reference/api/introduction)
 
-### UX/UI
-- ✅ Loading states consistentes
-- ✅ Feedback de erro melhorado
-- ✅ Componentes reutilizáveis
+## Getting started
 
-## 📋 Pré-requisitos
+### Install the CLI
 
-- Node.js 18+ 
-- npm ou yarn
-- Conta Supabase
-- Conta Google Cloud Platform (para integração com Calendar)
+Available via [NPM](https://www.npmjs.com) as dev dependency. To install:
 
-## 🔧 Configuração
-
-### 1. Clone o repositório
 ```bash
-git clone <repository-url>
-cd atendeai-lify-admin
+npm i supabase --save-dev
 ```
 
-### 2. Instale as dependências
+To install the beta release channel:
+
 ```bash
-npm install
+npm i supabase@beta --save-dev
 ```
 
-### 3. Configure as variáveis de ambiente
-Copie o arquivo `env.example` para `.env`:
+When installing with yarn 4, you need to disable experimental fetch with the following nodejs config.
+
+```
+NODE_OPTIONS=--no-experimental-fetch yarn add supabase
+```
+
+> **Note**
+For Bun versions below v1.0.17, you must add `supabase` as a [trusted dependency](https://bun.sh/guides/install/trusted) before running `bun add -D supabase`.
+
+<details>
+  <summary><b>macOS</b></summary>
+
+  Available via [Homebrew](https://brew.sh). To install:
+
+  ```sh
+  brew install supabase/tap/supabase
+  ```
+
+  To install the beta release channel:
+  
+  ```sh
+  brew install supabase/tap/supabase-beta
+  brew link --overwrite supabase-beta
+  ```
+  
+  To upgrade:
+
+  ```sh
+  brew upgrade supabase
+  ```
+</details>
+
+<details>
+  <summary><b>Windows</b></summary>
+
+  Available via [Scoop](https://scoop.sh). To install:
+
+  ```powershell
+  scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
+  scoop install supabase
+  ```
+
+  To upgrade:
+
+  ```powershell
+  scoop update supabase
+  ```
+</details>
+
+<details>
+  <summary><b>Linux</b></summary>
+
+  Available via [Homebrew](https://brew.sh) and Linux packages.
+
+  #### via Homebrew
+
+  To install:
+
+  ```sh
+  brew install supabase/tap/supabase
+  ```
+
+  To upgrade:
+
+  ```sh
+  brew upgrade supabase
+  ```
+
+  #### via Linux packages
+
+  Linux packages are provided in [Releases](https://github.com/supabase/cli/releases). To install, download the `.apk`/`.deb`/`.rpm`/`.pkg.tar.zst` file depending on your package manager and run the respective commands.
+
+  ```sh
+  sudo apk add --allow-untrusted <...>.apk
+  ```
+
+  ```sh
+  sudo dpkg -i <...>.deb
+  ```
+
+  ```sh
+  sudo rpm -i <...>.rpm
+  ```
+
+  ```sh
+  sudo pacman -U <...>.pkg.tar.zst
+  ```
+</details>
+
+<details>
+  <summary><b>Other Platforms</b></summary>
+
+  You can also install the CLI via [go modules](https://go.dev/ref/mod#go-install) without the help of package managers.
+
+  ```sh
+  go install github.com/supabase/cli@latest
+  ```
+
+  Add a symlink to the binary in `$PATH` for easier access:
+
+  ```sh
+  ln -s "$(go env GOPATH)/bin/cli" /usr/bin/supabase
+  ```
+
+  This works on other non-standard Linux distros.
+</details>
+
+<details>
+  <summary><b>Community Maintained Packages</b></summary>
+
+  Available via [pkgx](https://pkgx.sh/). Package script [here](https://github.com/pkgxdev/pantry/blob/main/projects/supabase.com/cli/package.yml).
+  To install in your working directory:
+
+  ```bash
+  pkgx install supabase
+  ```
+
+  Available via [Nixpkgs](https://nixos.org/). Package script [here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/supabase-cli/default.nix).
+</details>
+
+### Run the CLI
+
 ```bash
-cp env.example .env
+supabase bootstrap
 ```
 
-Edite o arquivo `.env` com suas credenciais:
-```env
-# Google OAuth Configuration
-VITE_GOOGLE_CLIENT_ID=your_google_client_id_here
-VITE_GOOGLE_CLIENT_SECRET=your_google_client_secret_here
+Or using npx:
 
-# Supabase Configuration
-VITE_SUPABASE_URL=your_supabase_url_here
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
-
-# WhatsApp Configuration
-VITE_WHATSAPP_SERVER_URL=your_whatsapp_server_url_here
-
-# Environment
-NODE_ENV=development
-```
-
-### 4. Configure o Google Cloud Platform
-1. Acesse [Google Cloud Console](https://console.cloud.google.com/)
-2. Crie um novo projeto ou selecione um existente
-3. Ative a API do Google Calendar
-4. Configure as credenciais OAuth 2.0
-5. Adicione as URLs de redirecionamento autorizadas
-
-### 5. Configure o Supabase
-1. Crie um projeto no [Supabase](https://supabase.com/)
-2. Execute as migrações do banco de dados
-3. Configure as políticas RLS
-4. Configure as Edge Functions
-
-## 🚀 Executando o Projeto
-
-### Desenvolvimento
 ```bash
-npm run dev
+npx supabase bootstrap
 ```
 
-### Build de Produção
-```bash
-npm run build
-npm run preview
+The bootstrap command will guide you through the process of setting up a Supabase project using one of the [starter](https://github.com/supabase-community/supabase-samples/blob/main/samples.json) templates.
+
+## Docs
+
+Command & config reference can be found [here](https://supabase.com/docs/reference/cli/about).
+
+## Breaking changes
+
+We follow semantic versioning for changes that directly impact CLI commands, flags, and configurations.
+
+However, due to dependencies on other service images, we cannot guarantee that schema migrations, seed.sql, and generated types will always work for the same CLI major version. If you need such guarantees, we encourage you to pin a specific version of CLI in package.json.
+
+## Developing
+
+To run from source:
+
+```sh
+# Go >= 1.22
+go run . help
 ```
-
-## 📁 Estrutura do Projeto
-
-```
-src/
-├── components/          # Componentes React
-│   ├── ui/             # Componentes base (shadcn/ui)
-│   ├── agendamentos/   # Componentes específicos
-│   ├── calendar/       # Componentes do calendário
-│   └── ...
-├── hooks/              # Custom hooks
-├── pages/              # Páginas da aplicação
-├── services/           # Serviços e APIs
-├── utils/              # Utilitários
-└── integrations/       # Integrações externas
-```
-
-## 🔒 Segurança
-
-### Variáveis de Ambiente
-- Nunca commite credenciais no código
-- Use sempre variáveis de ambiente
-- Configure diferentes valores para dev/prod
-
-### TypeScript
-- Configuração rigorosa para capturar erros em compile time
-- Tipagem estrita para evitar erros em runtime
-
-### Logging
-- Sistema de logging estruturado
-- Logs sensíveis só aparecem em desenvolvimento
-- Níveis de log configuráveis
-
-## 🐛 Tratamento de Erros
-
-O projeto utiliza um sistema padronizado de tratamento de erros:
-
-```typescript
-import { useErrorHandler } from '@/hooks/useErrorHandler';
-
-const { handleError, handleAsyncError } = useErrorHandler();
-
-// Para operações síncronas
-try {
-  // código que pode falhar
-} catch (error) {
-  handleError(error, { 
-    context: 'ComponentName',
-    showToast: true 
-  });
-}
-
-// Para operações assíncronas
-const result = await handleAsyncError(
-  async () => {
-    // operação assíncrona
-  },
-  { context: 'ComponentName' }
-);
-```
-
-## 📊 Performance
-
-### Otimizações Implementadas
-- Memoização de callbacks com cache
-- Debounce e throttle para operações frequentes
-- Limpeza automática de cache
-- Queries otimizadas com React Query
-
-### Monitoramento
-- Logs de performance em desenvolvimento
-- Métricas de tempo de resposta
-- Cache hit/miss tracking
-
-## 🤝 Contribuindo
-
-1. Fork o projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a branch (`git push origin feature/AmazingFeature`)
-5. Abra um Pull Request
-
-## 📝 Licença
-
-Este projeto está sob a licença MIT. Veja o arquivo `LICENSE` para mais detalhes.
-
-## 🆘 Suporte
-
-Para suporte, envie um email para suporte@atendeai.com ou abra uma issue no GitHub.

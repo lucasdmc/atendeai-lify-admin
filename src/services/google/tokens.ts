@@ -10,27 +10,52 @@ export class GoogleTokenManager {
     const config = googleAuthManager.getOAuthConfig();
     console.log('Using redirect URI for token exchange:', config.redirectUri);
     
-    // Obter o usuário atual
+    // Obter o usuário atual e sessão
     const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    
     if (!user) {
       throw new Error('User not authenticated');
     }
     
-    // Usar a Edge Function em vez de fazer a troca diretamente
-    const { data, error } = await supabase.functions.invoke('google-user-auth', {
-      body: {
-        action: 'handle-callback',
+    if (!session) {
+      throw new Error('No active session found');
+    }
+    
+    console.log('User authenticated:', user.email);
+    console.log('Session token present:', !!session.access_token);
+    
+    // Usar fetch diretamente para garantir que o payload seja enviado corretamente
+    const response = await fetch('https://niakqdolcdwxtrkbqmdi.supabase.co/functions/v1/google-user-auth', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxODI1NTksImV4cCI6MjA2NTc1ODU1OX0.90ihAk2geP1JoHIvMj_pxeoMe6dwRwH-rBbJwbFeomw',
+      },
+      body: JSON.stringify({
+        action: 'complete-auth',
         code: code,
-        state: `${user.id}:dummy_state`, // Incluir userId no state
-        userId: user.id, // Também enviar userId separadamente
-      }
+        redirect_uri: config.redirectUri
+      })
     });
-
-    console.log('Edge Function response:', { data, error });
-
-    if (error) {
-      console.error('Token exchange failed via Edge Function:', error);
-      throw new Error(`Failed to exchange code for tokens: ${error.message}`);
+    
+    console.log('Response status:', response.status);
+    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+    
+    const responseText = await response.text();
+    console.log('Response body:', responseText);
+    
+    if (!response.ok) {
+      console.error('Token exchange failed via Edge Function');
+      throw new Error(`Failed to exchange code for tokens: ${response.status} - ${responseText}`);
+    }
+    
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      throw new Error(`Invalid JSON response: ${responseText}`);
     }
 
     if (!data || !data.tokens) {
@@ -62,8 +87,8 @@ export class GoogleTokenManager {
 
     console.log('Saving tokens for user:', user.id);
 
-    const { error } = await supabase
-      .from('google_calendar_tokens')
+    const { error } = await (supabase as any)
+      .from('google_tokens')
       .upsert({
         user_id: user.id,
         access_token: tokens.access_token,
@@ -90,8 +115,8 @@ export class GoogleTokenManager {
     console.log('Fetching stored tokens for user:', user.id);
 
     try {
-      const { data, error } = await supabase
-        .from('google_calendar_tokens')
+      const { data, error } = await (supabase as any)
+        .from('google_tokens')
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
@@ -185,8 +210,8 @@ export class GoogleTokenManager {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
-    const { error } = await supabase
-      .from('google_calendar_tokens')
+    const { error } = await (supabase as any)
+      .from('google_tokens')
       .delete()
       .eq('user_id', user.id);
 

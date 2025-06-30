@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast'
 import { UserCalendar, GoogleAuthState } from '@/types/calendar'
 import { googleAuthManager } from '@/services/google/auth'
 import { useGoogleAuthRedirect } from '@/hooks/useGoogleAuthRedirect'
+import { googleTokenManager } from '@/services/google/tokens'
 
 export const useGoogleUserAuth = () => {
   const { user } = useAuth()
@@ -17,6 +18,9 @@ export const useGoogleUserAuth = () => {
     error: null
   })
 
+  const [showCalendarSelector, setShowCalendarSelector] = useState(false)
+  const [availableCalendars, setAvailableCalendars] = useState<any[]>([])
+
   // Verificar se o usuário já tem calendários conectados
   const checkAuthentication = useCallback(async () => {
     if (!user) return
@@ -24,33 +28,37 @@ export const useGoogleUserAuth = () => {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }))
       
-      const { data, error } = await supabase.functions.invoke('google-user-auth', {
-        body: { 
-          action: 'list-calendars',
-          userId: user.id
-        }
-      })
+      // Buscar calendários do usuário na tabela user_calendars
+      const { data: userCalendars, error: calendarsError } = await supabase
+        .from('user_calendars')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
 
-      if (error) {
-        console.error('Erro ao verificar autenticação:', error)
-        setState(prev => ({ 
-          ...prev, 
-          isAuthenticated: false, 
+      if (calendarsError) {
+        console.error('Erro ao buscar calendários:', calendarsError)
+        setState(prev => ({
+          ...prev,
+          isAuthenticated: false,
           userCalendars: [],
-          error: error.message 
+          isLoading: false,
+          error: 'Erro ao carregar calendários'
         }))
         return
       }
 
-      const calendars = data.calendars || []
+      // Verificar se há tokens válidos usando a função do tokenManager
+      const tokens = await googleTokenManager.getStoredTokens()
+      const hasValidTokens = tokens && new Date(tokens.expires_at) > new Date()
+      
       setState(prev => ({
         ...prev,
-        isAuthenticated: calendars.length > 0,
-        userCalendars: calendars,
+        isAuthenticated: Boolean(userCalendars && userCalendars.length > 0 && hasValidTokens),
+        userCalendars: userCalendars || [],
         isLoading: false
       }))
 
-      console.log(`✅ ${calendars.length} calendários encontrados para o usuário`)
+      console.log(`✅ ${userCalendars?.length || 0} calendários encontrados para o usuário`)
     } catch (error) {
       console.error('Erro ao verificar autenticação:', error)
       setState(prev => ({ 
@@ -63,7 +71,7 @@ export const useGoogleUserAuth = () => {
     }
   }, [user])
 
-  // Iniciar processo de autenticação - USANDO A LÓGICA QUE FUNCIONA
+  // Iniciar processo de autenticação
   const initiateAuth = useCallback(async () => {
     if (!user) {
       toast({
@@ -96,58 +104,78 @@ export const useGoogleUserAuth = () => {
   }, [user, toast])
 
   // Processar callback do Google OAuth usando o sistema que funciona
-  useGoogleAuthRedirect(() => {
-    // Recarregar calendários após autenticação bem-sucedida
-    checkAuthentication()
+  useGoogleAuthRedirect(async (calendars) => {
+    if (calendars && calendars.length > 0) {
+      // Mostrar seletor de calendários
+      setAvailableCalendars(calendars)
+      setShowCalendarSelector(true)
+    } else {
+      // Se não há calendários, recarregar status
+      await checkAuthentication()
+    }
   })
 
-  // Adicionar calendário específico
-  const addCalendar = useCallback(async (
-    calendarId: string, 
-    calendarName: string, 
-    calendarColor: string
-  ) => {
+  // Função para quando calendários são selecionados
+  const handleCalendarsSelected = useCallback(async (selectedCalendars: any[]) => {
     if (!user) return
 
     try {
-      setState(prev => ({ ...prev, isLoading: true, error: null }))
-      
-      const { data, error } = await supabase.functions.invoke('google-user-auth', {
-        body: { 
-          action: 'add-calendar',
-          userId: user.id,
-          calendarId,
-          calendarName,
-          calendarColor
-        }
-      })
+      setState(prev => ({ ...prev, isLoading: true }))
 
-      if (error) {
-        throw new Error(error.message)
+      // Buscar tokens do usuário usando o tokenManager
+      const tokens = await googleTokenManager.getStoredTokens()
+
+      if (!tokens) {
+        throw new Error('Tokens não encontrados')
       }
 
-      // Recarregar calendários
-      await checkAuthentication()
-      
+      // Salvar calendários selecionados na tabela user_calendars
+      const calendarsToSave = selectedCalendars.map((cal, index) => ({
+        user_id: user.id,
+        google_calendar_id: cal.id,
+        calendar_name: cal.summary,
+        calendar_color: cal.backgroundColor || '#4285f4',
+        is_primary: cal.primary || index === 0, // Primeiro calendário como principal
+        is_active: true,
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token || null,
+        expires_at: tokens.expires_at,
+      }))
+
+      const { error: saveError } = await supabase
+        .from('user_calendars')
+        .upsert(calendarsToSave, { onConflict: 'user_id,google_calendar_id' })
+
+      if (saveError) {
+        throw saveError
+      }
+
+      setShowCalendarSelector(false)
+      setAvailableCalendars([])
+      await checkAuthentication() // Recarregar calendários conectados
+
       toast({
         title: 'Sucesso',
-        description: 'Calendário adicionado com sucesso!',
+        description: `${selectedCalendars.length} calendário(s) conectado(s) com sucesso!`,
       })
     } catch (error) {
-      console.error('Erro ao adicionar calendário:', error)
-      setState(prev => ({ 
-        ...prev, 
-        error: error instanceof Error ? error.message : 'Erro ao adicionar calendário',
-        isLoading: false
-      }))
-      
+      console.error('Erro ao salvar calendários:', error)
       toast({
         title: 'Erro',
-        description: 'Falha ao adicionar calendário',
+        description: 'Falha ao conectar calendários',
         variant: 'destructive',
       })
+    } finally {
+      setState(prev => ({ ...prev, isLoading: false }))
     }
   }, [user, checkAuthentication, toast])
+
+  // Função para cancelar seleção
+  const handleCancelSelection = useCallback(() => {
+    setShowCalendarSelector(false)
+    setAvailableCalendars([])
+    checkAuthentication() // Recarregar status
+  }, [checkAuthentication])
 
   // Desconectar calendários
   const disconnectCalendars = useCallback(async () => {
@@ -156,16 +184,18 @@ export const useGoogleUserAuth = () => {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }))
       
-      const { data, error } = await supabase.functions.invoke('google-user-auth', {
-        body: { 
-          action: 'disconnect-calendar',
-          userId: user.id
-        }
-      })
+      // Deletar calendários do usuário
+      const { error: deleteCalendarsError } = await supabase
+        .from('user_calendars')
+        .delete()
+        .eq('user_id', user.id)
 
-      if (error) {
-        throw new Error(error.message)
+      if (deleteCalendarsError) {
+        throw deleteCalendarsError
       }
+
+      // Deletar tokens
+      await googleTokenManager.deleteConnection()
 
       setState(prev => ({
         ...prev,
@@ -194,16 +224,18 @@ export const useGoogleUserAuth = () => {
     }
   }, [user, toast])
 
-  // Verificar autenticação quando o usuário mudar
   useEffect(() => {
     checkAuthentication()
-  }, [user, checkAuthentication])
+  }, [checkAuthentication])
 
   return {
     ...state,
+    showCalendarSelector,
+    availableCalendars,
     initiateAuth,
-    addCalendar,
+    onCalendarsSelected: handleCalendarsSelected,
+    onCancelSelection: handleCancelSelection,
     disconnectCalendars,
-    checkAuthentication,
+    refetch: checkAuthentication
   }
 } 
