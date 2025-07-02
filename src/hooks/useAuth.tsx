@@ -46,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .from('user_profiles')
             .insert({
               id: userId, // Usar o user_id como id
+              email: user?.email || 'user@example.com',
               name: user?.email?.split('@')[0] || 'Usuário',
               role: 'admin_lify',
               status: true
