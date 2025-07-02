@@ -1,9 +1,9 @@
-
 import { ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import DebugSidebar from './DebugSidebar';
 
 interface LayoutProps {
   children: ReactNode;
@@ -33,6 +33,7 @@ const Layout = ({ children }: LayoutProps) => {
           {children}
         </main>
       </div>
+      <DebugSidebar />
     </div>
   );
 };

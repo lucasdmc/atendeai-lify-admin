@@ -26,36 +26,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserData = async (userId: string) => {
     try {
-      console.log('🔄 Fetching user data for ID:', userId);
+      console.log('🔄 [useAuth] Fetching user data for ID:', userId);
       
       // Buscar perfil do usuário
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
-        .select('role')
+        .select('role, name')
         .eq('user_id', userId)
         .single();
       
       if (profileError) {
-        console.error('❌ Error fetching profile:', profileError);
-        setUserRole(null);
-        setUserPermissions([]);
+        console.error('❌ [useAuth] Error fetching profile:', profileError);
+        
+        // Se o perfil não existe, tentar criar automaticamente
+        if (profileError.code === 'PGRST116') {
+          console.log('🔄 [useAuth] Profile not found, creating new profile...');
+          
+          const { data: newProfile, error: createError } = await supabase
+            .from('user_profiles')
+            .insert({
+              id: userId, // Usar o user_id como id
+              name: user?.email?.split('@')[0] || 'Usuário',
+              role: 'admin_lify',
+              status: true
+            })
+            .select('role, name')
+            .single();
+
+          if (createError) {
+            console.error('❌ [useAuth] Error creating profile:', createError);
+            setUserRole(null);
+            setUserPermissions([]);
+            return;
+          }
+
+          console.log('✅ [useAuth] Profile created successfully:', newProfile);
+          setUserRole(newProfile.role);
+          
+          const permissions = rolePermissions[newProfile.role as keyof typeof rolePermissions] || [];
+          setUserPermissions(permissions);
+          console.log('✅ [useAuth] User permissions set to:', permissions);
+        } else {
+          setUserRole(null);
+          setUserPermissions([]);
+        }
         return;
       }
 
-      console.log('✅ Profile fetched:', profile);
+      console.log('✅ [useAuth] Profile fetched:', profile);
       
       if (profile) {
         setUserRole(profile.role);
-        console.log('✅ User role set to:', profile.role);
+        console.log('✅ [useAuth] User role set to:', profile.role);
 
         // Usar as permissões definidas no UserRoleUtils
         const permissions = rolePermissions[profile.role as keyof typeof rolePermissions] || [];
         setUserPermissions(permissions);
-        console.log('✅ User permissions set to:', permissions);
+        console.log('✅ [useAuth] User permissions set to:', permissions);
       }
       
     } catch (error) {
-      console.error('❌ Error fetching user data:', error);
+      console.error('❌ [useAuth] Error fetching user data:', error);
       setUserRole(null);
       setUserPermissions([]);
     } finally {
@@ -70,12 +101,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         if (!mounted) return;
         
-        console.log('🔄 Auth state changed:', event, session?.user?.id);
+        console.log('🔄 [useAuth] Auth state changed:', event, session?.user?.id);
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          fetchUserData(session.user.id);
+          await fetchUserData(session.user.id);
         } else {
           setUserRole(null);
           setUserPermissions([]);
@@ -88,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!mounted) return;
       
-      console.log('🔄 Initial session check:', session?.user?.id);
+      console.log('🔄 [useAuth] Initial session check:', session?.user?.id);
       setSession(session);
       setUser(session?.user ?? null);
       
