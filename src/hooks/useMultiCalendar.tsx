@@ -19,6 +19,7 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
   })
 
   const fetchEventsRef = useRef<typeof fetchEventsFromCalendars>()
+  const lastFetchRef = useRef<string | null>(null)
 
   const fetchEventsFromCalendars = useCallback(async (
     calendarIds: string[],
@@ -352,11 +353,15 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
 
   useEffect(() => {
     if (user && selectedCalendars.length > 0) {
-      fetchEventsFromCalendars(selectedCalendars)
+      const currentCalendars = JSON.stringify(selectedCalendars);
+      if (fetchEventsRef.current && currentCalendars !== lastFetchRef.current) {
+        lastFetchRef.current = currentCalendars;
+        fetchEventsFromCalendars(selectedCalendars);
+      }
     } else if (selectedCalendars.length === 0) {
-      setState(prev => ({ ...prev, events: [] }))
+      setState(prev => ({ ...prev, events: [] }));
     }
-  }, [selectedCalendars, user])
+  }, [selectedCalendars, user, fetchEventsFromCalendars]);
 
   useEffect(() => {
     if (!user) {
