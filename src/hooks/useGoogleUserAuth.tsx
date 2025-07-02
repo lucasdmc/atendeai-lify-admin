@@ -51,18 +51,12 @@ export const useGoogleUserAuth = () => {
       const tokens = await googleTokenManager.getStoredTokens()
       const hasValidTokens = tokens && new Date(tokens.expires_at) > new Date()
       
-      setState(prev => {
-        const newState = {
-          ...prev,
-          isAuthenticated: Boolean(userCalendars && userCalendars.length > 0 && hasValidTokens),
-          userCalendars: userCalendars || [],
-          isLoading: false
-        }
-        console.log('[DEBUG] 🎯 Setting state in checkAuthentication:', newState)
-        return newState
-      })
-
-      console.log(`✅ ${userCalendars?.length || 0} calendários encontrados para o usuário`)
+      setState(prev => ({
+        ...prev,
+        isAuthenticated: Boolean(userCalendars && userCalendars.length > 0 && hasValidTokens),
+        userCalendars: userCalendars || [],
+        isLoading: false
+      }))
     } catch (error) {
       console.error('Erro ao verificar autenticação:', error)
       setState(prev => ({ 
@@ -180,39 +174,131 @@ export const useGoogleUserAuth = () => {
     checkAuthentication() // Recarregar status
   }, [checkAuthentication])
 
-  // Desconectar calendários
-  const disconnectCalendars = useCallback(async () => {
-    if (!user) return
+  // Desconectar calendários (seletivo ou todos)
+  const disconnectCalendars = useCallback(async (calendarIds?: string[]) => {
+    if (!user) {
+      console.log('[DEBUG] 🎯 disconnectCalendars - No user found')
+      return
+    }
+
+    console.log('[DEBUG] 🎯 disconnectCalendars - Starting disconnect for user:', user.id, 'calendarIds:', calendarIds)
 
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }))
       
-      // Deletar calendários do usuário
-      const { error: deleteCalendarsError } = await supabase
-        .from('user_calendars')
-        .delete()
-        .eq('user_id', user.id)
+      let calendarsToDelete: any[] = []
+      
+      if (calendarIds && calendarIds.length > 0) {
+        // Desconectar apenas calendários selecionados
+        console.log('[DEBUG] 🎯 disconnectCalendars - Disconnecting selected calendars:', calendarIds)
+        
+        const { data: selectedCalendars, error: fetchError } = await supabase
+          .from('user_calendars')
+          .select('id, google_calendar_id, calendar_name')
+          .eq('user_id', user.id)
+          .in('google_calendar_id', calendarIds)
 
-      if (deleteCalendarsError) {
-        throw deleteCalendarsError
+        if (fetchError) {
+          console.error('[DEBUG] 🎯 disconnectCalendars - Error fetching selected calendars:', fetchError)
+          throw new Error(`Erro ao buscar calendários selecionados: ${fetchError.message}`)
+        }
+
+        calendarsToDelete = selectedCalendars || []
+        console.log('[DEBUG] 🎯 disconnectCalendars - Found calendars to delete:', calendarsToDelete)
+      } else {
+        // Desconectar todos os calendários (comportamento original)
+        console.log('[DEBUG] 🎯 disconnectCalendars - Disconnecting all calendars')
+        
+        const { data: userCalendars, error: fetchError } = await supabase
+          .from('user_calendars')
+          .select('id, google_calendar_id, calendar_name')
+          .eq('user_id', user.id)
+
+        if (fetchError) {
+          console.error('[DEBUG] 🎯 disconnectCalendars - Error fetching all calendars:', fetchError)
+          throw new Error(`Erro ao buscar calendários: ${fetchError.message}`)
+        }
+
+        calendarsToDelete = userCalendars || []
       }
 
-      // Deletar tokens
-      await googleTokenManager.deleteConnection()
+      if (calendarsToDelete.length > 0) {
+        const calendarIdsToDelete = calendarsToDelete.map(cal => cal.id)
+        
+        // 1. Deletar logs de sincronização primeiro (para evitar foreign key constraint)
+        console.log('[DEBUG] 🎯 disconnectCalendars - Deleting sync logs...')
+        const { error: deleteLogsError } = await supabase
+          .from('calendar_sync_logs')
+          .delete()
+          .in('user_calendar_id', calendarIdsToDelete)
 
-      setState(prev => ({
-        ...prev,
-        isAuthenticated: false,
-        userCalendars: [],
-        isLoading: false
-      }))
+        if (deleteLogsError) {
+          console.error('[DEBUG] 🎯 disconnectCalendars - Error deleting sync logs:', deleteLogsError)
+          // Não falhar se não conseguir deletar logs, continuar
+        } else {
+          console.log('[DEBUG] 🎯 disconnectCalendars - Sync logs deleted successfully')
+        }
+
+        // 2. Deletar eventos de calendário (se existir a tabela)
+        console.log('[DEBUG] 🎯 disconnectCalendars - Deleting calendar events...')
+        try {
+          const { error: deleteEventsError } = await supabase
+            .from('calendar_events')
+            .delete()
+            .in('user_calendar_id', calendarIdsToDelete)
+
+          if (deleteEventsError) {
+            console.error('[DEBUG] 🎯 disconnectCalendars - Error deleting events:', deleteEventsError)
+            // Não falhar se não conseguir deletar eventos, continuar
+          } else {
+            console.log('[DEBUG] 🎯 disconnectCalendars - Calendar events deleted successfully')
+          }
+        } catch (eventsError) {
+          console.log('[DEBUG] 🎯 disconnectCalendars - Calendar events table may not exist, continuing...')
+        }
+
+        // 3. Deletar calendários selecionados
+        console.log('[DEBUG] 🎯 disconnectCalendars - Deleting selected calendars...')
+        const { error: deleteCalendarsError } = await supabase
+          .from('user_calendars')
+          .delete()
+          .in('id', calendarIdsToDelete)
+
+        if (deleteCalendarsError) {
+          console.error('[DEBUG] 🎯 disconnectCalendars - Error deleting calendars:', deleteCalendarsError)
+          throw new Error(`Erro ao deletar calendários: ${deleteCalendarsError.message}`)
+        }
+
+        console.log('[DEBUG] 🎯 disconnectCalendars - Calendars deleted successfully')
+
+        // 4. Se desconectou todos os calendários, deletar tokens também
+        if (!calendarIds || calendarIds.length === 0) {
+          console.log('[DEBUG] 🎯 disconnectCalendars - Deleting tokens...')
+          try {
+            await googleTokenManager.deleteConnection()
+            console.log('[DEBUG] 🎯 disconnectCalendars - Tokens deleted successfully')
+          } catch (tokenError) {
+            console.error('[DEBUG] 🎯 disconnectCalendars - Error deleting tokens:', tokenError)
+            // Não falhar se não conseguir deletar tokens, continuar
+          }
+        }
+      }
+
+      // 5. Recarregar estado
+      console.log('[DEBUG] 🎯 disconnectCalendars - Updating state...')
+      await checkAuthentication()
       
+      console.log('[DEBUG] 🎯 disconnectCalendars - Disconnect completed successfully')
+      
+      const calendarNames = calendarsToDelete.map(cal => cal.calendar_name).join(', ')
       toast({
         title: 'Desconectado',
-        description: 'Google Calendar desconectado com sucesso',
+        description: calendarIds && calendarIds.length > 0 
+          ? `Calendário(s) desconectado(s): ${calendarNames}`
+          : 'Google Calendar desconectado com sucesso',
       })
     } catch (error) {
-      console.error('Erro ao desconectar calendários:', error)
+      console.error('[DEBUG] 🎯 disconnectCalendars - Error:', error)
       setState(prev => ({ 
         ...prev, 
         error: error instanceof Error ? error.message : 'Erro ao desconectar calendários',
@@ -221,16 +307,27 @@ export const useGoogleUserAuth = () => {
       
       toast({
         title: 'Erro',
-        description: 'Falha ao desconectar calendários',
+        description: `Falha ao desconectar calendários: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
         variant: 'destructive',
       })
     }
-  }, [user, toast])
+  }, [user, toast, checkAuthentication])
 
-  // Verificar autenticação apenas uma vez quando o componente monta
+  // Verificar autenticação quando o usuário mudar
   useEffect(() => {
     if (user) {
       checkAuthentication()
+    } else {
+      // Limpar estado quando não há usuário (logout)
+      console.log('[DEBUG] 🎯 useGoogleUserAuth - User logged out, clearing state')
+      setState({
+        isAuthenticated: false,
+        userCalendars: [],
+        isLoading: false,
+        error: null
+      })
+      setShowCalendarSelector(false)
+      setAvailableCalendars([])
     }
   }, [user]) // Dependência apenas no user, não no checkAuthentication
 

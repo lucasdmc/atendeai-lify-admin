@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
@@ -8,65 +8,79 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
   const { user } = useAuth()
   const { toast } = useToast()
   
-  const [state, setState] = useState<MultiCalendarState>({
-    selectedCalendars: [],
+  const [state, setState] = useState<{
+    events: GoogleCalendarEvent[]
+    isLoading: boolean
+    error: string | null
+  }>({
     events: [],
     isLoading: false,
     error: null
   })
 
-  // Buscar eventos de múltiplos calendários
+  const fetchEventsRef = useRef<typeof fetchEventsFromCalendars>()
+
   const fetchEventsFromCalendars = useCallback(async (
     calendarIds: string[],
     timeMin?: string,
     timeMax?: string
   ) => {
-    console.log('[DEBUG] 🎯 fetchEventsFromCalendars - Called with calendarIds:', calendarIds)
-    console.log('[DEBUG] 🎯 fetchEventsFromCalendars - user:', user?.id)
-    
     if (!user || calendarIds.length === 0) {
-      console.log('[DEBUG] 🎯 fetchEventsFromCalendars - Early return: no user or no calendars')
       setState(prev => ({ ...prev, events: [], isLoading: false }))
       return
     }
 
     try {
-      console.log('[DEBUG] 🎯 fetchEventsFromCalendars - Starting to fetch events...')
       setState(prev => ({ ...prev, isLoading: true, error: null }))
       
       const allEvents: GoogleCalendarEvent[] = []
       
-      // Buscar eventos de cada calendário selecionado
       for (const calendarId of calendarIds) {
-        console.log('[DEBUG] 🎯 fetchEventsFromCalendars - Fetching from calendar:', calendarId)
         try {
           const { data, error } = await supabase.functions.invoke('calendar-manager', {
             body: { 
               action: 'list-events',
               calendarId,
               userId: user.id,
-              timeMin: timeMin || new Date().toISOString(),
-              timeMax: timeMax || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-              // Forçar busca mais recente
+              timeMin: timeMin || new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
+              timeMax: timeMax || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
               forceRefresh: true
             }
           })
 
-          console.log('[DEBUG] 🎯 fetchEventsFromCalendars - Response for calendar', calendarId, ':', { data, error })
-
           if (error) {
             console.error(`Erro ao buscar eventos do calendário ${calendarId}:`, error)
+            
+            let errorMessage = error.message;
+            let errorTitle = 'Erro no Calendário';
+            
+            if (error.message.includes('403') || error.message.includes('Sem permissão')) {
+              errorTitle = 'Permissão Negada';
+              errorMessage = `Você não tem permissão para acessar o calendário ${calendarId.split('@')[0]}. Verifique se você tem acesso a este calendário.`;
+            } else if (error.message.includes('404') || error.message.includes('não encontrado')) {
+              errorTitle = 'Calendário Não Encontrado';
+              errorMessage = `O calendário ${calendarId.split('@')[0]} não foi encontrado ou não está acessível.`;
+            } else if (error.message.includes('401') || error.message.includes('Token de acesso inválido')) {
+              errorTitle = 'Token Expirado';
+              errorMessage = `O token de acesso para o calendário ${calendarId.split('@')[0]} expirou. Tente reconectar o calendário.`;
+            } else if (error.message.includes('500') || error.message.includes('Erro interno')) {
+              errorTitle = 'Erro do Google Calendar';
+              errorMessage = `Erro interno do Google Calendar para ${calendarId.split('@')[0]}. Tente novamente em alguns minutos.`;
+            } else if (calendarId.includes('@group.calendar.google.com')) {
+              errorTitle = 'Calendário de Grupo';
+              errorMessage = `Problema com o calendário de grupo ${calendarId.split('@')[0]}. Calendários de grupo podem ter restrições de permissão.`;
+            }
+            
+            toast({
+              title: errorTitle,
+              description: errorMessage,
+              variant: 'destructive',
+            })
+            
             continue
           }
 
           if (data.success && data.events) {
-            console.log('[DEBUG] 🎯 fetchEventsFromCalendars - Adding', data.events.length, 'events from calendar', calendarId)
-            console.log('[DEBUG] 🎯 fetchEventsFromCalendars - Events details:', data.events.map((e: any) => ({
-              id: e.id,
-              summary: e.summary,
-              start: e.start,
-              created: e.created
-            })))
             allEvents.push(...data.events)
           }
         } catch (error) {
@@ -74,27 +88,16 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
         }
       }
 
-      // Ordenar eventos por data de início
       const sortedEvents = allEvents.sort((a, b) => 
         new Date(a.start.dateTime).getTime() - new Date(b.start.dateTime).getTime()
       )
 
-      console.log('[DEBUG] 🎯 fetchEventsFromCalendars - Final sorted events:', sortedEvents.length)
-
-      setState(prev => {
-        console.log('[DEBUG] 🎯 fetchEventsFromCalendars - Previous state:', prev)
-        const newState = {
-          ...prev,
-          events: sortedEvents,
-          isLoading: false
-        }
-        console.log('[DEBUG] 🎯 fetchEventsFromCalendars - New state:', newState)
-        return newState
-      })
-
-      console.log(`✅ ${sortedEvents.length} eventos carregados de ${calendarIds.length} calendários`)
+      setState(prev => ({
+        ...prev,
+        events: sortedEvents,
+        isLoading: false
+      }))
     } catch (error) {
-      console.error('[DEBUG] 🎯 fetchEventsFromCalendars - Error:', error)
       setState(prev => ({ 
         ...prev, 
         error: error instanceof Error ? error.message : 'Erro ao buscar eventos',
@@ -109,7 +112,10 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
     }
   }, [user, toast])
 
-  // Criar evento em um calendário específico
+  useEffect(() => {
+    fetchEventsRef.current = fetchEventsFromCalendars
+  }, [fetchEventsFromCalendars])
+
   const createEvent = useCallback(async (
     calendarId: string,
     eventData: Omit<GoogleCalendarEvent, 'id' | 'status'>
@@ -145,13 +151,13 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
         throw new Error('Falha ao criar evento')
       }
 
-      console.log('[DEBUG] 🎯 useMultiCalendar.createEvent - Event created, waiting 2 seconds before reloading...')
-      // Aguardar um pouco para o Google Calendar processar
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      console.log('[DEBUG] 🎯 useMultiCalendar.createEvent - Event created, waiting 5 seconds before reloading...')
+      await new Promise(resolve => setTimeout(resolve, 5000))
       
       console.log('[DEBUG] 🎯 useMultiCalendar.createEvent - Now reloading events...')
-      // Recarregar eventos
-      await fetchEventsFromCalendars(selectedCalendars)
+      if (fetchEventsRef.current) {
+        await fetchEventsRef.current(selectedCalendars)
+      }
       
       toast({
         title: 'Sucesso',
@@ -171,9 +177,8 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
       
       throw error
     }
-  }, [user, selectedCalendars, fetchEventsFromCalendars, toast])
+  }, [user, selectedCalendars, toast])
 
-  // Atualizar evento
   const updateEvent = useCallback(async (
     calendarId: string,
     eventId: string,
@@ -202,8 +207,9 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
         throw new Error('Falha ao atualizar evento')
       }
 
-      // Recarregar eventos
-      await fetchEventsFromCalendars(selectedCalendars)
+      if (fetchEventsRef.current) {
+        await fetchEventsRef.current(selectedCalendars)
+      }
       
       toast({
         title: 'Sucesso',
@@ -220,9 +226,8 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
       
       throw error
     }
-  }, [user, selectedCalendars, fetchEventsFromCalendars, toast])
+  }, [user, selectedCalendars, toast])
 
-  // Deletar evento
   const deleteEvent = useCallback(async (
     calendarId: string,
     eventId: string
@@ -249,8 +254,9 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
         throw new Error('Falha ao deletar evento')
       }
 
-      // Recarregar eventos
-      await fetchEventsFromCalendars(selectedCalendars)
+      if (fetchEventsRef.current) {
+        await fetchEventsRef.current(selectedCalendars)
+      }
       
       toast({
         title: 'Sucesso',
@@ -267,9 +273,8 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
       
       throw error
     }
-  }, [user, selectedCalendars, fetchEventsFromCalendars, toast])
+  }, [user, selectedCalendars, toast])
 
-  // Sincronizar calendário
   const syncCalendar = useCallback(async (calendarId: string): Promise<void> => {
     if (!user) {
       throw new Error('Usuário não autenticado')
@@ -294,8 +299,9 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
         throw new Error('Falha ao sincronizar calendário')
       }
 
-      // Recarregar eventos
-      await fetchEventsFromCalendars(selectedCalendars)
+      if (fetchEventsRef.current) {
+        await fetchEventsRef.current(selectedCalendars)
+      }
       
       toast({
         title: 'Sucesso',
@@ -314,16 +320,53 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
     } finally {
       setState(prev => ({ ...prev, isLoading: false }))
     }
-  }, [user, selectedCalendars, fetchEventsFromCalendars, toast])
+  }, [user, selectedCalendars, toast])
 
-  // Buscar eventos quando calendários selecionados mudarem
+  const forceSyncEvents = useCallback(async () => {
+    console.log('[DEBUG] 🎯 useMultiCalendar.forceSyncEvents - Starting forced sync...')
+    if (selectedCalendars.length === 0) {
+      console.log('[DEBUG] 🎯 useMultiCalendar.forceSyncEvents - No calendars selected')
+      return
+    }
+    
+    try {
+      setState(prev => ({ ...prev, isLoading: true, error: null }))
+      if (fetchEventsRef.current) {
+        await fetchEventsRef.current(selectedCalendars)
+      }
+      console.log('[DEBUG] 🎯 useMultiCalendar.forceSyncEvents - Forced sync completed')
+      
+      toast({
+        title: 'Sincronização',
+        description: 'Eventos atualizados com sucesso!',
+      })
+    } catch (error) {
+      console.error('[DEBUG] 🎯 useMultiCalendar.forceSyncEvents - Error:', error)
+      toast({
+        title: 'Erro',
+        description: 'Falha ao sincronizar eventos',
+        variant: 'destructive',
+      })
+    }
+  }, [selectedCalendars, toast])
+
   useEffect(() => {
-    if (selectedCalendars.length > 0) {
+    if (user && selectedCalendars.length > 0) {
       fetchEventsFromCalendars(selectedCalendars)
-    } else {
+    } else if (selectedCalendars.length === 0) {
       setState(prev => ({ ...prev, events: [] }))
     }
-  }, [selectedCalendars, fetchEventsFromCalendars])
+  }, [selectedCalendars, user])
+
+  useEffect(() => {
+    if (!user) {
+      setState({
+        events: [],
+        isLoading: false,
+        error: null
+      })
+    }
+  }, [user])
 
   return {
     ...state,
@@ -331,6 +374,7 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
     updateEvent,
     deleteEvent,
     syncCalendar,
-    fetchEventsFromCalendars
+    fetchEventsFromCalendars,
+    forceSyncEvents
   }
 } 

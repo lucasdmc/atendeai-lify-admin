@@ -210,20 +210,75 @@ export class GoogleTokenManager {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
-    const { error } = await supabase
-      .from('google_calendar_tokens')
-      .delete()
-      .eq('user_id', user.id);
+    try {
+      // Abordagem manual: deletar na ordem correta para evitar violação de chave estrangeira
+      
+      // 1. Primeiro, buscar os IDs dos calendários do usuário
+      console.log('🔍 Buscando calendários do usuário...');
+      const { data: userCalendars, error: calendarsError } = await supabase
+        .from('user_calendars')
+        .select('id')
+        .eq('user_id', user.id);
 
-    if (error) throw error;
+      if (calendarsError) {
+        console.error('Error fetching user calendars:', calendarsError);
+        throw new Error(`Erro ao buscar calendários: ${calendarsError.message}`);
+      }
 
-    // Também remove eventos do calendário se existirem
-    await supabase
-      .from('calendar_events')
-      .delete()
-      .eq('user_id', user.id);
+      if (!userCalendars || userCalendars.length === 0) {
+        console.log('No calendars found for user');
+        return;
+      }
 
-    console.log('Google Calendar connection deleted successfully');
+      const calendarIds = userCalendars.map(cal => cal.id);
+      console.log('📋 IDs dos calendários encontrados:', calendarIds);
+
+      // 2. Deletar os logs de sincronização relacionados
+      console.log('📝 Deletando logs de sincronização...');
+      const { error: logsError } = await supabase
+        .from('calendar_sync_logs')
+        .delete()
+        .in('user_calendar_id', calendarIds);
+
+      if (logsError) {
+        console.error('Error deleting sync logs:', logsError);
+        throw new Error(`Erro ao deletar logs de sincronização: ${logsError.message}`);
+      }
+
+      console.log('✅ Logs de sincronização deletados');
+
+      // 3. Deletar os calendários do usuário
+      console.log('📅 Deletando calendários...');
+      const { error: calendarsDeleteError } = await supabase
+        .from('user_calendars')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (calendarsDeleteError) {
+        console.error('Error deleting calendars:', calendarsDeleteError);
+        throw new Error(`Erro ao deletar calendários: ${calendarsDeleteError.message}`);
+      }
+
+      console.log('✅ Calendários deletados');
+
+      // 4. Deletar os tokens do usuário
+      console.log('🔑 Deletando tokens...');
+      const { error: tokensError } = await supabase
+        .from('google_calendar_tokens')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (tokensError) {
+        console.error('Error deleting tokens:', tokensError);
+        throw new Error(`Erro ao deletar tokens: ${tokensError.message}`);
+      }
+
+      console.log('✅ Tokens deletados');
+      console.log('🎉 Google Calendar connection deleted successfully');
+    } catch (error) {
+      console.error('Error deleting connection:', error);
+      throw error;
+    }
   }
 }
 

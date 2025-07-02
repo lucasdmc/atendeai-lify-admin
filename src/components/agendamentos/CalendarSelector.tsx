@@ -14,7 +14,8 @@ import {
   ChevronUp,
   CheckCircle,
   Loader2,
-  X
+  X,
+  Unlink
 } from 'lucide-react'
 import { UserCalendar } from '@/types/calendar'
 import { useToast } from '@/hooks/use-toast'
@@ -34,7 +35,7 @@ interface CalendarSelectorProps {
   selectedCalendars?: string[]
   onCalendarToggle?: (calendarId: string) => void
   onRefreshCalendars?: () => void
-  onDisconnectCalendars?: () => void
+  onDisconnectCalendars?: (calendarIds?: string[]) => void
   onAddCalendar?: () => void
   isLoading?: boolean
   // Props para seleção de calendários disponíveis
@@ -57,6 +58,7 @@ const CalendarSelector = ({
 }: CalendarSelectorProps) => {
   const [isExpanded, setIsExpanded] = useState(true)
   const [selectedAvailableCalendars, setSelectedAvailableCalendars] = useState<string[]>([])
+  const [calendarsToDisconnect, setCalendarsToDisconnect] = useState<string[]>([])
   const { toast } = useToast()
   const { user } = useAuth()
 
@@ -68,6 +70,16 @@ const CalendarSelector = ({
 
   const handleAvailableCalendarToggle = (calendarId: string) => {
     setSelectedAvailableCalendars(prev => {
+      if (prev.includes(calendarId)) {
+        return prev.filter(id => id !== calendarId)
+      } else {
+        return [...prev, calendarId]
+      }
+    })
+  }
+
+  const handleDisconnectToggle = (calendarId: string) => {
+    setCalendarsToDisconnect(prev => {
       if (prev.includes(calendarId)) {
         return prev.filter(id => id !== calendarId)
       } else {
@@ -94,6 +106,35 @@ const CalendarSelector = ({
           handleCalendarToggle(id)
         }
       })
+    }
+  }
+
+  const handleSelectAllDisconnect = () => {
+    const allCalendarIds = userCalendars.map(cal => cal.google_calendar_id)
+    const allSelected = allCalendarIds.every(id => calendarsToDisconnect.includes(id))
+    
+    if (allSelected) {
+      // Desmarcar todos
+      setCalendarsToDisconnect([])
+    } else {
+      // Marcar todos
+      setCalendarsToDisconnect(allCalendarIds)
+    }
+  }
+
+  const handleDisconnectSelected = () => {
+    if (calendarsToDisconnect.length === 0) {
+      toast({
+        title: 'Seleção necessária',
+        description: 'Selecione pelo menos um calendário para desconectar.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (onDisconnectCalendars) {
+      onDisconnectCalendars(calendarsToDisconnect)
+      setCalendarsToDisconnect([]) // Limpar seleção após desconectar
     }
   }
 
@@ -135,10 +176,6 @@ const CalendarSelector = ({
 
   // Se estamos mostrando calendários disponíveis para seleção
   if (calendars.length > 0) {
-    // console.log('[DEBUG] 🎯 CalendarSelector: Renderizando modo de seleção de calendários')
-    // console.log('[DEBUG] 🎯 CalendarSelector: calendars.length:', calendars.length)
-    // console.log('[DEBUG] 🎯 CalendarSelector: calendars:', calendars)
-    
     return (
       <Card>
         <CardHeader>
@@ -269,52 +306,102 @@ const CalendarSelector = ({
       
       {isExpanded && (
         <CardContent className="space-y-3">
-          {/* Botão para selecionar todos */}
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="select-all"
-              checked={userCalendars.length > 0 && userCalendars.every(cal => 
-                selectedCalendars.includes(cal.google_calendar_id)
-              )}
-              onCheckedChange={handleSelectAll}
-            />
-            <label
-              htmlFor="select-all"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              Selecionar todos
-            </label>
+          {/* Seção de seleção para visualização */}
+          <div className="space-y-2">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="select-all"
+                checked={userCalendars.length > 0 && userCalendars.every(cal => 
+                  selectedCalendars.includes(cal.google_calendar_id)
+                )}
+                onCheckedChange={handleSelectAll}
+              />
+              <label
+                htmlFor="select-all"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Selecionar todos para visualizar
+              </label>
+            </div>
+
+            {/* Lista de calendários para visualização */}
+            <div className="space-y-2">
+              {userCalendars.map((calendar) => (
+                <div key={calendar.id} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`view-${calendar.id}`}
+                    checked={selectedCalendars.includes(calendar.google_calendar_id)}
+                    onCheckedChange={() => handleCalendarToggle(calendar.google_calendar_id)}
+                  />
+                  <label
+                    htmlFor={`view-${calendar.id}`}
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-2 flex-1"
+                  >
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: getCalendarColor(calendar.calendar_color) }}
+                    />
+                    {getCalendarIcon(calendar)}
+                    <span className="truncate">{calendar.calendar_name}</span>
+                    {calendar.is_primary && (
+                      <Badge variant="secondary" className="text-xs">
+                        Principal
+                      </Badge>
+                    )}
+                  </label>
+                </div>
+              ))}
+            </div>
           </div>
 
           <Separator />
 
-          {/* Lista de calendários */}
+          {/* Seção de desconexão */}
           <div className="space-y-2">
-            {userCalendars.map((calendar) => (
-              <div key={calendar.id} className="flex items-center space-x-2">
-                <Checkbox
-                  id={calendar.id}
-                  checked={selectedCalendars.includes(calendar.google_calendar_id)}
-                  onCheckedChange={() => handleCalendarToggle(calendar.google_calendar_id)}
-                />
-                <label
-                  htmlFor={calendar.id}
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-2 flex-1"
-                >
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: getCalendarColor(calendar.calendar_color) }}
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="select-all-disconnect"
+                checked={userCalendars.length > 0 && userCalendars.every(cal => 
+                  calendarsToDisconnect.includes(cal.google_calendar_id)
+                )}
+                onCheckedChange={handleSelectAllDisconnect}
+              />
+              <label
+                htmlFor="select-all-disconnect"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-red-600"
+              >
+                Selecionar todos para desconectar
+              </label>
+            </div>
+
+            {/* Lista de calendários para desconexão */}
+            <div className="space-y-2">
+              {userCalendars.map((calendar) => (
+                <div key={calendar.id} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`disconnect-${calendar.id}`}
+                    checked={calendarsToDisconnect.includes(calendar.google_calendar_id)}
+                    onCheckedChange={() => handleDisconnectToggle(calendar.google_calendar_id)}
                   />
-                  {getCalendarIcon(calendar)}
-                  <span className="truncate">{calendar.calendar_name}</span>
-                  {calendar.is_primary && (
-                    <Badge variant="secondary" className="text-xs">
-                      Principal
-                    </Badge>
-                  )}
-                </label>
-              </div>
-            ))}
+                  <label
+                    htmlFor={`disconnect-${calendar.id}`}
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-2 flex-1 text-red-600"
+                  >
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: getCalendarColor(calendar.calendar_color) }}
+                    />
+                    <Unlink className="h-4 w-4" />
+                    <span className="truncate">{calendar.calendar_name}</span>
+                    {calendar.is_primary && (
+                      <Badge variant="secondary" className="text-xs">
+                        Principal
+                      </Badge>
+                    )}
+                  </label>
+                </div>
+              ))}
+            </div>
           </div>
 
           <Separator />
@@ -340,12 +427,13 @@ const CalendarSelector = ({
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             </Button>
             <Button
-              variant="outline"
+              variant="destructive"
               size="sm"
-              onClick={onDisconnectCalendars}
-              disabled={isLoading}
+              onClick={handleDisconnectSelected}
+              disabled={isLoading || calendarsToDisconnect.length === 0}
             >
               <Trash2 className="h-4 w-4" />
+              Desconectar ({calendarsToDisconnect.length})
             </Button>
           </div>
         </CardContent>

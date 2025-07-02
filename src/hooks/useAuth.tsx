@@ -31,7 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
         .select('role')
-        .eq('id', userId)
+        .eq('user_id', userId)
         .single();
       
       if (profileError) {
@@ -153,9 +153,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    try {
+      // Antes de fazer logout, desconectar calendários do Google
+      if (user) {
+        console.log('🔄 Desconectando calendários do Google antes do logout...');
+        
+        // 1. Deletar calendários do usuário
+        const { error: deleteCalendarsError } = await supabase
+          .from('user_calendars')
+          .delete()
+          .eq('user_id', user.id);
+
+        if (deleteCalendarsError) {
+          console.error('⚠️ Erro ao deletar calendários:', deleteCalendarsError);
+        } else {
+          console.log('✅ Calendários deletados com sucesso');
+        }
+
+        // 2. Deletar tokens do Google
+        const { error: deleteTokensError } = await supabase
+          .from('google_calendar_tokens')
+          .delete()
+          .eq('user_id', user.id);
+
+        if (deleteTokensError) {
+          console.error('⚠️ Erro ao deletar tokens:', deleteTokensError);
+        } else {
+          console.log('✅ Tokens deletados com sucesso');
+        }
+      }
+    } catch (error) {
+      console.error('⚠️ Erro ao desconectar calendários:', error);
+      // Não falhar o logout se houver erro na desconexão
+    }
+
+    // Fazer logout do Supabase
     await supabase.auth.signOut();
     setUserRole(null);
     setUserPermissions([]);
+    
+    console.log('✅ Logout concluído com sucesso');
   };
 
   return (

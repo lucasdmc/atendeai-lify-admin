@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useAuth } from '@/hooks/useAuth'
 import { useGoogleUserAuth } from '@/hooks/useGoogleUserAuth'
 import { useMultiCalendar } from '@/hooks/useMultiCalendar'
 import CalendarView from '@/components/calendar/CalendarView'
@@ -7,10 +8,14 @@ import UpcomingAppointments from '@/components/agendamentos/UpcomingAppointments
 import CalendarSelector from '@/components/agendamentos/CalendarSelector'
 import GoogleAuthSetup from '@/components/agendamentos/GoogleAuthSetup'
 import LoadingState from '@/components/agendamentos/LoadingState'
+import { GroupCalendarWarning } from '@/components/agendamentos/GroupCalendarWarning'
 import { GoogleCalendarEvent } from '@/types/calendar'
 import { Button } from '@/components/ui/button'
 
 const Agendamentos = () => {
+  // Hook para autenticação geral
+  const { user } = useAuth()
+  
   // Hook para autenticação Google
   const {
     isAuthenticated,
@@ -28,7 +33,7 @@ const Agendamentos = () => {
   // Estado para calendários selecionados
   const [selectedCalendars, setSelectedCalendars] = useState<string[]>([])
 
-  // Hook para múltiplos calendários
+  // Hook para múltiplos calendários - só chamar quando há usuário autenticado, calendários selecionados e não está mostrando o seletor
   const {
     events,
     isLoading: eventsLoading,
@@ -37,8 +42,11 @@ const Agendamentos = () => {
     updateEvent,
     deleteEvent,
     syncCalendar,
-    fetchEventsFromCalendars
-  } = useMultiCalendar(selectedCalendars)
+    fetchEventsFromCalendars,
+    forceSyncEvents
+  } = useMultiCalendar(
+    user && isAuthenticated && !showCalendarSelector && selectedCalendars.length > 0 ? selectedCalendars : []
+  )
 
   // DEBUG: Log eventos e calendários selecionados - Comentado para limpar console
   // console.log('[DEBUG] 🎯 Events state:', {
@@ -59,17 +67,15 @@ const Agendamentos = () => {
   
   // Selecionar calendários ativos automaticamente
   useEffect(() => {
-    // console.log('[DEBUG] 🎯 Auto-select calendars - userCalendars:', userCalendars.length, 'selectedCalendars:', selectedCalendars.length)
-    if (userCalendars.length > 0 && selectedCalendars.length === 0) {
+    if (userCalendars.length > 0 && selectedCalendars.length === 0 && isAuthenticated) {
       // Selecionar calendários ativos por padrão
       const activeCalendars = userCalendars
         .filter(cal => cal.is_active)
         .map(cal => cal.google_calendar_id)
       
-      // console.log('[DEBUG] 🎯 Auto-selecting calendars:', activeCalendars)
       setSelectedCalendars(activeCalendars)
     }
-  }, [userCalendars, selectedCalendars.length])
+  }, [userCalendars, selectedCalendars.length, isAuthenticated])
 
   // Toggle de calendário
   const handleCalendarToggle = (calendarId: string) => {
@@ -140,7 +146,7 @@ const Agendamentos = () => {
 
   // Função para atualizar eventos manualmente
   const handleRefreshEvents = async () => {
-    await fetchEventsFromCalendars(selectedCalendars)
+    await forceSyncEvents()
   }
 
   // Loading inicial
@@ -151,18 +157,7 @@ const Agendamentos = () => {
   }
 
   // Se está mostrando o seletor de calendários (PRIORIDADE MÁXIMA)
-  // console.log('[DEBUG] 🎯 CHECKING CALENDAR SELECTOR CONDITION')
-  // console.log('[DEBUG] 🎯 showCalendarSelector:', showCalendarSelector)
-  // console.log('[DEBUG] 🎯 availableCalendars.length:', availableCalendars.length)
-  // console.log('[DEBUG] 🎯 Condition result:', showCalendarSelector && availableCalendars.length > 0)
-  // console.log('[DEBUG] 🎯 Will enter condition?', showCalendarSelector && availableCalendars.length > 0)
-  
   if (showCalendarSelector && availableCalendars.length > 0) {
-    // console.log('[DEBUG] 🎯 RENDERING CALENDAR SELECTOR - CONDITION MET')
-    // console.log('[DEBUG] 🎯 showCalendarSelector:', showCalendarSelector)
-    // console.log('[DEBUG] 🎯 availableCalendars.length:', availableCalendars.length)
-    // console.log('[DEBUG] 🎯 availableCalendars:', availableCalendars)
-    
     return (
       <div className="space-y-4 p-6">
         <div className="max-w-2xl mx-auto">
@@ -200,7 +195,21 @@ const Agendamentos = () => {
   return (
     <div className="space-y-4 p-6">
       {/* Botão de atualizar eventos */}
-      <div className="flex justify-end mb-2">
+      <div className="flex justify-end mb-2 gap-2">
+        <Button 
+          onClick={async () => {
+            // Testar janela de tempo específica
+            const now = new Date()
+            const timeMin = new Date(now.getFullYear(), 0, 1).toISOString() // 1º de janeiro
+            const timeMax = new Date(now.getFullYear(), 11, 31, 23, 59, 59).toISOString() // 31 de dezembro
+            
+            await fetchEventsFromCalendars(selectedCalendars, timeMin, timeMax)
+          }} 
+          disabled={eventsLoading} 
+          variant="outline"
+        >
+          {eventsLoading ? 'Testando...' : 'Testar Ano Todo'}
+        </Button>
         <Button onClick={handleRefreshEvents} disabled={eventsLoading} variant="outline">
           {eventsLoading ? 'Atualizando...' : 'Atualizar eventos'}
         </Button>
@@ -229,6 +238,14 @@ const Agendamentos = () => {
         
         {/* Área principal do calendário */}
         <div className="lg:col-span-3 space-y-4">
+          {/* Aviso para calendários de grupo com erro */}
+          {eventsError && selectedCalendars.some(cal => cal.includes('@group.calendar.google.com')) && (
+            <GroupCalendarWarning 
+              calendarId={selectedCalendars.find(cal => cal.includes('@group.calendar.google.com')) || ''}
+              error={eventsError}
+            />
+          )}
+          
           {/* Próximos agendamentos */}
           <UpcomingAppointments 
             events={events} 
