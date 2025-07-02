@@ -1,5 +1,5 @@
-const { createClient } = require('@supabase/supabase-js');
-const AIChatService = require('../src/services/aiChatService').default;
+import { createClient } from '@supabase/supabase-js';
+import AIChatService from '../src/services/aiChatService.js';
 
 // Configuração do Supabase
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
@@ -165,8 +165,8 @@ async function runAllTests() {
 }
 
 // Executar se chamado diretamente
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   runAllTests().catch(console.error);
 }
 
-module.exports = { testAISystem, testEdgeFunctions, runAllTests }; 
+export { testAISystem, testEdgeFunctions, runAllTests }; 
