@@ -53,76 +53,37 @@ const CreateUserModal = ({ onUserCreated }: CreateUserModalProps) => {
       console.log('Criando usuário:', newUser);
       const cleanEmail = newUser.email.trim().toLowerCase();
       
-      // Primeiro, criar o usuário no Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: cleanEmail,
-        password: newUser.password,
-        options: {
-          data: {
-            name: newUser.name
-          }
-        }
-      });
-
-      if (authError) {
-        console.error('Erro ao criar usuário no auth:', authError);
-        throw authError;
-      }
-
-      if (!authData.user) {
-        throw new Error('Usuário não foi criado corretamente');
-      }
-
-      console.log('Usuário criado no auth:', authData.user.id);
-
-      // Aguardar um pouco para garantir que o trigger foi executado
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Verificar se o perfil foi criado automaticamente
-      const { data: existingProfile, error: checkError } = await supabase
+      // Verificar se o email já existe
+      const { data: existingUser, error: checkError } = await supabase
         .from('user_profiles')
-        .select('*')
-        .eq('user_id', authData.user.id)
+        .select('id')
+        .eq('email', cleanEmail)
         .single();
 
-      if (checkError && checkError.code !== 'PGRST116') {
-        console.error('Erro ao verificar perfil existente:', checkError);
-        throw checkError;
+      if (existingUser) {
+        throw new Error('Este email já está em uso.');
       }
 
-      if (existingProfile) {
-        // Se o perfil existe, atualizar o role
-        const { error: updateError } = await supabase
-          .from('user_profiles')
-          .update({ 
-            role: newUser.role,
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', authData.user.id);
+      // Gerar um UUID para o usuário (simulando auth.users)
+      const userId = crypto.randomUUID();
+      
+      // Criar o perfil diretamente na tabela user_profiles
+      const { error: insertError } = await supabase
+        .from('user_profiles')
+        .insert({
+          id: userId,
+          email: cleanEmail,
+          name: newUser.name,
+          role: newUser.role,
+          status: true
+        });
 
-        if (updateError) {
-          console.error('Erro ao atualizar perfil:', updateError);
-          throw updateError;
-        }
-      } else {
-        // Se o perfil não existe, criar manualmente
-        const { error: insertError } = await supabase
-          .from('user_profiles')
-          .insert({
-            user_id: authData.user.id,
-            email: cleanEmail,
-            name: newUser.name,
-            role: newUser.role,
-            status: true
-          } as any);
-
-        if (insertError) {
-          console.error('Erro ao inserir perfil:', insertError);
-          throw insertError;
-        }
+      if (insertError) {
+        console.error('Erro ao inserir perfil:', insertError);
+        throw insertError;
       }
 
-      console.log('Perfil configurado com sucesso');
+      console.log('Usuário criado com sucesso:', userId);
       onUserCreated();
 
       // Limpar o formulário
@@ -131,7 +92,7 @@ const CreateUserModal = ({ onUserCreated }: CreateUserModalProps) => {
 
       toast({
         title: "Usuário criado",
-        description: "O usuário foi criado com permissões configuradas automaticamente.",
+        description: `Usuário ${newUser.name} criado com função ${getRolePermissionDescription(newUser.role)}.`,
       });
 
     } catch (error: any) {
@@ -139,7 +100,7 @@ const CreateUserModal = ({ onUserCreated }: CreateUserModalProps) => {
       
       let errorMessage = "Não foi possível criar o usuário.";
       
-      if (error.message?.includes('User already registered')) {
+      if (error.message?.includes('já está em uso')) {
         errorMessage = "Este email já está em uso.";
       } else if (error.message?.includes('Password should be at least 6 characters')) {
         errorMessage = "A senha deve ter pelo menos 6 caracteres.";
