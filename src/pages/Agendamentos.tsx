@@ -67,15 +67,25 @@ const Agendamentos = () => {
   
   // Selecionar calendários ativos automaticamente
   useEffect(() => {
-    if (userCalendars.length > 0 && selectedCalendars.length === 0 && isAuthenticated) {
-      // Selecionar calendários ativos por padrão
+    if (
+      userCalendars.length > 0 &&
+      selectedCalendars.length === 0 &&
+      isAuthenticated
+    ) {
       const activeCalendars = userCalendars
         .filter(cal => cal.is_active)
-        .map(cal => cal.google_calendar_id)
-      
-      setSelectedCalendars(activeCalendars)
+        .map(cal => cal.google_calendar_id);
+
+      // Só atualiza se for diferente
+      if (
+        activeCalendars.length > 0 &&
+        (selectedCalendars.length !== activeCalendars.length ||
+          !activeCalendars.every(id => selectedCalendars.includes(id)))
+      ) {
+        setSelectedCalendars(activeCalendars);
+      }
     }
-  }, [userCalendars, selectedCalendars.length, isAuthenticated])
+  }, [userCalendars, selectedCalendars, isAuthenticated]);
 
   // Toggle de calendário
   const handleCalendarToggle = (calendarId: string) => {

@@ -18,9 +18,23 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function listUserProfiles() {
   console.log('🔍 Listando todos os perfis de usuário...\n');
+  
+  // Primeiro, vamos verificar se a tabela existe e sua estrutura
+  const { data: tableInfo, error: tableError } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .limit(1);
+
+  if (tableError) {
+    console.error('❌ Erro ao acessar tabela user_profiles:', tableError.message);
+    console.log('💡 A tabela pode não existir. Execute o script create-user-profiles-table.sql primeiro.');
+    return;
+  }
+
+  // Agora buscar todos os perfis
   const { data, error } = await supabase
     .from('user_profiles')
-    .select('id, name, role, created_at')
+    .select('id, user_id, email, role, created_at')
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -28,11 +42,24 @@ async function listUserProfiles() {
     return;
   }
 
+  if (data.length === 0) {
+    console.log('📭 Nenhum perfil encontrado na tabela user_profiles.');
+    console.log('💡 Execute o script create-user-profiles-table.sql para criar o perfil admin.');
+    return;
+  }
+
+  console.log(`📊 Encontrados ${data.length} perfil(s):\n`);
+  
   data.forEach((profile, idx) => {
-    console.log(`${idx + 1}. ID: ${profile.id} | Nome: ${profile.name} | Role: ${profile.role}`);
+    console.log(`${idx + 1}. ID: ${profile.id}`);
+    console.log(`   User ID: ${profile.user_id}`);
+    console.log(`   Email: ${profile.email}`);
+    console.log(`   Role: ${profile.role}`);
+    console.log(`   Criado em: ${profile.created_at}`);
+    console.log('');
   });
 
-  console.log('\nCopie o ID correspondente ao seu usuário para usarmos na correção.');
+  console.log('💡 Copie o ID correspondente ao seu usuário para usarmos na correção.');
 }
 
 listUserProfiles(); 

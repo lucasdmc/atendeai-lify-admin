@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { rolePermissions } from '@/components/users/UserRoleUtils';
 
 interface AuthContextType {
   user: User | null;
@@ -47,41 +48,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUserRole(profile.role);
         console.log('✅ User role set to:', profile.role);
 
-        // Se for admin_lify, dar acesso total incluindo permissões específicas
-        if (profile.role === 'admin_lify') {
-          const allPermissions = [
-            'dashboard',
-            'conversas',
-            'conectar_whatsapp',
-            'agentes',
-            'agendamentos',
-            'clinicas',
-            'criar_clinicas',
-            'deletar_clinicas',
-            'contextualizar',
-            'gestao_usuarios',
-            'configuracoes'
-          ];
-          setUserPermissions(allPermissions);
-          console.log('🎯 Admin Lify - All permissions granted:', allPermissions);
-        } else {
-          // Para outros roles, buscar permissões específicas
-          const { data: rolePermissions, error: rolePermissionsError } = await supabase
-            .from('role_permissions')
-            .select('module_name')
-            .eq('role', profile.role)
-            .eq('can_access', true);
-          
-          if (rolePermissionsError) {
-            console.error('❌ Error fetching role permissions:', rolePermissionsError);
-            setUserPermissions([]);
-            return;
-          }
-
-          const moduleNames = rolePermissions?.map(p => p.module_name) || [];
-          setUserPermissions(moduleNames);
-          console.log('✅ User permissions set to:', moduleNames);
-        }
+        // Usar as permissões definidas no UserRoleUtils
+        const permissions = rolePermissions[profile.role as keyof typeof rolePermissions] || [];
+        setUserPermissions(permissions);
+        console.log('✅ User permissions set to:', permissions);
       }
       
     } catch (error) {

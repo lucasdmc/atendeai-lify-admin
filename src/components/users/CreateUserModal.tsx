@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,13 +49,13 @@ const CreateUserModal = ({ onUserCreated }: CreateUserModalProps) => {
     }
 
     setIsCreatingUser(true);
-    
     try {
       console.log('Criando usuário:', newUser);
+      const cleanEmail = newUser.email.trim().toLowerCase();
       
       // Primeiro, criar o usuário no Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: newUser.email,
+        email: cleanEmail,
         password: newUser.password,
         options: {
           data: {
@@ -76,26 +75,54 @@ const CreateUserModal = ({ onUserCreated }: CreateUserModalProps) => {
 
       console.log('Usuário criado no auth:', authData.user.id);
 
-      // Aguardar um pouco para o trigger criar o perfil
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Aguardar um pouco para garantir que o trigger foi executado
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Atualizar o perfil com o role correto
-      const { error: profileError } = await supabase
+      // Verificar se o perfil foi criado automaticamente
+      const { data: existingProfile, error: checkError } = await supabase
         .from('user_profiles')
-        .update({ 
-          name: newUser.name,
-          role: newUser.role 
-        })
-        .eq('id', authData.user.id);
+        .select('*')
+        .eq('user_id', authData.user.id)
+        .single();
 
-      if (profileError) {
-        console.error('Erro ao atualizar perfil:', profileError);
-        throw profileError;
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('Erro ao verificar perfil existente:', checkError);
+        throw checkError;
       }
 
-      console.log('Perfil atualizado com sucesso');
+      if (existingProfile) {
+        // Se o perfil existe, atualizar o role
+        const { error: updateError } = await supabase
+          .from('user_profiles')
+          .update({ 
+            role: newUser.role,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', authData.user.id);
 
-      // Recarregar a lista de usuários
+        if (updateError) {
+          console.error('Erro ao atualizar perfil:', updateError);
+          throw updateError;
+        }
+      } else {
+        // Se o perfil não existe, criar manualmente
+        const { error: insertError } = await supabase
+          .from('user_profiles')
+          .insert({
+            user_id: authData.user.id,
+            email: cleanEmail,
+            name: newUser.name,
+            role: newUser.role,
+            status: true
+          } as any);
+
+        if (insertError) {
+          console.error('Erro ao inserir perfil:', insertError);
+          throw insertError;
+        }
+      }
+
+      console.log('Perfil configurado com sucesso');
       onUserCreated();
 
       // Limpar o formulário
@@ -108,7 +135,7 @@ const CreateUserModal = ({ onUserCreated }: CreateUserModalProps) => {
       });
 
     } catch (error: any) {
-      console.error('Erro completo ao criar usuário:', error);
+      console.error('Erro ao criar usuário:', error);
       
       let errorMessage = "Não foi possível criar o usuário.";
       
@@ -118,10 +145,12 @@ const CreateUserModal = ({ onUserCreated }: CreateUserModalProps) => {
         errorMessage = "A senha deve ter pelo menos 6 caracteres.";
       } else if (error.message?.includes('Invalid email')) {
         errorMessage = "Email inválido.";
+      } else if (error.message?.includes('Email address is invalid')) {
+        errorMessage = "Formato de email inválido. Use um email válido.";
       }
 
       toast({
-        title: "Erro",
+        title: "Erro ao criar usuário",
         description: errorMessage,
         variant: "destructive",
       });

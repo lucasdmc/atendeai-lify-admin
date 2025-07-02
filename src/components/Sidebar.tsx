@@ -16,6 +16,7 @@ import {
   Building2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { hasPermission } from '@/components/users/UserRoleUtils';
 
 const menuItems = [
   {
@@ -79,10 +80,9 @@ const Sidebar = () => {
   const { userPermissions, userRole, loading } = useAuth();
   const location = useLocation();
 
-  // Lógica simples: se é admin_lify, mostrar tudo. Senão, filtrar por permissões
-  const isAdminLify = userRole === 'admin_lify';
-  const filteredMenuItems = isAdminLify ? menuItems : menuItems.filter(item => {
-    return userPermissions.includes(item.permission);
+  // Filtrar itens do menu baseado nas permissões do usuário
+  const filteredMenuItems = menuItems.filter(item => {
+    return hasPermission(userRole, item.permission);
   });
 
   // Se ainda está carregando, mostrar loading
