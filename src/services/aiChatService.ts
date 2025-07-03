@@ -207,5 +207,42 @@ class AIChatService {
   }
 }
 
+// Função para criar usuários usando a Edge Function
+export const createUserDirectly = async (userData: {
+  name: string;
+  email: string;
+  password: string;
+  role: string;
+}) => {
+  try {
+    console.log('🔄 Chamando Edge Function create-user-auth...');
+    
+    const { data, error } = await supabase.functions.invoke('create-user-auth', {
+      body: {
+        name: userData.name,
+        email: userData.email.trim().toLowerCase(),
+        password: userData.password,
+        role: userData.role
+      }
+    });
+
+    if (error) {
+      console.error('❌ Erro ao chamar Edge Function:', error);
+      throw new Error(`Erro na Edge Function: ${error.message || 'Erro desconhecido'}`);
+    }
+
+    if (!data || !data.success) {
+      console.error('❌ Edge Function retornou erro:', data);
+      throw new Error(data?.error || 'Falha ao criar usuário');
+    }
+
+    console.log('✅ Usuário criado com sucesso:', data.user);
+    return { success: true, user: data.user };
+  } catch (error) {
+    console.error('❌ Erro ao criar usuário:', error);
+    throw error;
+  }
+};
+
 export default AIChatService;
 export { SYSTEM_CONFIG };

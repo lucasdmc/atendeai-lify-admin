@@ -43,6 +43,12 @@ export const useWhatsAppStatus = (): WhatsAppStatusHook => {
           
           if (data.clientInfo) {
             setClientInfo(data.clientInfo);
+            // Se tem clientInfo, significa que está conectado
+            if (data.status === 'connecting' && data.clientInfo.number) {
+              whatsappLogger.info('Client info detected, updating status to connected');
+              setConnectionStatus('connected');
+              setQrCode(null); // Limpar QR Code quando conectado
+            }
           }
         }
       } catch (error) {

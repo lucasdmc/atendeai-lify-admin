@@ -19,7 +19,8 @@ import { UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getRolePermissionDescription } from './UserRoleUtils';
-import type { Database } from '@/integrations/supabase/types';
+import type { Database } from '../../integrations/supabase/types';
+import { createUserDirectly } from '../../services/aiChatService';
 
 type UserRole = Database['public']['Enums']['user_role'];
 
@@ -64,37 +65,27 @@ const CreateUserModal = ({ onUserCreated }: CreateUserModalProps) => {
         throw new Error('Este email já está em uso.');
       }
 
-      // Gerar um UUID para o usuário (simulando auth.users)
-      const userId = crypto.randomUUID();
-      
-      // Criar o perfil diretamente na tabela user_profiles
-      const { error: insertError } = await supabase
-        .from('user_profiles')
-        .insert({
-          id: userId,
-          email: cleanEmail,
-          name: newUser.name,
-          role: newUser.role,
-          status: true
-        });
-
-      if (insertError) {
-        console.error('Erro ao inserir perfil:', insertError);
-        throw insertError;
-      }
-
-      console.log('Usuário criado com sucesso:', userId);
-      onUserCreated();
-
-      // Limpar o formulário
-      setNewUser({ name: '', email: '', password: '', role: 'atendente' });
-      setIsDialogOpen(false);
-
-      toast({
-        title: "Usuário criado",
-        description: `Usuário ${newUser.name} criado com função ${getRolePermissionDescription(newUser.role)}.`,
+      // Usar a função direta em vez da Edge Function
+      const result = await createUserDirectly({
+        name: newUser.name,
+        email: cleanEmail,
+        password: newUser.password,
+        role: newUser.role
       });
 
+      if (result.success) {
+        console.log('✅ Usuário criado com sucesso:', result.user);
+        onUserCreated();
+
+        // Limpar o formulário
+        setNewUser({ name: '', email: '', password: '', role: 'atendente' });
+        setIsDialogOpen(false);
+
+        toast({
+          title: "Usuário criado",
+          description: `Usuário ${newUser.name} criado com função ${getRolePermissionDescription(newUser.role)}.`,
+        });
+      }
     } catch (error: any) {
       console.error('Erro ao criar usuário:', error);
       

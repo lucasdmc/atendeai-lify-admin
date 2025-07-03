@@ -12,6 +12,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   userRole: string | null;
   userPermissions: string[];
+  userId: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -22,6 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userPermissions, setUserPermissions] = useState<string[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchUserData = async (userId: string) => {
@@ -45,7 +47,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const { data: newProfile, error: createError } = await supabase
             .from('user_profiles')
             .insert({
-              id: userId, // Usar o user_id como id
+              id: userId,
+              user_id: userId, // Adicionar user_id obrigatório
               email: user?.email || 'user@example.com',
               name: user?.email?.split('@')[0] || 'Usuário',
               role: 'admin_lify',
@@ -105,6 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('🔄 [useAuth] Auth state changed:', event, session?.user?.id);
         setSession(session);
         setUser(session?.user ?? null);
+        setUserId(session?.user?.id || null);
         
         if (session?.user) {
           await fetchUserData(session.user.id);
@@ -123,6 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('🔄 [useAuth] Initial session check:', session?.user?.id);
       setSession(session);
       setUser(session?.user ?? null);
+      setUserId(session?.user?.id || null);
       
       if (session?.user) {
         fetchUserData(session.user.id);
@@ -206,6 +211,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signOut,
       userRole,
       userPermissions,
+      userId,
     }}>
       {children}
     </AuthContext.Provider>

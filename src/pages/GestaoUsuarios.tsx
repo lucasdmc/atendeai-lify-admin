@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -6,6 +5,7 @@ import { Search, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import EditUserModal from '@/components/users/EditUserModal';
+import DeleteUserModal from '@/components/users/DeleteUserModal';
 import CreateUserModal from '@/components/users/CreateUserModal';
 import UserTable from '@/components/users/UserTable';
 import type { Database } from '@/integrations/supabase/types';
@@ -26,7 +26,9 @@ const GestaoUsuarios = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [editingUser, setEditingUser] = useState<GestaoUser | null>(null);
+  const [deletingUser, setDeletingUser] = useState<GestaoUser | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -40,6 +42,7 @@ const GestaoUsuarios = () => {
         .select(`
           id,
           name,
+          email,
           role,
           status,
           created_at
@@ -47,19 +50,7 @@ const GestaoUsuarios = () => {
 
       if (error) throw error;
 
-      // Para cada usuário, buscar o email do auth.users através de uma function
-      const usersWithEmail = await Promise.all(
-        (data || []).map(async (user) => {
-          // Como não podemos acessar auth.users diretamente, vamos usar o email do metadata
-          // Por enquanto, vamos simular o email baseado no nome até termos uma solução melhor
-          return {
-            ...user,
-            email: `${user.name.toLowerCase().replace(' ', '.')}@example.com`
-          };
-        })
-      );
-
-      setUsers(usersWithEmail);
+      setUsers(data || []);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
@@ -77,40 +68,52 @@ const GestaoUsuarios = () => {
     setIsEditModalOpen(true);
   };
 
+  const handleDeleteUser = (user: GestaoUser) => {
+    setDeletingUser(user);
+    setIsDeleteModalOpen(true);
+  };
+
   const handleCloseEditModal = () => {
     setEditingUser(null);
     setIsEditModalOpen(false);
+  };
+
+  const handleCloseDeleteModal = () => {
+    setDeletingUser(null);
+    setIsDeleteModalOpen(false);
   };
 
   const handleUserUpdated = () => {
     fetchUsers();
   };
 
+  const handleUserDeleted = () => {
+    fetchUsers();
+  };
+
   const handleToggleUserStatus = async (userId: string) => {
     try {
       const user = users.find(u => u.id === userId);
-      const newStatus = !user?.status;
+      if (!user) return;
 
       const { error } = await supabase
         .from('user_profiles')
-        .update({ status: newStatus })
+        .update({ status: !user.status })
         .eq('id', userId);
 
       if (error) throw error;
 
-      setUsers(prev => prev.map(user => 
-        user.id === userId ? { ...user, status: newStatus } : user
-      ));
-
       toast({
         title: "Status atualizado",
-        description: "O status do usuário foi atualizado.",
+        description: `O status do usuário foi ${!user.status ? 'ativado' : 'desativado'}.`,
       });
+
+      fetchUsers();
     } catch (error) {
-      console.error('Error updating user status:', error);
+      console.error('Error toggling user status:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível atualizar o status.",
+        description: "Não foi possível atualizar o status do usuário.",
         variant: "destructive",
       });
     }
@@ -118,13 +121,17 @@ const GestaoUsuarios = () => {
 
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.role.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">Gestão de Usuários</h1>
+          <p className="text-gray-600 mt-2">Carregando usuários...</p>
+        </div>
       </div>
     );
   }
@@ -164,6 +171,7 @@ const GestaoUsuarios = () => {
           <UserTable 
             users={filteredUsers}
             onEditUser={handleEditUser}
+            onDeleteUser={handleDeleteUser}
             onToggleUserStatus={handleToggleUserStatus}
           />
         </CardContent>
@@ -174,6 +182,13 @@ const GestaoUsuarios = () => {
         isOpen={isEditModalOpen}
         onClose={handleCloseEditModal}
         onUserUpdated={handleUserUpdated}
+      />
+
+      <DeleteUserModal
+        user={deletingUser}
+        isOpen={isDeleteModalOpen}
+        onClose={handleCloseDeleteModal}
+        onUserDeleted={handleUserDeleted}
       />
     </div>
   );

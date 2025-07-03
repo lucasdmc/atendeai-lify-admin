@@ -77,14 +77,11 @@ const Agendamentos = () => {
         .map(cal => cal.google_calendar_id);
 
       // Só atualiza se for diferente e não estiver vazio
-      if (
-        activeCalendars.length > 0 &&
-        JSON.stringify(activeCalendars.sort()) !== JSON.stringify(selectedCalendars.sort())
-      ) {
+      if (activeCalendars.length > 0) {
         setSelectedCalendars(activeCalendars);
       }
     }
-  }, [userCalendars, isAuthenticated]); // Removido selectedCalendars das dependências
+  }, [userCalendars, isAuthenticated, selectedCalendars.length]);
 
   // Toggle de calendário
   const handleCalendarToggle = (calendarId: string) => {
