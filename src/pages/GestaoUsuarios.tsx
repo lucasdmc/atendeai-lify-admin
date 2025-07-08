@@ -2,24 +2,15 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Search, Users } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import EditUserModal from '@/components/users/EditUserModal';
 import DeleteUserModal from '@/components/users/DeleteUserModal';
 import CreateUserModal from '@/components/users/CreateUserModal';
 import UserTable from '@/components/users/UserTable';
-import type { Database } from '@/integrations/supabase/types';
+import userService from '@/services/userService';
+import type { User } from '@/services/userService';
 
-type UserRole = Database['public']['Enums']['user_role'];
-
-interface GestaoUser {
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  status: boolean;
-  created_at: string;
-}
+type GestaoUser = User;
 
 const GestaoUsuarios = () => {
   const [users, setUsers] = useState<GestaoUser[]>([]);
@@ -37,20 +28,13 @@ const GestaoUsuarios = () => {
 
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select(`
-          id,
-          name,
-          email,
-          role,
-          status,
-          created_at
-        `);
-
-      if (error) throw error;
-
-      setUsers(data || []);
+      const result = await userService.listUsers();
+      
+      if (result.success && result.users) {
+        setUsers(result.users);
+      } else {
+        throw new Error(result.error || 'Erro ao carregar usuários');
+      }
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
@@ -92,31 +76,12 @@ const GestaoUsuarios = () => {
   };
 
   const handleToggleUserStatus = async (userId: string) => {
-    try {
-      const user = users.find(u => u.id === userId);
-      if (!user) return;
-
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({ status: !user.status })
-        .eq('id', userId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Status atualizado",
-        description: `O status do usuário foi ${!user.status ? 'ativado' : 'desativado'}.`,
-      });
-
-      fetchUsers();
-    } catch (error) {
-      console.error('Error toggling user status:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível atualizar o status do usuário.",
-        variant: "destructive",
-      });
-    }
+    // TODO: Implementar via backend quando necessário
+    console.log('Toggle user status:', userId);
+    toast({
+      title: "Funcionalidade em desenvolvimento",
+      description: "Esta funcionalidade será implementada em breve.",
+    });
   };
 
   const filteredUsers = users.filter(user =>

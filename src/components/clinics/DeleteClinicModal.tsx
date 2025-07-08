@@ -16,15 +16,23 @@ import { useAuth } from '@/hooks/useAuth';
 interface Clinic {
   id: string;
   name: string;
-  cnpj?: string | null;
-  email?: string | null;
-  phone?: string | null;
-  address?: string | null;
-  city?: string | null;
-  state?: string | null;
-  website?: string | null;
-  is_active: boolean | null;
-  created_at: string | null;
+  address?: any | null;
+  phone?: any | null;
+  email?: any | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  working_hours?: any | null;
+  specialties?: any | null;
+  payment_methods?: any | null;
+  insurance_accepted?: any | null;
+  emergency_contact?: any | null;
+  admin_notes?: any | null;
+  logo_url?: any | null;
+  primary_color?: any | null;
+  secondary_color?: any | null;
+  timezone: string;
+  language: string;
 }
 
 interface DeleteClinicModalProps {

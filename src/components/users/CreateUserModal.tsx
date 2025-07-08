@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -20,9 +20,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getRolePermissionDescription } from './UserRoleUtils';
 import type { Database } from '../../integrations/supabase/types';
-import { createUserDirectly } from '../../services/aiChatService';
+import userService from '../../services/userService';
 
-type UserRole = Database['public']['Enums']['user_role'];
+// Tipo local para os roles disponíveis no sistema
+type UserRole = 'admin_lify' | 'suporte_lify' | 'admin' | 'gestor' | 'atendente';
+
+interface Clinic {
+  id: string;
+  name: string;
+}
 
 interface CreateUserModalProps {
   onUserCreated: () => void;
@@ -31,19 +37,66 @@ interface CreateUserModalProps {
 const CreateUserModal = ({ onUserCreated }: CreateUserModalProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [isLoadingClinics, setIsLoadingClinics] = useState(false);
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
     password: '',
-    role: 'atendente' as UserRole
+    role: 'atendente' as UserRole,
+    clinicId: ''
   });
   const { toast } = useToast();
+
+  // Carregar clínicas quando o modal abrir
+  useEffect(() => {
+    if (isDialogOpen) {
+      loadClinics();
+    }
+  }, [isDialogOpen]);
+
+  const loadClinics = async () => {
+    setIsLoadingClinics(true);
+    try {
+      const result = await userService.listClinics();
+      
+      if (result.success && result.clinics) {
+        setClinics(result.clinics);
+      } else {
+        throw new Error(result.error || 'Erro ao carregar clínicas');
+      }
+    } catch (error) {
+      console.error('Erro ao carregar clínicas:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar as clínicas.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingClinics(false);
+    }
+  };
+
+  // Verificar se o usuário precisa de associação a clínica
+  const requiresClinicAssociation = (role: UserRole) => {
+    return role !== 'admin_lify' && role !== 'suporte_lify';
+  };
 
   const handleCreateUser = async () => {
     if (!newUser.name || !newUser.email || !newUser.password) {
       toast({
         title: "Erro",
         description: "Todos os campos são obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Verificar se precisa de clínica e se foi selecionada
+    if (requiresClinicAssociation(newUser.role) && !newUser.clinicId) {
+      toast({
+        title: "Erro",
+        description: "Selecione uma clínica para este usuário.",
         variant: "destructive",
       });
       return;
@@ -65,12 +118,13 @@ const CreateUserModal = ({ onUserCreated }: CreateUserModalProps) => {
         throw new Error('Este email já está em uso.');
       }
 
-      // Usar a função direta em vez da Edge Function
-      const result = await createUserDirectly({
+      // Usar o novo serviço de usuários
+      const result = await userService.createUser({
         name: newUser.name,
         email: cleanEmail,
         password: newUser.password,
-        role: newUser.role
+        role: newUser.role,
+        ...(requiresClinicAssociation(newUser.role) && newUser.clinicId ? { clinicId: newUser.clinicId } : {})
       });
 
       if (result.success) {
@@ -78,13 +132,15 @@ const CreateUserModal = ({ onUserCreated }: CreateUserModalProps) => {
         onUserCreated();
 
         // Limpar o formulário
-        setNewUser({ name: '', email: '', password: '', role: 'atendente' });
+        setNewUser({ name: '', email: '', password: '', role: 'atendente', clinicId: '' });
         setIsDialogOpen(false);
 
         toast({
           title: "Usuário criado",
-          description: `Usuário ${newUser.name} criado com função ${getRolePermissionDescription(newUser.role)}.`,
+          description: `Usuário ${newUser.name} criado com função ${getRolePermissionDescription(newUser.role as any)}.`,
         });
+      } else {
+        throw new Error(result.error || 'Erro ao criar usuário');
       }
     } catch (error: any) {
       console.error('Erro ao criar usuário:', error);
@@ -152,7 +208,14 @@ const CreateUserModal = ({ onUserCreated }: CreateUserModalProps) => {
           </div>
           <div>
             <label className="text-sm font-medium">Função</label>
-            <Select value={newUser.role} onValueChange={(value: UserRole) => setNewUser(prev => ({ ...prev, role: value }))}>
+            <Select value={newUser.role} onValueChange={(value: UserRole) => {
+              setNewUser(prev => ({ 
+                ...prev, 
+                role: value,
+                // Limpar clínica se não precisar mais
+                clinicId: requiresClinicAssociation(value) ? prev.clinicId : ''
+              }));
+            }}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -165,9 +228,45 @@ const CreateUserModal = ({ onUserCreated }: CreateUserModalProps) => {
               </SelectContent>
             </Select>
             <p className="text-xs text-gray-600 mt-1">
-              {getRolePermissionDescription(newUser.role)}
+              {getRolePermissionDescription(newUser.role as any)}
             </p>
           </div>
+          
+          {/* Seleção de clínica - apenas para usuários que precisam */}
+          {requiresClinicAssociation(newUser.role) && (
+            <div>
+              <label className="text-sm font-medium">Clínica</label>
+              <Select 
+                value={newUser.clinicId} 
+                onValueChange={(value) => setNewUser(prev => ({ ...prev, clinicId: value }))}
+                disabled={isLoadingClinics}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={isLoadingClinics ? "Carregando..." : "Selecione uma clínica"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {clinics.map((clinic) => (
+                    <SelectItem key={clinic.id} value={clinic.id}>
+                      {clinic.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-600 mt-1">
+                Usuários com esta função devem estar associados a uma clínica específica.
+              </p>
+            </div>
+          )}
+
+          {/* Informação para usuários mestres */}
+          {!requiresClinicAssociation(newUser.role) && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-sm text-blue-800">
+                <strong>Usuário Mestre:</strong> Este usuário terá acesso global a todas as clínicas do sistema.
+              </p>
+            </div>
+          )}
+
           <Button 
             onClick={handleCreateUser}
             disabled={isCreatingUser}

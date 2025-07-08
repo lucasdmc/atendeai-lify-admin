@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -10,7 +9,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 
-type UserRole = Database['public']['Enums']['user_role'];
+// Tipo local para os roles disponíveis no sistema
+type UserRole = 'admin_lify' | 'suporte_lify' | 'admin' | 'gestor' | 'atendente';
+
+interface Clinic {
+  id: string;
+  name: string;
+}
 
 interface User {
   id: string;
@@ -19,6 +24,7 @@ interface User {
   role: UserRole;
   status: boolean;
   created_at: string;
+  clinic_id?: string;
 }
 
 interface EditUserModalProps {
@@ -32,37 +38,114 @@ const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalPr
   const [formData, setFormData] = useState({
     name: '',
     role: 'atendente' as UserRole,
-    status: true
+    status: true,
+    clinicId: ''
   });
+  const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [isLoadingClinics, setIsLoadingClinics] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+
+  // Carregar clínicas quando o modal abrir
+  useEffect(() => {
+    if (isOpen) {
+      loadClinics();
+    }
+  }, [isOpen]);
+
+  const loadClinics = async () => {
+    setIsLoadingClinics(true);
+    try {
+      const { data, error } = await supabase
+        .from('clinics')
+        .select('id, name')
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      setClinics(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar clínicas:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar as clínicas.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingClinics(false);
+    }
+  };
 
   useEffect(() => {
     if (user) {
       setFormData({
         name: user.name,
         role: user.role,
-        status: user.status
+        status: user.status,
+        clinicId: user.clinic_id || ''
       });
     }
   }, [user]);
+
+  // Verificar se o usuário precisa de associação a clínica
+  const requiresClinicAssociation = (role: UserRole) => {
+    return role !== 'admin_lify' && role !== 'suporte_lify';
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
+    // Verificar se precisa de clínica e se foi selecionada
+    if (requiresClinicAssociation(formData.role) && !formData.clinicId) {
+      toast({
+        title: "Erro",
+        description: "Selecione uma clínica para este usuário.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const { error } = await supabase
+      // Atualizar perfil do usuário
+      const { error: profileError } = await supabase
         .from('user_profiles')
         .update({
           name: formData.name,
           role: formData.role,
-          status: formData.status
+          status: formData.status,
+          clinic_id: requiresClinicAssociation(formData.role) ? formData.clinicId : null
         })
-        .eq('id', user.id);
+        .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (profileError) throw profileError;
+
+      // Se o usuário precisa de clínica, atualizar/inserir na tabela clinic_users
+      if (requiresClinicAssociation(formData.role) && formData.clinicId) {
+        // Remover associações antigas
+        await supabase
+          .from('clinic_users')
+          .delete()
+          .eq('user_id', user.id);
+
+        // Inserir nova associação
+        const { error: clinicUserError } = await supabase
+          .from('clinic_users')
+          .insert({
+            user_id: user.id,
+            clinic_id: formData.clinicId,
+            role: formData.role,
+            is_active: formData.status
+          });
+
+        if (clinicUserError) throw clinicUserError;
+      } else if (!requiresClinicAssociation(formData.role)) {
+        // Se não precisa de clínica, remover associações existentes
+        await supabase
+          .from('clinic_users')
+          .delete()
+          .eq('user_id', user.id);
+      }
 
       toast({
         title: "Usuário atualizado",
@@ -137,7 +220,14 @@ const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalPr
 
           <div className="space-y-2">
             <Label htmlFor="role">Função</Label>
-            <Select value={formData.role} onValueChange={(value: UserRole) => setFormData(prev => ({ ...prev, role: value }))}>
+            <Select value={formData.role} onValueChange={(value: UserRole) => {
+              setFormData(prev => ({ 
+                ...prev, 
+                role: value,
+                // Limpar clínica se não precisar mais
+                clinicId: requiresClinicAssociation(value) ? prev.clinicId : ''
+              }));
+            }}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -153,6 +243,41 @@ const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalPr
               {getRolePermissionDescription(formData.role)}
             </p>
           </div>
+
+          {/* Seleção de clínica - apenas para usuários que precisam */}
+          {requiresClinicAssociation(formData.role) && (
+            <div className="space-y-2">
+              <Label htmlFor="clinic">Clínica</Label>
+              <Select 
+                value={formData.clinicId} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, clinicId: value }))}
+                disabled={isLoadingClinics}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={isLoadingClinics ? "Carregando..." : "Selecione uma clínica"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {clinics.map((clinic) => (
+                    <SelectItem key={clinic.id} value={clinic.id}>
+                      {clinic.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-600">
+                Usuários com esta função devem estar associados a uma clínica específica.
+              </p>
+            </div>
+          )}
+
+          {/* Informação para usuários mestres */}
+          {!requiresClinicAssociation(formData.role) && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-sm text-blue-800">
+                <strong>Usuário Mestre:</strong> Este usuário terá acesso global a todas as clínicas do sistema.
+              </p>
+            </div>
+          )}
 
           <div className="flex items-center space-x-2">
             <Switch

@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingPage } from "@/components/ui/loading";
+import { ClinicProvider } from "@/contexts/ClinicContext";
 import Auth from "./pages/Auth";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
@@ -41,105 +42,107 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            {!session ? (
-              <>
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/" element={<Index />} />
-                <Route path="*" element={<Navigate to="/auth" replace />} />
-              </>
-            ) : (
-              <>
-                <Route path="/auth" element={<Navigate to="/dashboard" replace />} />
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                <Route
-                  path="/dashboard"
-                  element={
-                    <Layout>
-                      <Dashboard />
-                    </Layout>
-                  }
-                />
-                <Route
-                  path="/conversas"
-                  element={
-                    <Layout>
-                      <Conversas />
-                    </Layout>
-                  }
-                />
-                <Route
-                  path="/conversas/:conversationId"
-                  element={
-                    <Layout>
-                      <ConversaIndividual />
-                    </Layout>
-                  }
-                />
-                <Route
-                  path="/conectar-whatsapp"
-                  element={
-                    <Layout>
-                      <ConectarWhatsApp />
-                    </Layout>
-                  }
-                />
-                <Route
-                  path="/agentes"
-                  element={
-                    <Layout>
-                      <Agentes />
-                    </Layout>
-                  }
-                />
-                <Route
-                  path="/clinicas"
-                  element={
-                    <Layout>
-                      <Clinicas />
-                    </Layout>
-                  }
-                />
-                <Route
-                  path="/contextualizar"
-                  element={
-                    <Layout>
-                      <Contextualizar />
-                    </Layout>
-                  }
-                />
-                <Route
-                  path="/gestao-usuarios"
-                  element={
-                    <Layout>
-                      <GestaoUsuarios />
-                    </Layout>
-                  }
-                />
-                <Route
-                  path="/agendamentos"
-                  element={
-                    <Layout>
-                      <Agendamentos />
-                    </Layout>
-                  }
-                />
-                <Route
-                  path="/configuracoes"
-                  element={
-                    <Layout>
-                      <Configuracoes />
-                    </Layout>
-                  }
-                />
-                <Route path="*" element={<NotFound />} />
-              </>
-            )}
-          </Routes>
-        </BrowserRouter>
+        <ClinicProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              {!session ? (
+                <>
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/" element={<Index />} />
+                  <Route path="*" element={<Navigate to="/auth" replace />} />
+                </>
+              ) : (
+                <>
+                  <Route path="/auth" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route
+                    path="/dashboard"
+                    element={
+                      <Layout>
+                        <Dashboard />
+                      </Layout>
+                    }
+                  />
+                  <Route
+                    path="/conversas"
+                    element={
+                      <Layout>
+                        <Conversas />
+                      </Layout>
+                    }
+                  />
+                  <Route
+                    path="/conversas/:conversationId"
+                    element={
+                      <Layout>
+                        <ConversaIndividual />
+                      </Layout>
+                    }
+                  />
+                  <Route
+                    path="/conectar-whatsapp"
+                    element={
+                      <Layout>
+                        <ConectarWhatsApp />
+                      </Layout>
+                    }
+                  />
+                  <Route
+                    path="/agentes"
+                    element={
+                      <Layout>
+                        <Agentes />
+                      </Layout>
+                    }
+                  />
+                  <Route
+                    path="/clinicas"
+                    element={
+                      <Layout>
+                        <Clinicas />
+                      </Layout>
+                    }
+                  />
+                  <Route
+                    path="/contextualizar"
+                    element={
+                      <Layout>
+                        <Contextualizar />
+                      </Layout>
+                    }
+                  />
+                  <Route
+                    path="/gestao-usuarios"
+                    element={
+                      <Layout>
+                        <GestaoUsuarios />
+                      </Layout>
+                    }
+                  />
+                  <Route
+                    path="/agendamentos"
+                    element={
+                      <Layout>
+                        <Agendamentos />
+                      </Layout>
+                    }
+                  />
+                  <Route
+                    path="/configuracoes"
+                    element={
+                      <Layout>
+                        <Configuracoes />
+                      </Layout>
+                    }
+                  />
+                  <Route path="*" element={<NotFound />} />
+                </>
+              )}
+            </Routes>
+          </BrowserRouter>
+        </ClinicProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

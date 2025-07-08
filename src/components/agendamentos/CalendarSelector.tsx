@@ -15,11 +15,15 @@ import {
   CheckCircle,
   Loader2,
   X,
-  Unlink
+  Unlink,
+  AlertTriangle
 } from 'lucide-react'
 import { UserCalendar } from '@/types/calendar'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/hooks/useAuth'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { cn } from '@/lib/utils'
 
 interface GoogleCalendar {
   id: string
@@ -61,6 +65,7 @@ const CalendarSelector = ({
   const [calendarsToDisconnect, setCalendarsToDisconnect] = useState<string[]>([])
   const { toast } = useToast()
   const { user } = useAuth()
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   const handleCalendarToggle = (calendarId: string) => {
     if (onCalendarToggle) {
@@ -174,70 +179,155 @@ const CalendarSelector = ({
     }
   }
 
+  const handleDelete = () => {
+    if (onDisconnectCalendars && selectedCalendars.length > 0) {
+      onDisconnectCalendars(selectedCalendars)
+      setCalendarsToDisconnect([])
+    }
+    setShowDeleteDialog(false)
+  }
+
   // Se estamos mostrando calendários disponíveis para seleção
   if (calendars.length > 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Selecionar Calendários
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-gray-600">
-            Selecione os calendários que deseja conectar:
-          </p>
-          
-          <div className="space-y-2">
-            {calendars.map((calendar) => (
-              <div key={calendar.id} className="flex items-center space-x-2">
-                <Checkbox
-                  id={calendar.id}
-                  checked={selectedAvailableCalendars.includes(calendar.id)}
-                  onCheckedChange={() => handleAvailableCalendarToggle(calendar.id)}
-                />
-                <label
-                  htmlFor={calendar.id}
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-2"
-                >
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: calendar.backgroundColor || '#4285f4' }}
-                  />
-                  {calendar.summary}
-                  {calendar.primary && (
-                    <Badge variant="secondary" className="text-xs">
-                      Principal
-                    </Badge>
-                  )}
-                </label>
+      <Card className="w-full max-w-md mx-auto border-0 shadow-lg bg-gradient-to-br from-white to-gray-50/50">
+        <CardContent className="p-6">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-2">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Calendar className="h-5 w-5 text-blue-600" />
               </div>
-            ))}
+              Calendário Ativo
+            </h3>
+            <p className="text-sm text-gray-600">
+              Selecione um calendário para visualizar e gerenciar eventos
+            </p>
           </div>
 
-          <div className="flex gap-2 pt-4">
-            <Button
-              onClick={handleConnectCalendars}
-              disabled={selectedAvailableCalendars.length === 0 || isLoading}
-              className="flex-1"
-            >
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+          <Select
+            value={selectedCalendars.length > 0 ? selectedCalendars[0] : ''}
+            onValueChange={(value) => {
+              if (value === 'add') {
+                onAddCalendar && onAddCalendar()
+              } else if (value === 'delete') {
+                setShowDeleteDialog(true)
+              } else {
+                onCalendarToggle && onCalendarToggle(value)
+              }
+            }}
+            disabled={isLoading}
+          >
+            <SelectTrigger className="w-full h-12 border-2 border-gray-200 hover:border-blue-300 focus:border-blue-500 transition-colors bg-white shadow-sm">
+              <SelectValue placeholder="Escolha um calendário..." />
+            </SelectTrigger>
+            <SelectContent className="w-full min-w-[300px]">
+              {userCalendars.length === 0 ? (
+                <div className="p-4 text-center text-gray-500">
+                  <Calendar className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                  <p className="text-sm">Nenhum calendário conectado</p>
+                </div>
               ) : (
-                <CheckCircle className="h-4 w-4" />
+                userCalendars.map((calendar) => (
+                  <SelectItem 
+                    key={calendar.google_calendar_id} 
+                    value={calendar.google_calendar_id}
+                    className="flex items-center gap-3 p-3 hover:bg-blue-50 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3 flex-1">
+                      <div
+                        className="w-4 h-4 rounded-full shadow-sm"
+                        style={{ backgroundColor: getCalendarColor(calendar.calendar_color) }}
+                      />
+                      <span className="font-medium">{calendar.calendar_name}</span>
+                      {calendar.is_primary && (
+                        <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+                          Principal
+                        </Badge>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))
               )}
-              Conectar ({selectedAvailableCalendars.length})
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleCancel}
-              disabled={isLoading}
-            >
-              <X className="h-4 w-4" />
-              Cancelar
-            </Button>
-          </div>
+              
+              <div className="border-t border-gray-200 my-1" />
+              
+              <SelectItem 
+                value="add" 
+                className="flex items-center gap-3 p-3 hover:bg-green-50 cursor-pointer text-green-700 font-medium"
+              >
+                <Plus className="h-4 w-4" />
+                Adicionar novo calendário
+              </SelectItem>
+              
+              {selectedCalendars.length > 0 && (
+                <>
+                  <div className="border-t border-gray-200 my-1" />
+                  <SelectItem 
+                    value="delete" 
+                    className="flex items-center gap-3 p-3 hover:bg-red-50 cursor-pointer text-red-600 font-medium"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Remover "{userCalendars.find(cal => cal.google_calendar_id === selectedCalendars[0])?.calendar_name}"
+                  </SelectItem>
+                </>
+              )}
+            </SelectContent>
+          </Select>
+
+          {selectedCalendars.length > 0 && (
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center gap-3">
+                                 <div
+                   className="w-4 h-4 rounded-full shadow-sm"
+                   style={{ backgroundColor: getCalendarColor(userCalendars.find(cal => cal.google_calendar_id === selectedCalendars[0])?.calendar_color || null) }}
+                 />
+                <div className="flex-1">
+                  <h4 className="font-medium text-gray-900">{userCalendars.find(cal => cal.google_calendar_id === selectedCalendars[0])?.calendar_name}</h4>
+                  <p className="text-sm text-gray-600">
+                    {userCalendars.find(cal => cal.google_calendar_id === selectedCalendars[0])?.is_primary ? 'Calendário principal' : 'Calendário secundário'}
+                  </p>
+                </div>
+                <Settings className="h-4 w-4 text-gray-400" />
+              </div>
+            </div>
+          )}
+
+          {/* Confirmação de exclusão */}
+          <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-red-600">
+                  <AlertTriangle className="h-5 w-5" />
+                  Confirmar exclusão
+                </DialogTitle>
+              </DialogHeader>
+              <div className="py-4">
+                <p className="text-gray-700 mb-2">
+                  Tem certeza que deseja remover o calendário <strong>"{userCalendars.find(cal => cal.google_calendar_id === selectedCalendars[0])?.calendar_name}"</strong>?
+                </p>
+                <p className="text-sm text-gray-500">
+                  Esta ação irá desconectar o calendário do Google, mas não excluirá os eventos existentes.
+                </p>
+              </div>
+              <div className="flex gap-3 justify-end">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowDeleteDialog(false)}
+                  className="hover:bg-gray-50"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={handleDelete}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Remover
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </CardContent>
       </Card>
     )

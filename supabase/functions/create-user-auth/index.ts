@@ -18,20 +18,29 @@ serve(async (req) => {
     console.log('[Edge] Supabase URL:', supabaseUrl);
     console.log('[Edge] Service Role Key exists:', !!serviceRoleKey);
     
-    const supabaseClient = createClient(supabaseUrl, serviceRoleKey, {
-      global: {
-        headers: { Authorization: req.headers.get('Authorization')! },
-      },
-    })
+    const supabaseClient = createClient(supabaseUrl, serviceRoleKey)
 
-    const { name, email, password, role } = await req.json()
-    console.log('[Edge] Dados recebidos:', { name, email, password, role })
+    const { name, email, password, role, clinicId } = await req.json()
+    console.log('[Edge] Dados recebidos:', { name, email, password, role, clinicId })
 
     // Validate required fields
     if (!name || !email || !password || !role) {
       console.error('[Edge] Campos obrigatórios faltando')
       return new Response(
         JSON.stringify({ error: 'Todos os campos são obrigatórios' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Verificar se precisa de clínica e se foi fornecida
+    const requiresClinic = role !== 'admin_lify' && role !== 'suporte_lify';
+    if (requiresClinic && !clinicId) {
+      console.error('[Edge] Clínica obrigatória para este tipo de usuário')
+      return new Response(
+        JSON.stringify({ error: 'Clínica é obrigatória para este tipo de usuário' }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -87,6 +96,7 @@ serve(async (req) => {
         name: name,
         role: role,
         status: true,
+        clinic_id: requiresClinic ? clinicId : null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -106,6 +116,35 @@ serve(async (req) => {
 
     console.log('[Edge] Perfil criado com sucesso para o usuário:', userId)
 
+    // 3. Se o usuário precisa de clínica, criar associação na tabela clinic_users
+    if (requiresClinic && clinicId) {
+      console.log('[Edge] Criando associação com clínica...')
+      const { error: clinicUserError } = await supabaseClient
+        .from('clinic_users')
+        .insert({
+          user_id: userId,
+          clinic_id: clinicId,
+          role: role,
+          is_active: true
+        })
+
+      if (clinicUserError) {
+        console.error('[Edge] Erro ao criar associação com clínica:', clinicUserError)
+        // Se falhar, deletar o perfil e o usuário auth para manter consistência
+        await supabaseClient.from('user_profiles').delete().eq('user_id', userId)
+        await supabaseClient.auth.admin.deleteUser(userId)
+        return new Response(
+          JSON.stringify({ error: clinicUserError.message, details: clinicUserError }),
+          { 
+            status: 400, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+
+      console.log('[Edge] Associação com clínica criada com sucesso')
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
@@ -113,7 +152,8 @@ serve(async (req) => {
           id: userId,
           email: email,
           name: name,
-          role: role
+          role: role,
+          clinicId: requiresClinic ? clinicId : null
         }
       }),
       { 

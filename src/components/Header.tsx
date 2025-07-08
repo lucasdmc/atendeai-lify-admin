@@ -1,4 +1,3 @@
-
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { 
@@ -11,9 +10,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { LogOut, User } from 'lucide-react';
+import ClinicSelector from './ClinicSelector';
+import { useClinic } from '@/contexts/ClinicContext';
 
 const Header = () => {
   const { user, signOut, userRole } = useAuth();
+  const { setSelectedClinicId } = useClinic();
 
   const getUserInitials = (email: string) => {
     return email.slice(0, 2).toUpperCase();
@@ -22,6 +24,7 @@ const Header = () => {
   const getRoleLabel = (role: string) => {
     const roleLabels = {
       admin: 'Administrador',
+      admin_lify: 'Administrador Lify',
       suporte_lify: 'Suporte Lify',
       atendente: 'Atendente'
     };
@@ -38,6 +41,8 @@ const Header = () => {
         </div>
 
         <div className="flex items-center gap-4">
+          <ClinicSelector />
+          
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">

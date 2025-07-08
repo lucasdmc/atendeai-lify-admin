@@ -1,9 +1,8 @@
-
 import { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Loader2, Edit, Tag, Clock, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calendar, Loader2, Edit, Tag, Clock, ChevronDown, ChevronUp, MapPin, User, MoreHorizontal } from 'lucide-react';
 import { GoogleCalendarEvent } from '@/services/googleServiceAccountService';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -50,27 +49,43 @@ const UpcomingAppointments = ({
   const nextEvents = events.slice(0, 3);
   const hasMoreEvents = events.length > 3;
 
+  const getTimeUntilEvent = (eventDate: string) => {
+    const now = new Date();
+    const event = new Date(eventDate);
+    const diffInHours = Math.floor((event.getTime() - now.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 0) return 'Agora';
+    if (diffInHours < 1) return 'Em breve';
+    if (diffInHours < 24) return `Em ${diffInHours}h`;
+    return `Em ${Math.floor(diffInHours / 24)}d`;
+  };
+
   return (
     <>
-      <Card className="bg-gradient-to-r from-orange-50 to-pink-50 border-orange-200">
-        <CardHeader className="pb-2">
+      <Card className="bg-gradient-to-br from-slate-50 via-white to-blue-50/30 border-0 shadow-xl overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 via-purple-600/5 to-pink-600/5"></div>
+        <CardHeader className="pb-4 relative z-10">
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-sm font-medium text-gray-700">
-              <Calendar className="h-4 w-4 text-orange-500" />
-              Próximos Agendamentos
-              {isLoadingEvents && <Loader2 className="h-3 w-3 animate-spin" />}
-              {!isLoadingEvents && events.length > 0 && (
-                <Badge variant="secondary" className="text-xs">
-                  {events.length}
-                </Badge>
-              )}
-            </CardTitle>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg">
+                <Calendar className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  Próximos Agendamentos
+                  {isLoadingEvents && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
+                </CardTitle>
+                <p className="text-sm text-gray-600 mt-1">
+                  {events.length > 0 ? `${events.length} eventos agendados` : 'Nenhum evento próximo'}
+                </p>
+              </div>
+            </div>
             {hasMoreEvents && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="h-6 w-6 p-0 text-gray-500 hover:text-gray-700"
+                className="h-8 w-8 p-0 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-all"
               >
                 {isExpanded ? (
                   <ChevronUp className="h-4 w-4" />
@@ -81,55 +96,128 @@ const UpcomingAppointments = ({
             )}
           </div>
         </CardHeader>
-        <CardContent className="pt-0">
+        <CardContent className="pt-0 relative z-10">
           {nextEvents.length === 0 && !isLoadingEvents ? (
-            <div className="text-center py-4 text-gray-400">
-              <Calendar className="h-6 w-6 mx-auto mb-2 text-gray-300" />
-              <p className="text-xs">Nenhum evento próximo</p>
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Calendar className="h-8 w-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum evento próximo</h3>
+              <p className="text-sm text-gray-500">Seus próximos agendamentos aparecerão aqui</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {/* Sempre mostrar os próximos 3 eventos */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {nextEvents.map((event) => {
+            <div className="space-y-4">
+              {/* Eventos principais */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {nextEvents.map((event, index) => {
                   const eventLabel = getEventLabel(event);
                   const labelConfig = getLabelConfig(eventLabel);
+                  const timeUntil = getTimeUntilEvent(event.start.dateTime);
+                  const isToday = format(new Date(event.start.dateTime), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
                   
                   return (
-                    <div key={event.id} className="bg-white/80 backdrop-blur-sm border border-white/50 rounded-lg p-3 hover:shadow-md transition-all duration-200 hover:bg-white group">
-                      {/* Header compacto */}
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-gray-900 text-xs truncate mb-1">
-                            {event.summary}
-                          </h4>
-                          <Badge variant="outline" className={`text-[10px] px-1 py-0 ${labelConfig.color}`}>
-                            {labelConfig.name}
-                          </Badge>
+                    <div 
+                      key={event.id} 
+                      className={`
+                        group relative overflow-hidden rounded-xl border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1
+                        ${isToday ? 'ring-2 ring-blue-500/20 bg-gradient-to-br from-blue-50 to-indigo-50' : 'bg-white'}
+                      `}
+                      style={{
+                        background: isToday 
+                          ? 'linear-gradient(135deg, #eff6ff 0%, #e0e7ff 100%)'
+                          : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)'
+                      }}
+                    >
+                      {/* Indicador de urgência para eventos de hoje */}
+                      {isToday && (
+                        <div className="absolute top-0 right-0 w-0 h-0 border-l-[20px] border-l-transparent border-t-[20px] border-t-blue-500"></div>
+                      )}
+                      
+                      {/* Header do evento */}
+                      <div className="p-4 pb-3">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-gray-900 text-sm leading-tight mb-2 line-clamp-2">
+                              {event.summary}
+                            </h4>
+                                                         <div className="flex items-center gap-2 mb-2">
+                               <Badge 
+                                 className={`text-xs px-2 py-1 font-medium border-0 ${labelConfig.color} shadow-sm`}
+                               >
+                                 {labelConfig.name}
+                               </Badge>
+                              {isToday && (
+                                <Badge variant="destructive" className="text-xs px-2 py-1 bg-red-500 text-white">
+                                  Hoje
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditEvent(event)}
+                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-gray-100 rounded-full flex-shrink-0 ml-2"
+                          >
+                            <Edit className="h-3 w-3 text-gray-600" />
+                          </Button>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditEvent(event)}
-                          className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-1"
-                        >
-                          <Edit className="h-3 w-3" />
-                        </Button>
-                      </div>
 
-                      {/* Informações de data e hora compactas */}
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1 text-[10px] text-gray-600">
-                          <Calendar className="h-2.5 w-2.5 text-gray-400" />
-                          <span className="font-medium">
-                            {format(new Date(event.start.dateTime), 'dd/MM', { locale: ptBR })}
-                          </span>
+                        {/* Informações de data e hora */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-xs text-gray-600">
+                            <div className="p-1 bg-blue-100 rounded-full">
+                              <Calendar className="h-3 w-3 text-blue-600" />
+                            </div>
+                            <span className="font-medium">
+                              {format(new Date(event.start.dateTime), 'EEEE, dd/MM', { locale: ptBR })}
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 text-xs text-gray-600">
+                            <div className="p-1 bg-green-100 rounded-full">
+                              <Clock className="h-3 w-3 text-green-600" />
+                            </div>
+                            <span className="font-medium">
+                              {format(new Date(event.start.dateTime), 'HH:mm', { locale: ptBR })} - {format(new Date(event.end.dateTime), 'HH:mm', { locale: ptBR })}
+                            </span>
+                          </div>
+
+                          {/* Localização */}
+                          {event.location && (
+                            <div className="flex items-center gap-2 text-xs text-gray-600">
+                              <div className="p-1 bg-purple-100 rounded-full">
+                                <MapPin className="h-3 w-3 text-purple-600" />
+                              </div>
+                              <span className="truncate">{event.location}</span>
+                            </div>
+                          )}
+
+                          {/* Participantes */}
+                          {event.attendees && event.attendees.length > 0 && (
+                            <div className="flex items-center gap-2 text-xs text-gray-600">
+                              <div className="p-1 bg-orange-100 rounded-full">
+                                <User className="h-3 w-3 text-orange-600" />
+                              </div>
+                              <span className="truncate">
+                                {event.attendees[0].email}
+                                {event.attendees.length > 1 && ` +${event.attendees.length - 1}`}
+                              </span>
+                            </div>
+                          )}
                         </div>
-                        <div className="flex items-center gap-1 text-[10px] text-gray-600">
-                          <Clock className="h-2.5 w-2.5 text-gray-400" />
-                          <span className="font-medium">
-                            {format(new Date(event.start.dateTime), 'HH:mm', { locale: ptBR })}
-                          </span>
+
+                        {/* Indicador de tempo */}
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-gray-500">
+                              {timeUntil}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                              <span className="text-xs text-green-600 font-medium">Confirmado</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -139,22 +227,31 @@ const UpcomingAppointments = ({
 
               {/* Eventos expandidos */}
               {isExpanded && hasMoreEvents && (
-                <div className="mt-3 pt-3 border-t border-orange-200/50">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                    <MoreHorizontal className="h-4 w-4" />
+                    Mais eventos
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                     {events.slice(3, 8).map((event) => {
                       const eventLabel = getEventLabel(event);
                       const labelConfig = getLabelConfig(eventLabel);
                       
                       return (
-                        <div key={event.id} className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-md p-2 hover:bg-white/80 transition-all group">
-                          <div className="flex items-center justify-between">
+                        <div 
+                          key={event.id} 
+                          className="group bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-lg p-3 hover:bg-white hover:shadow-md transition-all duration-200 hover:border-gray-300"
+                        >
+                          <div className="flex items-start justify-between mb-2">
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium text-gray-900 text-[10px] truncate mb-1">
+                              <h5 className="font-medium text-gray-900 text-xs leading-tight truncate mb-1">
                                 {event.summary}
-                              </p>
-                              <div className="flex items-center gap-2 text-[9px] text-gray-500">
-                                <span>{format(new Date(event.start.dateTime), 'dd/MM • HH:mm', { locale: ptBR })}</span>
-                              </div>
+                              </h5>
+                                                             <Badge 
+                                 className={`text-[10px] px-1.5 py-0.5 font-medium border-0 ${labelConfig.color}`}
+                               >
+                                 {labelConfig.name}
+                               </Badge>
                             </div>
                             <Button
                               variant="ghost"
@@ -165,13 +262,28 @@ const UpcomingAppointments = ({
                               <Edit className="h-2.5 w-2.5" />
                             </Button>
                           </div>
+                          
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1 text-[10px] text-gray-600">
+                              <Calendar className="h-2.5 w-2.5 text-gray-400" />
+                              <span className="font-medium">
+                                {format(new Date(event.start.dateTime), 'dd/MM', { locale: ptBR })}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 text-[10px] text-gray-600">
+                              <Clock className="h-2.5 w-2.5 text-gray-400" />
+                              <span className="font-medium">
+                                {format(new Date(event.start.dateTime), 'HH:mm', { locale: ptBR })}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       );
                     })}
                   </div>
                   {events.length > 8 && (
-                    <div className="text-center mt-2">
-                      <p className="text-[10px] text-gray-500">
+                    <div className="text-center mt-4">
+                      <p className="text-xs text-gray-500 bg-gray-50 rounded-full px-3 py-1 inline-block">
                         +{events.length - 8} eventos adicionais
                       </p>
                     </div>

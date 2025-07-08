@@ -213,6 +213,7 @@ export const createUserDirectly = async (userData: {
   email: string;
   password: string;
   role: string;
+  clinicId?: string;
 }) => {
   try {
     console.log('🔄 Chamando Edge Function create-user-auth...');
@@ -222,7 +223,8 @@ export const createUserDirectly = async (userData: {
         name: userData.name,
         email: userData.email.trim().toLowerCase(),
         password: userData.password,
-        role: userData.role
+        role: userData.role,
+        ...(userData.clinicId ? { clinicId: userData.clinicId } : {})
       }
     });
 

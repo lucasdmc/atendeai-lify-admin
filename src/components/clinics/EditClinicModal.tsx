@@ -7,7 +7,6 @@ import {
   DialogHeader, 
   DialogTitle 
 } from '@/components/ui/dialog';
-import { Switch } from '@/components/ui/switch';
 import { AddressInput } from '@/components/ui/address-input';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -15,15 +14,23 @@ import { useToast } from '@/hooks/use-toast';
 interface Clinic {
   id: string;
   name: string;
-  cnpj?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  city?: string;
-  state?: string;
-  website?: string;
-  is_active: boolean;
+  address?: any | null;
+  phone?: any | null;
+  email?: any | null;
+  created_by: string;
   created_at: string;
+  updated_at: string;
+  working_hours?: any | null;
+  specialties?: any | null;
+  payment_methods?: any | null;
+  insurance_accepted?: any | null;
+  emergency_contact?: any | null;
+  admin_notes?: any | null;
+  logo_url?: any | null;
+  primary_color?: any | null;
+  secondary_color?: any | null;
+  timezone: string;
+  language: string;
 }
 
 interface EditClinicModalProps {
@@ -37,14 +44,12 @@ const EditClinicModal = ({ clinic, isOpen, onClose, onClinicUpdated }: EditClini
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    cnpj: '',
-    email: '',
-    phone: '',
     address: '',
     city: '',
     state: '',
-    website: '',
-    is_active: true
+    phone: '',
+    email: '',
+    website: ''
   });
   const { toast } = useToast();
 
@@ -52,19 +57,17 @@ const EditClinicModal = ({ clinic, isOpen, onClose, onClinicUpdated }: EditClini
     if (clinic && isOpen) {
       setFormData({
         name: clinic.name,
-        cnpj: clinic.cnpj || '',
-        email: clinic.email || '',
-        phone: clinic.phone || '',
-        address: clinic.address || '',
-        city: clinic.city || '',
-        state: clinic.state || '',
-        website: clinic.website || '',
-        is_active: clinic.is_active
+        address: clinic.address?.street || '',
+        city: clinic.address?.city || '',
+        state: clinic.address?.state || '',
+        phone: clinic.phone?.value || '',
+        email: clinic.email?.value || '',
+        website: ''
       });
     }
   }, [clinic, isOpen]);
 
-  const handleInputChange = (field: string, value: string | boolean) => {
+  const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -86,14 +89,13 @@ const EditClinicModal = ({ clinic, isOpen, onClose, onClinicUpdated }: EditClini
         .from('clinics')
         .update({
           name: formData.name,
-          cnpj: formData.cnpj || null,
-          email: formData.email || null,
-          phone: formData.phone || null,
-          address: formData.address || null,
-          city: formData.city || null,
-          state: formData.state || null,
-          website: formData.website || null,
-          is_active: formData.is_active
+          address: formData.address ? {
+            street: formData.address,
+            city: formData.city,
+            state: formData.state
+          } : null,
+          phone: formData.phone ? { value: formData.phone } : null,
+          email: formData.email ? { value: formData.email } : null
         })
         .eq('id', clinic.id);
 
@@ -107,7 +109,7 @@ const EditClinicModal = ({ clinic, isOpen, onClose, onClinicUpdated }: EditClini
       onClinicUpdated();
       onClose();
     } catch (error: any) {
-      console.error('Error updating clinic:', error);
+      console.error('Erro ao atualizar clínica:', error);
       toast({
         title: "Erro",
         description: "Não foi possível atualizar a clínica.",
@@ -128,23 +130,13 @@ const EditClinicModal = ({ clinic, isOpen, onClose, onClinicUpdated }: EditClini
         </DialogHeader>
         
         <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium">Nome da Clínica *</label>
-              <Input
-                value={formData.name}
-                onChange={(e) => handleInputChange('name', e.target.value)}
-                placeholder="Nome da clínica"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">CNPJ</label>
-              <Input
-                value={formData.cnpj}
-                onChange={(e) => handleInputChange('cnpj', e.target.value)}
-                placeholder="00.000.000/0000-00"
-              />
-            </div>
+          <div>
+            <label className="text-sm font-medium">Nome da Clínica *</label>
+            <Input
+              value={formData.name}
+              onChange={(e) => handleInputChange('name', e.target.value)}
+              placeholder="Nome da clínica"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -181,7 +173,7 @@ const EditClinicModal = ({ clinic, isOpen, onClose, onClinicUpdated }: EditClini
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium">Cidade</label>
               <Input
@@ -199,36 +191,13 @@ const EditClinicModal = ({ clinic, isOpen, onClose, onClinicUpdated }: EditClini
                 maxLength={2}
               />
             </div>
-            <div>
-              <label className="text-sm font-medium">Website</label>
-              <Input
-                value={formData.website}
-                onChange={(e) => handleInputChange('website', e.target.value)}
-                placeholder="https://clinica.com"
-              />
-            </div>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <label className="text-sm font-medium">Status</label>
-            <Switch
-              checked={formData.is_active}
-              onCheckedChange={(checked) => handleInputChange('is_active', checked)}
-            />
-            <span className="text-sm text-gray-600">
-              {formData.is_active ? 'Ativa' : 'Inativa'}
-            </span>
-          </div>
-
-          <div className="flex justify-end space-x-2">
+          <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button 
-              onClick={handleUpdateClinic}
-              disabled={isLoading}
-              className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600"
-            >
+            <Button onClick={handleUpdateClinic} disabled={isLoading}>
               {isLoading ? 'Salvando...' : 'Salvar Alterações'}
             </Button>
           </div>
