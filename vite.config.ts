@@ -8,30 +8,82 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    hmr: {
+      overlay: false, // Desabilita overlay de erros para melhor performance
+    },
   },
   base: mode === 'production' ? '/' : '/',
   build: {
     outDir: 'dist',
     sourcemap: mode === 'development',
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: mode === 'production',
+        drop_debugger: mode === 'production',
+      },
+    },
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom'],
-          ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
-          charts: ['recharts'],
-          supabase: ['@supabase/supabase-js'],
+          // Core React
+          'react-vendor': ['react', 'react-dom'],
+          
+          // UI Components
+          'ui-core': [
+            '@radix-ui/react-dialog', 
+            '@radix-ui/react-dropdown-menu', 
+            '@radix-ui/react-select',
+            '@radix-ui/react-toast',
+            '@radix-ui/react-tooltip'
+          ],
+          
+          // Charts and Data
+          'charts': ['recharts'],
+          
+          // Backend and Auth
+          'backend': ['@supabase/supabase-js'],
+          
+          // Forms and Validation
+          'forms': ['react-hook-form', '@hookform/resolvers', 'zod'],
+          
+          // Routing
+          'routing': ['react-router-dom'],
+          
+          // Utilities
+          'utils': ['date-fns', 'clsx', 'tailwind-merge'],
         },
       },
     },
+    chunkSizeWarningLimit: 1000, // Aumenta limite de warning
+  },
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      '@supabase/supabase-js',
+      'react-router-dom',
+      'recharts',
+    ],
+    exclude: ['@radix-ui/react-dialog'], // Evita conflitos
   },
   plugins: [
-    react(),
-    mode === 'development' &&
-    componentTagger(),
+    react({
+      // Otimizações do SWC
+      jsxImportSource: '@emotion/react',
+    }),
+    mode === 'development' && componentTagger(),
   ].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+  },
+  // Otimizações de performance
+  esbuild: {
+    target: 'es2020',
+  },
+  css: {
+    devSourcemap: mode === 'development',
   },
 }));
