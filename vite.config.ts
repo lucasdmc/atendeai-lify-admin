@@ -68,10 +68,7 @@ export default defineConfig(({ mode }) => ({
     exclude: ['@radix-ui/react-dialog'], // Evita conflitos
   },
   plugins: [
-    react({
-      // Otimizações do SWC
-      jsxImportSource: '@emotion/react',
-    }),
+    react(),
     mode === 'development' && componentTagger(),
   ].filter(Boolean),
   resolve: {
