@@ -109,7 +109,7 @@ const UpcomingAppointments = ({
             <div className="space-y-4">
               {/* Eventos principais */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {nextEvents.map((event, index) => {
+                {nextEvents.map((event) => {
                   const eventLabel = getEventLabel(event);
                   const labelConfig = getLabelConfig(eventLabel);
                   const timeUntil = getTimeUntilEvent(event.start.dateTime);

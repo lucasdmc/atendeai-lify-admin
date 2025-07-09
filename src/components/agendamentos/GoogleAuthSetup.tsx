@@ -32,7 +32,6 @@ const GoogleAuthSetup = ({
   onRefreshCalendars,
   onDisconnectCalendars
 }: GoogleAuthSetupProps) => {
-  const { toast } = useToast()
   const [isConnecting, setIsConnecting] = useState(false)
 
   const handleConnect = async () => {

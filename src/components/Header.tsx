@@ -15,7 +15,6 @@ import { useClinic } from '@/contexts/ClinicContext';
 
 const Header = () => {
   const { user, signOut, userRole } = useAuth();
-  const { setSelectedClinicId } = useClinic();
 
   const getUserInitials = (email: string) => {
     return email.slice(0, 2).toUpperCase();

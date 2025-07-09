@@ -136,7 +136,7 @@ const EditAppointmentModal = ({
           timeZone: 'America/Sao_Paulo',
         },
         location: data.location,
-        attendees: data.attendeeEmail ? [{ email: data.attendeeEmail }] : undefined,
+        attendees: data.attendeeEmail ? [{ email: data.attendeeEmail, displayName: '', responseStatus: 'needsAction' }] : [],
         colorId: labelConfig.googleCalendarColorId,
       };
 

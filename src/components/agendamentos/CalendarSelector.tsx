@@ -12,18 +12,14 @@ import {
   Trash2,
   ChevronDown,
   ChevronUp,
-  CheckCircle,
   Loader2,
-  X,
   Unlink,
   AlertTriangle
 } from 'lucide-react'
 import { UserCalendar } from '@/types/calendar'
 import { useToast } from '@/hooks/use-toast'
-import { useAuth } from '@/hooks/useAuth'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { cn } from '@/lib/utils'
 
 interface GoogleCalendar {
   id: string
@@ -64,7 +60,6 @@ const CalendarSelector = ({
   const [selectedAvailableCalendars, setSelectedAvailableCalendars] = useState<string[]>([])
   const [calendarsToDisconnect, setCalendarsToDisconnect] = useState<string[]>([])
   const { toast } = useToast()
-  const { user } = useAuth()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   const handleCalendarToggle = (calendarId: string) => {
