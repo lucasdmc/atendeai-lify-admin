@@ -6,6 +6,7 @@ import { GoogleCalendarEvent } from '@/types/calendar'
 import { LoadingPage } from '@/components/ui/loading'
 import GoogleAuthSetup from '@/components/agendamentos/GoogleAuthSetup'
 import CalendarSelector from '@/components/agendamentos/CalendarSelector'
+import { GoogleCalendarSelector } from '@/components/agendamentos/GoogleCalendarSelector'
 import AgendamentosHeader from '@/components/agendamentos/AgendamentosHeader'
 import UpcomingAppointments from '@/components/agendamentos/UpcomingAppointments'
 import CalendarView from '@/components/calendar/CalendarView'
@@ -149,9 +150,13 @@ const Agendamentos = () => {
     return (
       <div className="space-y-4 p-6">
         <div className="max-w-2xl mx-auto">
-          <CalendarSelector
+          <GoogleCalendarSelector
             calendars={availableCalendars}
-            onCalendarsSelected={onCalendarsSelected}
+            onCalendarsSelected={() => {
+              // O GoogleCalendarSelector já lida com a seleção internamente
+              // então só precisamos chamar a função sem parâmetros
+              onCalendarsSelected([])
+            }}
             onCancel={onCancelSelection}
           />
         </div>
