@@ -35,64 +35,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .from('user_profiles')
         .select('role, name')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
       
       if (profileError) {
         console.error('❌ [useAuth] Error fetching profile:', profileError);
+        setUserRole(null);
+        setUserPermissions([]);
+        return;
+      }
+
+      // Se o perfil não existe, criar automaticamente
+      if (!profile) {
+        console.log('🔄 [useAuth] Profile not found, creating new profile...');
         
-        // Se o perfil não existe, tentar criar automaticamente
-        if (profileError.code === 'PGRST116') {
-          console.log('🔄 [useAuth] Profile not found, creating new profile...');
-          
-          const { data: newProfile, error: createError } = await supabase
-            .from('user_profiles')
-            .insert({
-              id: userId,
-              user_id: userId, // Adicionar user_id obrigatório
-              email: user?.email || 'user@example.com',
-              name: user?.email?.split('@')[0] || 'Usuário',
-              role: 'admin_lify',
-              status: true
-            })
-            .select('role, name')
-            .single();
+        const { data: newProfile, error: createError } = await supabase
+          .from('user_profiles')
+          .insert({
+            user_id: userId,
+            email: user?.email || 'user@example.com',
+            name: user?.email?.split('@')[0] || 'Usuário',
+            role: 'admin_lify',
+            status: true
+          })
+          .select('role, name')
+          .single();
 
-          if (createError) {
-            console.error('❌ [useAuth] Error creating profile:', createError);
-            setUserRole(null);
-            setUserPermissions([]);
-            return;
-          }
-
-          console.log('✅ [useAuth] Profile created successfully:', newProfile);
-          setUserRole(newProfile.role);
-          
-          const permissions = rolePermissions[newProfile.role as keyof typeof rolePermissions] || [];
-          setUserPermissions(permissions);
-          console.log('✅ [useAuth] User permissions set to:', permissions);
-        } else {
-          setUserRole(null);
-          setUserPermissions([]);
+        if (createError) {
+          console.error('❌ [useAuth] Error creating profile:', createError);
+          // Define role padrão mesmo se houver erro na criação
+          setUserRole('admin_lify');
+          setUserPermissions(rolePermissions['admin_lify'] || []);
+          return;
         }
+
+        console.log('✅ [useAuth] Profile created successfully:', newProfile);
+        setUserRole(newProfile.role);
+        
+        const permissions = rolePermissions[newProfile.role as keyof typeof rolePermissions] || [];
+        setUserPermissions(permissions);
+        console.log('✅ [useAuth] User permissions set to:', permissions);
         return;
       }
 
       console.log('✅ [useAuth] Profile fetched:', profile);
-      
-      if (profile) {
-        setUserRole(profile.role);
-        console.log('✅ [useAuth] User role set to:', profile.role);
+      setUserRole(profile.role);
+      console.log('✅ [useAuth] User role set to:', profile.role);
 
-        // Usar as permissões definidas no UserRoleUtils
-        const permissions = rolePermissions[profile.role as keyof typeof rolePermissions] || [];
-        setUserPermissions(permissions);
-        console.log('✅ [useAuth] User permissions set to:', permissions);
-      }
+      // Usar as permissões definidas no UserRoleUtils
+      const permissions = rolePermissions[profile.role as keyof typeof rolePermissions] || [];
+      setUserPermissions(permissions);
+      console.log('✅ [useAuth] User permissions set to:', permissions);
       
     } catch (error) {
       console.error('❌ [useAuth] Error fetching user data:', error);
-      setUserRole(null);
-      setUserPermissions([]);
+      // Define role padrão em caso de erro
+      setUserRole('admin_lify');
+      setUserPermissions(rolePermissions['admin_lify'] || []);
     } finally {
       setLoading(false);
     }
@@ -120,7 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    // Verificar sessão inicial
+    // Verificar sessão inicial com timeout de segurança
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!mounted) return;
       
@@ -134,10 +132,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setLoading(false);
       }
+    }).catch((error) => {
+      console.error('❌ [useAuth] Error getting session:', error);
+      setLoading(false);
     });
+
+    // Timeout de segurança para evitar loading infinito
+    const timeoutId = setTimeout(() => {
+      if (mounted) {
+        console.warn('⚠️ [useAuth] Loading timeout, forcing completion');
+        setLoading(false);
+      }
+    }, 10000); // 10 segundos
 
     return () => {
       mounted = false;
+      clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
   }, []);

@@ -1,4 +1,4 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -47,8 +47,21 @@ const PageLoader = () => (
 
 const App = () => {
   const { session, loading } = useAuth();
+  const [appTimeout, setAppTimeout] = useState(false);
 
-  if (loading) {
+  // Timeout de segurança para evitar loading infinito
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (loading) {
+        console.warn('⚠️ App loading timeout - forcing render');
+        setAppTimeout(true);
+      }
+    }, 15000); // 15 segundos
+
+    return () => clearTimeout(timer);
+  }, [loading]);
+
+  if (loading && !appTimeout) {
     return <LoadingPage text="Carregando aplicação..." />;
   }
 
