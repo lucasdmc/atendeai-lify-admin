@@ -4,7 +4,7 @@ export interface Conversation {
   formatted_phone_number: string | null;
   country_code: string | null;
   name: string | null;
-  updated_at: string;
+  updated_at: string | null;
   last_message_preview: string | null;
   unread_count: number | null;
   message_count?: number;

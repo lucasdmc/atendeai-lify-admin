@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 
 interface ConversationStatsProps {
   messageCount: number;
-  updatedAt: string;
+  updatedAt: string | null;
   onOpenConversation: () => void;
   conversationId: string;
   conversationName: string;
@@ -16,7 +16,9 @@ const ConversationStats: React.FC<ConversationStatsProps> = ({
   updatedAt,
   onOpenConversation
 }) => {
-  const getTimeAgo = (dateString: string) => {
+  const getTimeAgo = (dateString: string | null) => {
+    if (!dateString) return 'Data desconhecida';
+    
     const date = new Date(dateString);
     const now = new Date();
     const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));

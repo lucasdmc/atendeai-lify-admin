@@ -127,6 +127,24 @@ async function handleListEvents(supabaseClient: any, user: any, params: any) {
         details: calendarError.details,
         hint: calendarError.hint
       })
+      
+      // Se a tabela não existe ou não há calendários, retornar lista vazia
+      if (calendarError.code === '42P01' || calendarError.code === 'PGRST116') {
+        console.log('[DEBUG] 🎯 Edge Function - handleListEvents - No calendars found, returning empty list')
+        return new Response(
+          JSON.stringify({
+            success: true,
+            events: [],
+            timeZone: 'America/Sao_Paulo',
+            updated: new Date().toISOString()
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200
+          }
+        )
+      }
+      
       throw new Error(`Calendar not found or not authorized: ${calendarError.message}`)
     }
 
@@ -135,24 +153,80 @@ async function handleListEvents(supabaseClient: any, user: any, params: any) {
         user_id: user.id,
         google_calendar_id: calendarId
       })
-      throw new Error('Calendar not found or not authorized')
+      
+      // Retornar lista vazia em vez de erro
+      console.log('[DEBUG] 🎯 Edge Function - handleListEvents - No calendar found, returning empty list')
+      return new Response(
+        JSON.stringify({
+          success: true,
+          events: [],
+          timeZone: 'America/Sao_Paulo',
+          updated: new Date().toISOString()
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        }
+      )
     }
 
     // Verificar se o token existe
     if (!userCalendar.access_token) {
-      throw new Error('Access token not found for this calendar')
+      console.log('[DEBUG] 🎯 Edge Function - handleListEvents - No access token, returning empty list')
+      return new Response(
+        JSON.stringify({
+          success: true,
+          events: [],
+          timeZone: 'America/Sao_Paulo',
+          updated: new Date().toISOString()
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        }
+      )
     }
 
     console.log('[DEBUG] 🎯 Edge Function - handleListEvents - Calendar found successfully')
   } catch (error) {
     console.error('[DEBUG] 🎯 Edge Function - handleListEvents - Error in calendar lookup:', error)
+    
+    // Se for erro de tabela não existir, retornar lista vazia
+    if (error.message && error.message.includes('relation "user_calendars" does not exist')) {
+      console.log('[DEBUG] 🎯 Edge Function - handleListEvents - Table does not exist, returning empty list')
+      return new Response(
+        JSON.stringify({
+          success: true,
+          events: [],
+          timeZone: 'America/Sao_Paulo',
+          updated: new Date().toISOString()
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        }
+      )
+    }
+    
     throw error
   }
 
   // Check if token is expired
   if (new Date(userCalendar.expires_at) <= new Date()) {
     // Refresh token logic would go here
-    throw new Error('Token expired - please reconnect your calendar')
+    console.log('[DEBUG] 🎯 Edge Function - handleListEvents - Token expired, returning empty list')
+    return new Response(
+      JSON.stringify({
+        success: true,
+        events: [],
+        timeZone: 'America/Sao_Paulo',
+        updated: new Date().toISOString()
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200
+      }
+    )
   }
 
   // Calcular janela de tempo mais abrangente
