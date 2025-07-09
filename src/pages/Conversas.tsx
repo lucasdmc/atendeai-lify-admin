@@ -8,18 +8,7 @@ import ConversationSearch from '@/components/conversations/ConversationSearch';
 import ConversationList from '@/components/conversations/ConversationList';
 import LoadingState from '@/components/conversations/LoadingState';
 import { getDisplayName } from '@/utils/conversationUtils';
-
-interface Conversation {
-  id: string;
-  phone_number: string;
-  formatted_phone_number: string | null;
-  country_code: string | null;
-  name: string | null;
-  updated_at: string;
-  last_message_preview: string | null;
-  unread_count: number | null;
-  message_count?: number;
-}
+import { Conversation } from '@/types/conversation';
 
 const Conversas = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -77,38 +66,13 @@ const Conversas = () => {
           
           return {
             ...conv,
-            message_count: count || 0
+            message_count: count || 0,
+            updated_at: conv.updated_at || new Date().toISOString()
           };
         })
       );
 
-      // Atualizar conversas que não têm números formatados
-      for (const conv of conversationsWithCount) {
-        if (!conv.formatted_phone_number) {
-          try {
-            const formatResult = await supabase
-              .rpc('format_phone_number', { phone_number: conv.phone_number });
-            
-            if (formatResult.data) {
-              const countryResult = await supabase
-                .rpc('extract_country_code', { phone_number: conv.phone_number });
-              
-              await supabase
-                .from('whatsapp_conversations')
-                .update({
-                  formatted_phone_number: formatResult.data,
-                  country_code: countryResult.data
-                })
-                .eq('id', conv.id);
-              
-              conv.formatted_phone_number = formatResult.data;
-              conv.country_code = countryResult.data;
-            }
-          } catch (updateError) {
-            console.error('Error formatting phone number:', updateError);
-          }
-        }
-      }
+      // Removed phone number formatting as the RPC functions don't exist
       
       setConversations(conversationsWithCount);
     } catch (error) {

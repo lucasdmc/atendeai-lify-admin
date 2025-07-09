@@ -2,25 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-
-interface Message {
-  id: string;
-  content: string;
-  message_type: 'received' | 'sent';
-  timestamp: string | null;
-  whatsapp_message_id: string | null;
-}
-
-interface Conversation {
-  id: string;
-  phone_number: string;
-  formatted_phone_number: string | null;
-  country_code: string | null;
-  name: string | null;
-  updated_at: string | null;
-  last_message_preview: string | null;
-  unread_count: number | null;
-}
+import { Conversation, Message } from '@/types/conversation';
 
 export const useConversationData = (conversationId: string | undefined) => {
   const [conversation, setConversation] = useState<Conversation | null>(null);
@@ -46,7 +28,10 @@ export const useConversationData = (conversationId: string | undefined) => {
       }
       
       console.log('✅ Conversation data found:', data);
-      setConversation(data);
+      setConversation({
+        ...data,
+        updated_at: data.updated_at || new Date().toISOString()
+      });
     } catch (error) {
       console.error('❌ Error fetching conversation:', error);
       toast({
@@ -79,7 +64,8 @@ export const useConversationData = (conversationId: string | undefined) => {
       
       const typedMessages = (data || []).map(msg => ({
         ...msg,
-        message_type: msg.message_type as 'received' | 'sent'
+        message_type: msg.message_type as 'received' | 'sent',
+        timestamp: msg.timestamp || new Date().toISOString()
       }));
       
       setMessages(typedMessages);

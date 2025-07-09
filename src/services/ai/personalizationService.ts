@@ -47,43 +47,33 @@ export class PersonalizationService {
         .from('appointments')
         .select('*')
         .eq('patient_phone', phoneNumber)
-        .order('date', { ascending: false })
+        .order('appointment_date', { ascending: false })
         .limit(10);
 
-      // Buscar perfil completo do paciente
-      const { data: patientData } = await supabase
-        .from('patients')
-        .select('*')
-        .eq('phone', phoneNumber)
-        .single();
-
       // Analisar padrões de comportamento
-      const behaviorPatterns = await this.analyzeBehaviorPatterns(phoneNumber, appointments);
+      const behaviorPatterns = await this.analyzeBehaviorPatterns(appointments || []);
       
       // Identificar oportunidades
-      const opportunities = await this.identifyOpportunities(
-        patientData,
-        appointments,
-        memory
-      );
+      const opportunities = await this.identifyOpportunities(appointments || []);
 
       // Construir contexto de personalização
       return {
         patientProfile: {
-          name: patientData?.name || memory.userProfile.name || 'Paciente',
+          name: appointments?.[0]?.patient_name || memory.userProfile.name || 'Paciente',
           phone: phoneNumber,
           appointmentCount: appointments?.length || 0,
-          lastAppointment: appointments?.[0] && appointments[0].date && appointments[0].doctor_name && appointments[0].service_type ? {
-            date: appointments[0].date as string,
-            doctor: appointments[0].doctor_name as string,
-            service: appointments[0].service_type as string
-          } : undefined,
-          preferredDoctor: this.extractPreferredDoctor(appointments),
-          preferredTimes: this.extractPreferredTimes(appointments),
-          commonServices: this.extractCommonServices(appointments),
-          communicationPreference: this.detectCommunicationStyle(memory),
-          insurancePlan: patientData?.insurance_plan,
-          medicalHistory: patientData?.medical_conditions || []
+          ...(appointments?.[0] && {
+            lastAppointment: {
+              date: appointments[0].appointment_date,
+              doctor: appointments[0].doctor_name,
+              service: appointments[0].status
+            }
+          }),
+          preferredTimes: this.extractPreferredTimes(appointments || []),
+          commonServices: this.extractCommonServices(appointments || []),
+          communicationPreference: this.detectCommunicationStyle(),
+          insurancePlan: '',
+          medicalHistory: []
         },
         behaviorPatterns,
         opportunities
@@ -141,8 +131,6 @@ export class PersonalizationService {
     
     // Cross-sell baseado no serviço atual
     if (currentService) {
-      const relatedServices = await this.getRelatedServices(currentService);
-      
       if (currentService.includes('cardiologia') && !context.patientProfile.medicalHistory?.includes('eletrocardiograma_recente')) {
         suggestions.push(
           'Muitos pacientes aproveitam para fazer um eletrocardiograma no mesmo dia. ' +
@@ -154,24 +142,6 @@ export class PersonalizationService {
         suggestions.push(
           'Notei que você é um paciente frequente. Temos um programa de check-up anual ' +
           'com condições especiais. Posso enviar mais informações?'
-        );
-      }
-    }
-    
-    // Up-sell baseado em oportunidades identificadas
-    context.opportunities.upSell.forEach(opp => {
-      suggestions.push(this.formatOpportunitySuggestion(opp, context));
-    });
-    
-    // Cuidado preventivo baseado em perfil
-    if (context.patientProfile.appointmentCount > 0) {
-      const lastAppointmentDate = new Date(context.patientProfile.lastAppointment?.date || '');
-      const monthsSinceLastAppointment = this.getMonthsDifference(lastAppointmentDate, new Date());
-      
-      if (monthsSinceLastAppointment > 6) {
-        suggestions.push(
-          `Percebi que sua última consulta foi há ${monthsSinceLastAppointment} meses. ` +
-          `Que tal agendar um check-up de rotina para garantir que está tudo bem?`
         );
       }
     }
@@ -202,7 +172,7 @@ export class PersonalizationService {
   }
 
   // Métodos auxiliares (implementações simplificadas)
-  private static async analyzeBehaviorPatterns(phoneNumber: string, appointments: any[]): Promise<PersonalizationContext['behaviorPatterns']> {
+  private static async analyzeBehaviorPatterns(appointments: any[]): Promise<PersonalizationContext['behaviorPatterns']> {
     return {
       averageResponseTime: 60,
       preferredChannels: ['whatsapp'],
@@ -212,7 +182,7 @@ export class PersonalizationService {
     };
   }
 
-  private static async identifyOpportunities(patientData: any, appointments: any[], memory: any): Promise<PersonalizationContext['opportunities']> {
+  private static async identifyOpportunities(_appointments: any[]): Promise<PersonalizationContext['opportunities']> {
     return {
       crossSell: ['Eletrocardiograma', 'Check-up anual'],
       upSell: ['Programa de acompanhamento'],
@@ -232,14 +202,16 @@ export class PersonalizationService {
   }
 
   private static extractPreferredTimes(appointments: any[]): string[] {
-    return [];
+    const times = appointments.map(apt => apt.appointment_time).filter(Boolean);
+    return [...new Set(times)].slice(0, 3);
   }
 
   private static extractCommonServices(appointments: any[]): string[] {
-    return [];
+    const services = appointments.map(apt => apt.status).filter(Boolean);
+    return [...new Set(services)].slice(0, 5);
   }
 
-  private static detectCommunicationStyle(memory: any): 'formal' | 'informal' | 'friendly' {
+  private static detectCommunicationStyle(): 'formal' | 'informal' | 'friendly' {
     return 'formal';
   }
 
@@ -259,19 +231,6 @@ export class PersonalizationService {
 
   private static makeFormal(message: string): string {
     return message;
-  }
-
-  private static async getRelatedServices(service: string): Promise<string[]> {
-    return ['Eletrocardiograma', 'Check-up'];
-  }
-
-  private static formatOpportunitySuggestion(opportunity: string, context: PersonalizationContext): string {
-    return `Aproveite: ${opportunity}`;
-  }
-
-  private static getMonthsDifference(date1: Date, date2: Date): number {
-    if (!date1 || !date2) return 0;
-    return (date2.getFullYear() - date1.getFullYear()) * 12 + (date2.getMonth() - date1.getMonth());
   }
 
   private static getDefaultContext(phoneNumber: string): PersonalizationContext {
@@ -296,4 +255,4 @@ export class PersonalizationService {
       }
     };
   }
-} 
+}

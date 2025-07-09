@@ -40,18 +40,11 @@ export class LLMOrchestratorService {
     }
   }
 
-  private static async prepareSystemPrompt(): Promise<string> {
-    return `Você é um assistente virtual profissional e prestativo de uma clínica médica.
-    Seja empático, claro e objetivo em suas respostas.`;
-  }
-
   static async generateResponse(
     message: string, 
     _context: Record<string, any> = {}
   ): Promise<string> {
     try {
-      const _systemPrompt = await this.prepareSystemPrompt();
-      
       // Implementação simplificada
       return `Recebemos sua mensagem: "${message}". Como posso ajudá-lo?`;
     } catch (error) {
