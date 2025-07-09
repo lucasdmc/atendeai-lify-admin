@@ -541,7 +541,7 @@ const Agentes = () => {
                     description: agent.description || '',
                     personality: agent.personality || 'profissional e acolhedor',
                     temperature: agent.temperature || 0.7,
-                    clinic_id: agent.clinic_id,
+                    clinic_id: agent.clinic_id || '',
                     context_json: agent.context_json || ''
                   });
                   setShowEditDialog(true);

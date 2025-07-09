@@ -60,7 +60,9 @@ export const useGoogleUserAuth = () => {
           is_active: cal.is_active ?? true,
           access_token: cal.access_token || '',
           refresh_token: cal.refresh_token || null,
-          expires_at: cal.expires_at || ''
+          expires_at: cal.expires_at || '',
+          created_at: cal.created_at || new Date().toISOString(),
+          updated_at: cal.updated_at || new Date().toISOString()
         })),
         isLoading: false
       }))
