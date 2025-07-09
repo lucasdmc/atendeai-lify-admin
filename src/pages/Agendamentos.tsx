@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { useGoogleUserAuth } from '@/hooks/useGoogleUserAuth'
 import { useMultiCalendar } from '@/hooks/useMultiCalendar'
@@ -66,10 +66,10 @@ const Agendamentos = () => {
         setSelectedCalendars(activeCalendars);
       }
     }
-  }, [userCalendars, isAuthenticated, selectedCalendars.length]);
+  }, [userCalendars, isAuthenticated]); // Removido selectedCalendars.length das dependências
 
   // Toggle de calendário
-  const handleCalendarToggle = (calendarId: string) => {
+  const handleCalendarToggle = useCallback((calendarId: string) => {
     setSelectedCalendars(prev => {
       if (prev.includes(calendarId)) {
         return prev.filter(id => id !== calendarId)
@@ -77,10 +77,10 @@ const Agendamentos = () => {
         return [...prev, calendarId]
       }
     })
-  }
+  }, [])
 
   // Criar evento
-  const handleCreateEvent = async (eventData: Omit<GoogleCalendarEvent, 'id' | 'status'>) => {
+  const handleCreateEvent = useCallback(async (eventData: Omit<GoogleCalendarEvent, 'id' | 'status'>) => {
     if (selectedCalendars.length === 0) {
       throw new Error('Selecione pelo menos um calendário')
     }
@@ -97,10 +97,10 @@ const Agendamentos = () => {
     }
 
     return await createEvent(targetCalendar.google_calendar_id, eventData)
-  }
+  }, [selectedCalendars, userCalendars, createEvent])
 
   // Atualizar evento
-  const handleUpdateEvent = async (eventId: string, eventData: Omit<GoogleCalendarEvent, 'id' | 'status'>) => {
+  const handleUpdateEvent = useCallback(async (eventId: string, eventData: Omit<GoogleCalendarEvent, 'id' | 'status'>) => {
     if (selectedCalendars.length === 0) {
       throw new Error('Selecione pelo menos um calendário')
     }
@@ -115,10 +115,10 @@ const Agendamentos = () => {
     }
 
     await updateEvent(targetCalendar.google_calendar_id, eventId, eventData)
-  }
+  }, [selectedCalendars, userCalendars, updateEvent])
 
   // Deletar evento
-  const handleDeleteEvent = async (eventId: string) => {
+  const handleDeleteEvent = useCallback(async (eventId: string) => {
     if (selectedCalendars.length === 0) {
       throw new Error('Selecione pelo menos um calendário')
     }
@@ -133,12 +133,12 @@ const Agendamentos = () => {
     }
 
     await deleteEvent(targetCalendar.google_calendar_id, eventId)
-  }
+  }, [selectedCalendars, userCalendars, deleteEvent])
 
   // Função para atualizar eventos manualmente
-  const handleRefreshEvents = async () => {
+  const handleRefreshEvents = useCallback(async () => {
     await forceSyncEvents()
-  }
+  }, [forceSyncEvents])
 
   // Loading inicial
   if (authLoading) {

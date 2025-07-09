@@ -117,6 +117,34 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
     fetchEventsRef.current = fetchEventsFromCalendars
   }, [fetchEventsFromCalendars])
 
+  useEffect(() => {
+    if (user && selectedCalendars.length > 0) {
+      const currentCalendars = JSON.stringify(selectedCalendars);
+      if (fetchEventsRef.current && currentCalendars !== lastFetchRef.current) {
+        lastFetchRef.current = currentCalendars;
+        
+        // Adicionar debounce para evitar múltiplas requisições
+        const timeoutId = setTimeout(() => {
+          fetchEventsFromCalendars(selectedCalendars);
+        }, 300); // 300ms de debounce
+        
+        return () => clearTimeout(timeoutId);
+      }
+    } else if (selectedCalendars.length === 0) {
+      setState(prev => ({ ...prev, events: [] }));
+    }
+  }, [selectedCalendars, user, fetchEventsFromCalendars]);
+
+  useEffect(() => {
+    if (!user) {
+      setState({
+        events: [],
+        isLoading: false,
+        error: null
+      })
+    }
+  }, [user])
+
   const createEvent = useCallback(async (
     calendarId: string,
     eventData: Omit<GoogleCalendarEvent, 'id' | 'status'>
@@ -350,28 +378,6 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
       })
     }
   }, [selectedCalendars, toast])
-
-  useEffect(() => {
-    if (user && selectedCalendars.length > 0) {
-      const currentCalendars = JSON.stringify(selectedCalendars);
-      if (fetchEventsRef.current && currentCalendars !== lastFetchRef.current) {
-        lastFetchRef.current = currentCalendars;
-        fetchEventsFromCalendars(selectedCalendars);
-      }
-    } else if (selectedCalendars.length === 0) {
-      setState(prev => ({ ...prev, events: [] }));
-    }
-  }, [selectedCalendars, user, fetchEventsFromCalendars]);
-
-  useEffect(() => {
-    if (!user) {
-      setState({
-        events: [],
-        isLoading: false,
-        error: null
-      })
-    }
-  }, [user])
 
   return {
     ...state,
