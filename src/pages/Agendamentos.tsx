@@ -1,30 +1,29 @@
-import { useState, useEffect } from 'react'
-import { useAuth } from '@/hooks/useAuth'
+import { useState, useEffect, useMemo } from 'react'
+import { Button } from '@/components/ui/button'
 import { useGoogleUserAuth } from '@/hooks/useGoogleUserAuth'
 import { useMultiCalendar } from '@/hooks/useMultiCalendar'
-import CalendarView from '@/components/calendar/CalendarView'
-import AgendamentosHeader from '@/components/agendamentos/AgendamentosHeader'
-import UpcomingAppointments from '@/components/agendamentos/UpcomingAppointments'
-import CalendarSelector from '@/components/agendamentos/CalendarSelector'
-import GoogleAuthSetup from '@/components/agendamentos/GoogleAuthSetup'
-import LoadingState from '@/components/agendamentos/LoadingState'
-import { GroupCalendarWarning } from '@/components/agendamentos/GroupCalendarWarning'
+import { useGoogleAuthRedirect } from '@/hooks/useGoogleAuthRedirect'
 import { GoogleCalendarEvent } from '@/types/calendar'
-import { Button } from '@/components/ui/button'
+import { LoadingPage } from '@/components/ui/loading'
+import GoogleAuthSetup from '@/components/agendamentos/GoogleAuthSetup'
+import CalendarSelector from '@/components/agendamentos/CalendarSelector'
+import AgendamentosHeader from '@/components/agendamentos/AgendamentosHeader'
+import AgendamentosStats from '@/components/agendamentos/AgendamentosStats'
+import AppointmentsPieChart from '@/components/agendamentos/AppointmentsPieChart'
+import UpcomingAppointments from '@/components/agendamentos/UpcomingAppointments'
+import CalendarView from '@/components/calendar/CalendarView'
+import { useAuth } from '@/hooks/useAuth'
 
 const Agendamentos = () => {
-  // Hook para autenticação geral
   const { user } = useAuth()
-  
-  // Hook para autenticação Google
   const {
     isAuthenticated,
     userCalendars,
     isLoading: authLoading,
     error: authError,
-    initiateAuth,
-    showCalendarSelector,
     availableCalendars,
+    showCalendarSelector,
+    initiateAuth,
     onCalendarsSelected,
     onCancelSelection,
     disconnectCalendars
@@ -32,6 +31,14 @@ const Agendamentos = () => {
 
   // Estado para calendários selecionados
   const [selectedCalendars, setSelectedCalendars] = useState<string[]>([])
+
+  // Memoizar os calendários selecionados para evitar re-renders desnecessários
+  const memoizedSelectedCalendars = useMemo(() => {
+    if (!user || !isAuthenticated || showCalendarSelector || selectedCalendars.length === 0) {
+      return []
+    }
+    return selectedCalendars
+  }, [user, isAuthenticated, showCalendarSelector, selectedCalendars])
 
   // Hook para múltiplos calendários - só chamar quando há usuário autenticado, calendários selecionados e não está mostrando o seletor
   const {
@@ -44,27 +51,8 @@ const Agendamentos = () => {
     syncCalendar,
     fetchEventsFromCalendars,
     forceSyncEvents
-  } = useMultiCalendar(
-    user && isAuthenticated && !showCalendarSelector && selectedCalendars.length > 0 ? selectedCalendars : []
-  )
+  } = useMultiCalendar(memoizedSelectedCalendars)
 
-  // DEBUG: Log eventos e calendários selecionados - Comentado para limpar console
-  // console.log('[DEBUG] 🎯 Events state:', {
-  //   eventsCount: events.length,
-  //   selectedCalendarsCount: selectedCalendars.length,
-  //   selectedCalendars,
-  //   eventsLoading,
-  //   eventsError,
-  //   events: events.slice(0, 2) // Mostrar apenas os 2 primeiros eventos para debug
-  // })
-
-  // DEBUG LOG - Comentado para limpar console
-  // console.log('[DEBUG] showCalendarSelector:', showCalendarSelector, 'availableCalendars:', availableCalendars)
-  // console.log('[DEBUG] showCalendarSelector type:', typeof showCalendarSelector)
-  // console.log('[DEBUG] availableCalendars.length:', availableCalendars.length)
-  // console.log('[DEBUG] availableCalendars type:', typeof availableCalendars)
-  // console.log('[DEBUG] Condition check:', showCalendarSelector && availableCalendars.length > 0)
-  
   // Selecionar calendários ativos automaticamente
   useEffect(() => {
     if (
@@ -156,10 +144,8 @@ const Agendamentos = () => {
   }
 
   // Loading inicial
-  // console.log('[DEBUG] 🎯 CHECKING AUTH LOADING:', authLoading)
   if (authLoading) {
-    // console.log('[DEBUG] 🎯 RETURNING LOADING STATE')
-    return <LoadingState />
+    return <LoadingPage text="Carregando agendamentos..." />
   }
 
   // Se está mostrando o seletor de calendários (PRIORIDADE MÁXIMA)
@@ -178,8 +164,6 @@ const Agendamentos = () => {
   }
 
   // Se não está autenticado, mostrar setup do Google
-  // console.log('[DEBUG] 🎯 CHECKING AUTHENTICATION:', isAuthenticated)
-  // console.log('[DEBUG] 🎯 Will show Google setup?', !isAuthenticated)
   if (!isAuthenticated) {
     return (
       <div className="space-y-4 p-6">
@@ -246,10 +230,11 @@ const Agendamentos = () => {
         <div className="lg:col-span-3 space-y-4">
           {/* Aviso para calendários de grupo com erro */}
           {eventsError && selectedCalendars.some(cal => cal.includes('@group.calendar.google.com')) && (
-            <GroupCalendarWarning 
-              calendarId={selectedCalendars.find(cal => cal.includes('@group.calendar.google.com')) || ''}
-              error={eventsError}
-            />
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-700">
+                Aviso: Calendários de grupo podem ter restrições de permissão. Erro: {eventsError}
+              </p>
+            </div>
           )}
           
           {/* Próximos agendamentos */}
