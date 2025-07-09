@@ -10,7 +10,12 @@ interface Conversation {
   unread_count: number | null;
 }
 
-export const getDisplayName = (conversation: Conversation) => {
+export const getDisplayName = (conversation: Conversation | null | undefined) => {
+  // Verificação de segurança
+  if (!conversation) {
+    return 'Contato Desconhecido';
+  }
+
   // Log para debug
   console.log('getDisplayName - Conversation data:', {
     name: conversation?.name,
@@ -19,7 +24,7 @@ export const getDisplayName = (conversation: Conversation) => {
   });
   
   // Primeiro, verificar se há um nome salvo e se é válido
-  if (conversation?.name && 
+  if (conversation.name && 
       conversation.name.trim() && 
       conversation.name !== conversation.phone_number && 
       !conversation.name.includes('@s.whatsapp.net') &&
@@ -31,7 +36,7 @@ export const getDisplayName = (conversation: Conversation) => {
   }
   
   // Se não há nome válido, usar o número formatado ou original
-  const phoneToDisplay = conversation?.formatted_phone_number || conversation?.phone_number;
+  const phoneToDisplay = conversation.formatted_phone_number || conversation.phone_number;
   
   // Se o número ainda contém @s.whatsapp.net, remover
   if (phoneToDisplay && phoneToDisplay.includes('@s.whatsapp.net')) {
@@ -51,10 +56,19 @@ export const getDisplayName = (conversation: Conversation) => {
   return phoneToDisplay || 'Contato Desconhecido';
 };
 
-export const formatMessageTime = (timestamp: string) => {
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString('pt-BR', { 
-    hour: '2-digit', 
-    minute: '2-digit' 
-  });
+export const formatMessageTime = (timestamp: string | null | undefined) => {
+  if (!timestamp) {
+    return '';
+  }
+  
+  try {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString('pt-BR', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+  } catch (error) {
+    console.error('Error formatting message time:', error);
+    return '';
+  }
 };
