@@ -71,7 +71,7 @@ class AIChatService {
   static async processMessage(phoneNumber: string, message: string): Promise<string> {
     try {
       // Carregar memória da conversa
-      const memory = await ConversationMemoryService.loadMemory(phoneNumber);
+      // const _memory = await ConversationMemoryService.loadMemory(phoneNumber);
       
       // Processar mensagem através do orquestrador
       const response = await LLMOrchestratorService.processMessage({
@@ -86,24 +86,7 @@ class AIChatService {
     }
   }
 
-  /**
-   * Busca informações da clínica
-   */
-  private static async getClinicInfo(): Promise<any> {
-    // Retornar informações padrão da clínica
-    return {
-      informacoes_basicas: {
-        nome: 'Clínica Médica',
-        especialidade_principal: 'Medicina Geral',
-        missao: 'Oferecer atendimento médico de qualidade',
-        diferenciais: ['Atendimento personalizado'],
-        valores: ['Ética', 'Qualidade']
-      },
-      localizacao: { endereco_principal: {} },
-      contatos: {},
-      horario_funcionamento: {}
-    };
-  }
+  // Removed unused _getClinicInfo function
 
   /**
    * Busca histórico de conversas do usuário

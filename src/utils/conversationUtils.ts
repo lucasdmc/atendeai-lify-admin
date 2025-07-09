@@ -1,14 +1,5 @@
 
-interface Conversation {
-  id: string;
-  phone_number: string;
-  formatted_phone_number: string | null;
-  country_code: string | null;
-  name: string | null;
-  updated_at: string;
-  last_message_preview: string | null;
-  unread_count: number | null;
-}
+import { Conversation } from '@/types/conversation';
 
 export const getDisplayName = (conversation: Conversation | null | undefined) => {
   // Verificação de segurança

@@ -53,7 +53,7 @@ export class GoogleAuthManager {
   getOAuthConfig(): GoogleOAuthConfig {
     return {
       clientId: config.google.clientId,
-      clientSecret: config.google.clientSecret,
+      clientSecret: '', // Client secret não deve estar no frontend por segurança
       scopes: config.google.scopes,
       redirectUri: this.getRedirectUri(),
     };
