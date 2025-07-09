@@ -336,23 +336,27 @@ const CalendarSelector = ({
   // Se não há calendários conectados
   if (userCalendars.length === 0) {
     return (
-      <Card>
+      <Card className="border-border shadow-sm">
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
+          <CardTitle className="text-lg flex items-center gap-2 text-foreground">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Calendar className="h-5 w-5 text-primary" />
+            </div>
             Calendários
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="text-center py-8">
-            <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+              <Calendar className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-medium text-foreground mb-2">
               Nenhum calendário conectado
             </h3>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
               Conecte seu Google Calendar para gerenciar agendamentos
             </p>
-            <Button onClick={onAddCalendar} disabled={isLoading}>
+            <Button onClick={onAddCalendar} disabled={isLoading} className="bg-primary text-primary-foreground hover:bg-primary/90">
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (

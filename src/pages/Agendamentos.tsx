@@ -183,70 +183,78 @@ const Agendamentos = () => {
   }
 
   return (
-    <div className="space-y-4 p-6">
-      {/* Botão de atualizar eventos */}
-      <div className="flex justify-end mb-2 gap-2">
-        <Button 
-          onClick={async () => {
-            // Testar janela de tempo específica
-            const now = new Date()
-            const timeMin = new Date(now.getFullYear(), 0, 1).toISOString() // 1º de janeiro
-            const timeMax = new Date(now.getFullYear(), 11, 31, 23, 59, 59).toISOString() // 31 de dezembro
-            
-            await fetchEventsFromCalendars(selectedCalendars, timeMin, timeMax)
-          }} 
-          disabled={eventsLoading} 
-          variant="outline"
-        >
-          {eventsLoading ? 'Testando...' : 'Testar Ano Todo'}
-        </Button>
-        <Button onClick={handleRefreshEvents} disabled={eventsLoading} variant="outline">
-          {eventsLoading ? 'Atualizando...' : 'Atualizar eventos'}
-        </Button>
-      </div>
-      {/* Header com estatísticas */}
-      <AgendamentosHeader 
-        isConnected={isAuthenticated}
-        onCreateEvent={handleCreateEvent}
-        eventsCount={events.length}
-        calendarsCount={userCalendars.length}
-      />
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
+      <div className="container max-w-7xl mx-auto px-4 py-6 space-y-6">
+        {/* Header com estatísticas */}
+        <AgendamentosHeader 
+          isConnected={isAuthenticated}
+          onCreateEvent={handleCreateEvent}
+          eventsCount={events.length}
+          calendarsCount={userCalendars.length}
+        />
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        {/* Sidebar com seleção de calendários */}
-        <div className="lg:col-span-1">
-          <CalendarSelector 
-            userCalendars={userCalendars}
-            selectedCalendars={selectedCalendars}
-            onCalendarToggle={handleCalendarToggle}
-            onRefreshCalendars={() => {}} // Removido checkAuthentication
-            onDisconnectCalendars={disconnectCalendars}
-            onAddCalendar={initiateAuth}
-            isLoading={authLoading || eventsLoading}
-          />
-        </div>
-        
-        {/* Área principal do calendário */}
-        <div className="lg:col-span-3 space-y-4">
-          {/* Aviso para calendários de grupo com erro */}
-          {eventsError && selectedCalendars.some(cal => cal.includes('@group.calendar.google.com')) && (
-            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-700">
-                Aviso: Calendários de grupo podem ter restrições de permissão. Erro: {eventsError}
-              </p>
+        {/* Layout principal */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Sidebar com seleção de calendários */}
+          <div className="lg:col-span-3">
+            <div className="sticky top-6 space-y-4">
+              <CalendarSelector 
+                userCalendars={userCalendars}
+                selectedCalendars={selectedCalendars}
+                onCalendarToggle={handleCalendarToggle}
+                onRefreshCalendars={() => {}}
+                onDisconnectCalendars={disconnectCalendars}
+                onAddCalendar={initiateAuth}
+                isLoading={authLoading || eventsLoading}
+              />
+              
+              {/* Botões de ação */}
+              <div className="flex flex-col gap-2">
+                <Button 
+                  onClick={handleRefreshEvents} 
+                  disabled={eventsLoading} 
+                  variant="outline"
+                  className="w-full"
+                >
+                  {eventsLoading ? 'Atualizando...' : 'Atualizar eventos'}
+                </Button>
+                <Button 
+                  onClick={async () => {
+                    const now = new Date()
+                    const timeMin = new Date(now.getFullYear(), 0, 1).toISOString()
+                    const timeMax = new Date(now.getFullYear(), 11, 31, 23, 59, 59).toISOString()
+                    await fetchEventsFromCalendars(selectedCalendars, timeMin, timeMax)
+                  }} 
+                  disabled={eventsLoading} 
+                  variant="secondary"
+                  className="w-full"
+                >
+                  {eventsLoading ? 'Testando...' : 'Testar Ano Todo'}
+                </Button>
+              </div>
             </div>
-          )}
+          </div>
           
-          {/* Próximos agendamentos */}
-          <UpcomingAppointments 
-            events={events} 
-            isLoadingEvents={eventsLoading}
-            onUpdateEvent={handleUpdateEvent}
-            onDeleteEvent={handleDeleteEvent}
-          />
+          {/* Área principal do calendário */}
+          <div className="lg:col-span-9 space-y-6">
+            {/* Aviso para calendários de grupo com erro */}
+            {eventsError && selectedCalendars.some(cal => cal.includes('@group.calendar.google.com')) && (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg shadow-sm">
+                <p className="text-sm text-yellow-700">
+                  Aviso: Calendários de grupo podem ter restrições de permissão. Erro: {eventsError}
+                </p>
+              </div>
+            )}
+            
+            {/* Próximos agendamentos */}
+            <UpcomingAppointments 
+              events={events} 
+              isLoadingEvents={eventsLoading}
+              onUpdateEvent={handleUpdateEvent}
+              onDeleteEvent={handleDeleteEvent}
+            />
 
-          {/* Calendário principal */}
-          <div className="w-full">
+            {/* Calendário principal */}
             <CalendarView 
               events={events} 
               isLoading={eventsLoading}
@@ -255,16 +263,16 @@ const Agendamentos = () => {
             />
           </div>
         </div>
-      </div>
 
-      {/* Mensagem de erro */}
-      {eventsError && (
-        <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-700">
-            Erro ao carregar eventos: {eventsError}
-          </p>
-        </div>
-      )}
+        {/* Mensagem de erro */}
+        {eventsError && (
+          <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg shadow-sm">
+            <p className="text-sm text-destructive">
+              Erro ao carregar eventos: {eventsError}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
