@@ -1,6 +1,6 @@
 import { Intent } from './intentRecognitionService';
 import { AppointmentService } from '../appointmentService';
-import { supabase } from '@/integrations/supabase/client';
+// import { supabase } from '@/integrations/supabase/client';
 
 export interface Tool {
   name: string;
@@ -329,7 +329,7 @@ export class ToolCallingService {
   /**
    * Formata resposta de erro
    */
-  private static formatErrorResponse(toolName: string, result: ToolResult): string {
+  private static formatErrorResponse(_toolName: string, result: ToolResult): string {
     return `❌ ${result.message}`;
   }
 

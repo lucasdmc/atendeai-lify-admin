@@ -326,7 +326,7 @@ class ContextualizacaoService {
    */
   getProximoHorarioAbertura(): { dia: string; horario: string } | null {
     const agora = new Date();
-    const diasSemana = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
+    // const _diasSemana = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
     
     for (let i = 1; i <= 7; i++) {
       const dataFutura = new Date(agora);

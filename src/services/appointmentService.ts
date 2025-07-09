@@ -43,7 +43,7 @@ export class AppointmentService {
 
   static async updateAppointment(request: AppointmentUpdateRequest): Promise<{ success: boolean; message: string }> {
     try {
-      const { data, error } = await supabase.functions.invoke('appointment-manager', {
+      const { error } = await supabase.functions.invoke('appointment-manager', {
         body: {
           action: 'update',
           eventId: request.eventId,
@@ -68,7 +68,7 @@ export class AppointmentService {
 
   static async deleteAppointment(eventId: string): Promise<{ success: boolean; message: string }> {
     try {
-      const { data, error } = await supabase.functions.invoke('appointment-manager', {
+      const { error } = await supabase.functions.invoke('appointment-manager', {
         body: {
           action: 'delete',
           eventId

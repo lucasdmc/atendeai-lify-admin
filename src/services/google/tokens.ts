@@ -125,9 +125,9 @@ export class GoogleTokenManager {
       console.log('Stored tokens found successfully');
       return {
         access_token: data.access_token,
-        refresh_token: data.refresh_token,
+        refresh_token: data.refresh_token || '',
         expires_at: data.expires_at,
-        scope: data.scope,
+        scope: data.scope || '',
       };
     } catch (error) {
       console.error('Unexpected error getting stored tokens:', error);
@@ -148,7 +148,7 @@ export class GoogleTokenManager {
       body: new URLSearchParams({
         client_id: config.clientId,
         client_secret: config.clientSecret,
-        refresh_token: refreshToken,
+        refresh_token: refreshToken || '',
         grant_type: 'refresh_token',
       }),
     });
