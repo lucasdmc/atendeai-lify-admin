@@ -22,7 +22,7 @@ export interface GoogleCalendarEvent {
 }
 
 export const useGoogleServiceAccount = () => {
-  const [isConnected, setIsConnected] = useState(true); // Service Account sempre conectado
+  const [isConnected] = useState(true); // Service Account sempre conectado
   const [isLoading, setIsLoading] = useState(true);
   const [events, setEvents] = useState<GoogleCalendarEvent[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
@@ -31,24 +31,6 @@ export const useGoogleServiceAccount = () => {
 
   const calendarId = 'fb2b1dfb1e6c600594b05785de5cf04fb38bd0376bd3f5e5d1c08c60d4c894df@group.calendar.google.com';
 
-  const parseAttendees = (attendees: any): Array<{ email: string }> => {
-    if (!attendees) return [];
-    
-    // If it's already an array, return it
-    if (Array.isArray(attendees)) return attendees;
-    
-    // If it's a string, try to parse it
-    if (typeof attendees === 'string') {
-      try {
-        const parsed = JSON.parse(attendees);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch {
-        return [];
-      }
-    }
-    
-    return [];
-  };
 
   const fetchEvents = async () => {
     if (!user) return;
@@ -72,22 +54,24 @@ export const useGoogleServiceAccount = () => {
       console.log(`✅ ${dbEvents?.length || 0} eventos encontrados no banco`);
 
       // Converter formato do banco para o formato esperado
-      const formattedEvents: GoogleCalendarEvent[] = (dbEvents || []).map(event => ({
-        id: event.google_event_id,
-        summary: event.title,
-        description: event.description || '',
-        start: {
-          dateTime: event.start_time,
-          timeZone: 'America/Sao_Paulo'
-        },
-        end: {
-          dateTime: event.end_time,
-          timeZone: 'America/Sao_Paulo'
-        },
-        location: event.location || '',
-        attendees: parseAttendees(event.attendees),
-        status: event.status || 'confirmed'
-      }));
+      const formattedEvents: GoogleCalendarEvent[] = (dbEvents || [])
+        .filter(event => event.start_time && event.end_time)
+        .map(event => ({
+          id: event.google_event_id,
+          summary: event.summary || 'Sem título',
+          description: '',
+          start: {
+            dateTime: event.start_time!,
+            timeZone: 'America/Sao_Paulo'
+          },
+          end: {
+            dateTime: event.end_time!,
+            timeZone: 'America/Sao_Paulo'
+          },
+          location: '',
+          attendees: [],
+          status: 'confirmed'
+        }));
 
       setEvents(formattedEvents);
       console.log('✅ Eventos carregados:', formattedEvents.length);
@@ -163,7 +147,7 @@ export const useGoogleServiceAccount = () => {
     try {
       console.log('📝 Atualizando agendamento:', eventId);
       
-      const { data, error } = await supabase.functions.invoke('appointment-manager', {
+      const { error } = await supabase.functions.invoke('appointment-manager', {
         body: {
           action: 'update',
           eventId,
@@ -194,7 +178,7 @@ export const useGoogleServiceAccount = () => {
     try {
       console.log('🗑️ Deletando agendamento:', eventId);
       
-      const { data, error } = await supabase.functions.invoke('appointment-manager', {
+      const { error } = await supabase.functions.invoke('appointment-manager', {
         body: {
           action: 'delete',
           eventId

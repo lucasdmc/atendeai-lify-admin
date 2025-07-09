@@ -7,7 +7,7 @@ interface Message {
   id: string;
   content: string;
   message_type: 'received' | 'sent';
-  timestamp: string;
+  timestamp: string | null;
   whatsapp_message_id: string | null;
 }
 
@@ -17,7 +17,7 @@ interface Conversation {
   formatted_phone_number: string | null;
   country_code: string | null;
   name: string | null;
-  updated_at: string;
+  updated_at: string | null;
   last_message_preview: string | null;
   unread_count: number | null;
 }

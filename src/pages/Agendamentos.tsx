@@ -2,14 +2,11 @@ import { useState, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { useGoogleUserAuth } from '@/hooks/useGoogleUserAuth'
 import { useMultiCalendar } from '@/hooks/useMultiCalendar'
-import { useGoogleAuthRedirect } from '@/hooks/useGoogleAuthRedirect'
 import { GoogleCalendarEvent } from '@/types/calendar'
 import { LoadingPage } from '@/components/ui/loading'
 import GoogleAuthSetup from '@/components/agendamentos/GoogleAuthSetup'
 import CalendarSelector from '@/components/agendamentos/CalendarSelector'
 import AgendamentosHeader from '@/components/agendamentos/AgendamentosHeader'
-import AgendamentosStats from '@/components/agendamentos/AgendamentosStats'
-import AppointmentsPieChart from '@/components/agendamentos/AppointmentsPieChart'
 import UpcomingAppointments from '@/components/agendamentos/UpcomingAppointments'
 import CalendarView from '@/components/calendar/CalendarView'
 import { useAuth } from '@/hooks/useAuth'
@@ -48,7 +45,6 @@ const Agendamentos = () => {
     createEvent,
     updateEvent,
     deleteEvent,
-    syncCalendar,
     fetchEventsFromCalendars,
     forceSyncEvents
   } = useMultiCalendar(memoizedSelectedCalendars)
