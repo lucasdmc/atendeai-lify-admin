@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Loader2, Edit, Tag, Clock, ChevronDown, ChevronUp, MapPin, User, MoreHorizontal } from 'lucide-react';
+import { Calendar, Loader2, Edit, Clock, ChevronDown, ChevronUp, MapPin, User, MoreHorizontal } from 'lucide-react';
 import { GoogleCalendarEvent } from '@/services/googleServiceAccountService';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -62,20 +62,20 @@ const UpcomingAppointments = ({
 
   return (
     <>
-      <Card className="bg-gradient-to-br from-slate-50 via-white to-blue-50/30 border-0 shadow-xl overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 via-purple-600/5 to-pink-600/5"></div>
+      <Card className="bg-gradient-to-br from-background via-muted/20 to-background border-border shadow-xl overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-accent/5 to-secondary/5"></div>
         <CardHeader className="pb-4 relative z-10">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg">
-                <Calendar className="h-5 w-5 text-white" />
+              <div className="p-2 lify-gradient-primary rounded-xl shadow-lg">
+                <Calendar className="h-5 w-5 text-primary-foreground" />
               </div>
               <div>
-                <CardTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
                   Próximos Agendamentos
-                  {isLoadingEvents && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
+                  {isLoadingEvents && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
                 </CardTitle>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   {events.length > 0 ? `${events.length} eventos agendados` : 'Nenhum evento próximo'}
                 </p>
               </div>
@@ -85,7 +85,7 @@ const UpcomingAppointments = ({
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="h-8 w-8 p-0 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-all"
+                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-all"
               >
                 {isExpanded ? (
                   <ChevronUp className="h-4 w-4" />
@@ -99,17 +99,17 @@ const UpcomingAppointments = ({
         <CardContent className="pt-0 relative z-10">
           {nextEvents.length === 0 && !isLoadingEvents ? (
             <div className="text-center py-12">
-              <div className="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Calendar className="h-8 w-8 text-gray-400" />
+              <div className="w-16 h-16 bg-gradient-to-br from-muted to-muted/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Calendar className="h-8 w-8 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum evento próximo</h3>
-              <p className="text-sm text-gray-500">Seus próximos agendamentos aparecerão aqui</p>
+              <h3 className="text-lg font-medium text-foreground mb-2">Nenhum evento próximo</h3>
+              <p className="text-sm text-muted-foreground">Seus próximos agendamentos aparecerão aqui</p>
             </div>
           ) : (
             <div className="space-y-4">
               {/* Eventos principais */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {nextEvents.map((event, index) => {
+                {nextEvents.map((event) => {
                   const eventLabel = getEventLabel(event);
                   const labelConfig = getLabelConfig(eventLabel);
                   const timeUntil = getTimeUntilEvent(event.start.dateTime);

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
-import { GoogleCalendarEvent, MultiCalendarState, UserCalendar } from '@/types/calendar'
+import { GoogleCalendarEvent } from '@/types/calendar'
 
 export const useMultiCalendar = (selectedCalendars: string[]) => {
   const { user } = useAuth()

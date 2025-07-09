@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Plus, Bot, Settings, Phone, Building2, MessageSquare, QrCode } from 'lucide-react';
+import { Plus, Bot, Settings, Building2, QrCode } from 'lucide-react';
 import AgentWhatsAppManager from '@/components/agentes/AgentWhatsAppManager';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,7 +20,7 @@ interface Agent {
   description: string | null;
   personality: string | null;
   temperature: number | null;
-  clinic_id: string;
+  clinic_id: string | null;
   is_active: boolean | null;
   created_at: string | null;
   updated_at: string | null;
@@ -29,7 +29,7 @@ interface Agent {
   is_whatsapp_connected?: boolean | null;
   clinics?: {
     name: string;
-  };
+  } | null;
 }
 
 interface Clinic {
@@ -541,7 +541,7 @@ const Agentes = () => {
                     description: agent.description || '',
                     personality: agent.personality || 'profissional e acolhedor',
                     temperature: agent.temperature || 0.7,
-                    clinic_id: agent.clinic_id,
+                    clinic_id: agent.clinic_id || '',
                     context_json: agent.context_json || ''
                   });
                   setShowEditDialog(true);

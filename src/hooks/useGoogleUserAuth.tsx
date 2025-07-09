@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
-import { UserCalendar, GoogleAuthState } from '@/types/calendar'
+import { GoogleAuthState } from '@/types/calendar'
 import { googleAuthManager } from '@/services/google/auth'
 import { useGoogleAuthRedirect } from '@/hooks/useGoogleAuthRedirect'
 import { googleTokenManager } from '@/services/google/tokens'
@@ -54,7 +54,16 @@ export const useGoogleUserAuth = () => {
       setState(prev => ({
         ...prev,
         isAuthenticated: Boolean(userCalendars && userCalendars.length > 0 && hasValidTokens),
-        userCalendars: userCalendars || [],
+        userCalendars: (userCalendars || []).map(cal => ({
+          ...cal,
+          is_primary: cal.is_primary ?? false,
+          is_active: cal.is_active ?? true,
+          access_token: cal.access_token || '',
+          refresh_token: cal.refresh_token || null,
+          expires_at: cal.expires_at || '',
+          created_at: cal.created_at || new Date().toISOString(),
+          updated_at: cal.updated_at || new Date().toISOString()
+        })),
         isLoading: false
       }))
     } catch (error) {

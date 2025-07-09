@@ -11,7 +11,6 @@ import {
   ExternalLink,
   RefreshCw
 } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
 
 interface GoogleAuthSetupProps {
   isAuthenticated: boolean
@@ -32,7 +31,6 @@ const GoogleAuthSetup = ({
   onRefreshCalendars,
   onDisconnectCalendars
 }: GoogleAuthSetupProps) => {
-  const { toast } = useToast()
   const [isConnecting, setIsConnecting] = useState(false)
 
   const handleConnect = async () => {

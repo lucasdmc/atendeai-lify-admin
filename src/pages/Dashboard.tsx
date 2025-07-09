@@ -1,4 +1,3 @@
-import React from 'react';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { useGoogleServiceAccount } from '@/hooks/useGoogleServiceAccount';
 import { useClinic } from '@/contexts/ClinicContext';

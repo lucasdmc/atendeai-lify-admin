@@ -12,9 +12,9 @@ import { AlertTriangle, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import type { Database } from '@/integrations/supabase/types';
 
-type UserRole = Database['public']['Enums']['user_role'];
+
+type UserRole = 'atendente' | 'gestor' | 'admin' | 'suporte_lify' | 'admin_lify';
 
 interface User {
   id: string;
@@ -37,7 +37,7 @@ const DeleteUserModal = ({ user, isOpen, onClose, onUserDeleted }: DeleteUserMod
   const { toast } = useToast();
   const { userRole, userPermissions, userId } = useAuth();
 
-  const canDeleteUser = (targetUserRole: UserRole) => {
+  const canDeleteUser = () => {
     // Apenas Administradores, Suporte Lify e Administrador Lify podem deletar usuários
     if (userRole === 'admin_lify') return true;
     if (userRole === 'suporte_lify') return true;
@@ -50,7 +50,7 @@ const DeleteUserModal = ({ user, isOpen, onClose, onUserDeleted }: DeleteUserMod
     if (!user) return;
 
     // Verificar permissões
-    if (!canDeleteUser(user.role)) {
+    if (!canDeleteUser()) {
       toast({
         title: "Erro de Permissão",
         description: "Apenas Administradores, Suporte Lify e Administrador Lify podem deletar usuários.",
@@ -172,7 +172,7 @@ const DeleteUserModal = ({ user, isOpen, onClose, onUserDeleted }: DeleteUserMod
             </div>
           </div>
 
-          {!canDeleteUser(user.role) && (
+          {!canDeleteUser() && (
             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <div className="flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5" />
@@ -194,7 +194,7 @@ const DeleteUserModal = ({ user, isOpen, onClose, onUserDeleted }: DeleteUserMod
           <Button 
             variant="destructive" 
             onClick={handleDeleteUser}
-            disabled={isLoading || !canDeleteUser(user.role)}
+            disabled={isLoading || !canDeleteUser()}
             className="flex items-center gap-2"
           >
             <Trash2 className="h-4 w-4" />

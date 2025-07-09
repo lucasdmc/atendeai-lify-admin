@@ -13,7 +13,6 @@ interface ConversationStatsProps {
 }
 
 const ConversationStats: React.FC<ConversationStatsProps> = ({
-  messageCount,
   updatedAt,
   onOpenConversation
 }) => {

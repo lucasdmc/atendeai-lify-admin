@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { googleTokenManager } from '@/services/google/tokens';
 
@@ -83,7 +82,6 @@ export const useGoogleAuthRedirect = (onSuccess?: (calendars?: any[]) => void) =
         
         // Buscar calendários do usuário
         console.log('🔄 Fetching user calendars...');
-        const { data: { session } } = await supabase.auth.getSession();
         
         const calendarsResponse = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
           headers: {

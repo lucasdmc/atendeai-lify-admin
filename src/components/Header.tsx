@@ -11,11 +11,9 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { LogOut, User } from 'lucide-react';
 import ClinicSelector from './ClinicSelector';
-import { useClinic } from '@/contexts/ClinicContext';
 
 const Header = () => {
   const { user, signOut, userRole } = useAuth();
-  const { setSelectedClinicId } = useClinic();
 
   const getUserInitials = (email: string) => {
     return email.slice(0, 2).toUpperCase();

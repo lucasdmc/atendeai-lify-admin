@@ -59,19 +59,15 @@ const CreateClinicModal = ({ isOpen, onClose, onClinicCreated }: CreateClinicMod
     try {
       const clinicData = {
         name: formData.name,
-        address: formData.address ? {
-          street: formData.address,
-          city: formData.city,
-          state: formData.state
-        } : null,
-        phone: formData.phone ? { value: formData.phone } : null,
-        email: formData.email ? { value: formData.email } : null,
+        address: formData.address || null,
+        phone: formData.phone || null,
+        email: formData.email || null,
         created_by: user?.id || '',
         timezone: 'America/Sao_Paulo',
         language: 'pt-BR'
       };
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('clinics')
         .insert([clinicData])
         .select();

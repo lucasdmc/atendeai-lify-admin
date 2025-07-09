@@ -113,7 +113,7 @@ const AppointmentsPieChart = ({ data }: AppointmentsPieChartProps) => {
                 animationDuration={1500}
                 animationBegin={0}
               >
-                {data.map((entry, index) => (
+                {data.map((_, index) => (
                   <Cell 
                     key={`cell-${index}`} 
                     fill={`url(#gradient-${index})`}

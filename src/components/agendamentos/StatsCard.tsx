@@ -11,7 +11,7 @@ interface StatsCardProps {
   shadowColor: string;
 }
 
-const StatsCard = ({ title, value, icon: Icon, color, bgColor, borderColor, shadowColor }: StatsCardProps) => {
+const StatsCard = ({ title, value, icon: Icon, color, bgColor, shadowColor }: StatsCardProps) => {
   return (
     <Card className={`h-full group relative overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 ${bgColor} ${shadowColor}`}>
       {/* Efeitos de fundo animados */}

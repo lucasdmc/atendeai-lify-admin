@@ -2,13 +2,6 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle 
-} from '@/components/ui/dialog';
 import {
   Table,
   TableBody,
@@ -87,7 +80,13 @@ const Clinicas = () => {
         throw error;
       }
 
-      setClinics(data || []);
+      setClinics((data || []).map(clinic => ({
+        ...clinic,
+        created_at: clinic.created_at || new Date().toISOString(),
+        updated_at: clinic.updated_at || new Date().toISOString(),
+        timezone: clinic.timezone || 'America/Sao_Paulo',
+        language: clinic.language || 'pt-BR'
+      })));
     } catch (error) {
       console.error('Erro ao buscar clínicas:', error);
       toast({

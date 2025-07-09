@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -9,8 +9,8 @@ interface Clinic {
   phone?: any | null;
   email?: any | null;
   created_by: string;
-  created_at: string;
-  updated_at: string;
+  created_at: string | null;
+  updated_at: string | null;
   working_hours?: any | null;
   specialties?: any | null;
   payment_methods?: any | null;
@@ -20,8 +20,8 @@ interface Clinic {
   logo_url?: any | null;
   primary_color?: any | null;
   secondary_color?: any | null;
-  timezone: string;
-  language: string;
+  timezone: string | null;
+  language: string | null;
 }
 
 interface ClinicContextType {

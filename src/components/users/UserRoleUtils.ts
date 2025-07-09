@@ -1,6 +1,4 @@
-import type { Database } from '@/integrations/supabase/types';
-
-type UserRole = Database['public']['Enums']['user_role'];
+type UserRole = 'atendente' | 'gestor' | 'admin' | 'suporte_lify' | 'admin_lify';
 
 export const getRoleLabel = (role: string) => {
   const roleLabels = {
@@ -32,7 +30,7 @@ export const getRolePermissionDescription = (role: UserRole) => {
     suporte_lify: 'Acesso total exceto módulo Clínicas (Todas as clínicas)',
     admin_lify: 'Acesso total a todos os módulos (Todas as clínicas)'
   };
-  return descriptions[role] || '';
+  return descriptions[role as keyof typeof descriptions] || '';
 };
 
 // Definição das permissões por módulo para cada perfil

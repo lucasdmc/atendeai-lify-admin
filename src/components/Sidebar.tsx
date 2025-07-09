@@ -77,7 +77,7 @@ const menuItems = [
 
 const Sidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { userPermissions, userRole, loading } = useAuth();
+  const { userRole, loading } = useAuth();
   const location = useLocation();
 
   // Filtrar itens do menu baseado nas permissões do usuário
