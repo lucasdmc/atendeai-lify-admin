@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import type { Database } from '@/integrations/supabase/types';
+
 
 // Tipo local para os roles disponíveis no sistema
 type UserRole = 'admin_lify' | 'suporte_lify' | 'admin' | 'gestor' | 'atendente';
@@ -166,16 +166,6 @@ const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalPr
     }
   };
 
-  const getRoleLabel = (role: string) => {
-    const roleLabels = {
-      admin_lify: 'Administrador Lify',
-      suporte_lify: 'Suporte Lify',
-      admin: 'Administrador',
-      gestor: 'Gestor',
-      atendente: 'Atendente'
-    };
-    return roleLabels[role as keyof typeof roleLabels] || role;
-  };
 
   const getRolePermissionDescription = (role: UserRole) => {
     const descriptions = {

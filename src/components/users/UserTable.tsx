@@ -11,9 +11,9 @@ import {
 } from '@/components/ui/table';
 import { Edit, Trash2 } from 'lucide-react';
 import { getRoleLabel, getRoleColor } from './UserRoleUtils';
-import type { Database } from '@/integrations/supabase/types';
 
-type UserRole = Database['public']['Enums']['user_role'];
+
+type UserRole = 'atendente' | 'gestor' | 'admin' | 'suporte_lify' | 'admin_lify';
 
 interface GestaoUser {
   id: string;

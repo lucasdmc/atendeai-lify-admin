@@ -108,7 +108,7 @@ const CreateUserModal = ({ onUserCreated }: CreateUserModalProps) => {
       const cleanEmail = newUser.email.trim().toLowerCase();
       
       // Verificar se o email já existe
-      const { data: existingUser, error: checkError } = await supabase
+      const { data: existingUser } = await supabase
         .from('user_profiles')
         .select('id')
         .eq('email', cleanEmail)
