@@ -68,7 +68,7 @@ export const TopicsChart: React.FC<TopicsChartProps> = ({ topicsData }) => {
                   stroke="#ffffff"
                   strokeWidth={2}
                 >
-                  {topicsData.map((entry, index) => (
+                  {topicsData.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Bar>

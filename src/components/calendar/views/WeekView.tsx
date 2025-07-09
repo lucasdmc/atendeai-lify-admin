@@ -1,6 +1,6 @@
 
 import { addDays, startOfWeek, format, isSameDay } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+
 import { GoogleCalendarEvent } from '@/services/googleServiceAccountService';
 import EventCard from '../EventCard';
 
@@ -11,7 +11,7 @@ interface WeekViewProps {
   getEventsForDay: (day: Date) => GoogleCalendarEvent[];
 }
 
-const WeekView = ({ currentDate, events, onEditEvent, getEventsForDay }: WeekViewProps) => {
+const WeekView = ({ currentDate, onEditEvent, getEventsForDay }: WeekViewProps) => {
   const weekStart = startOfWeek(currentDate);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   

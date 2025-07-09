@@ -10,7 +10,7 @@ interface MonthViewProps {
   getEventsForDay: (day: Date) => GoogleCalendarEvent[];
 }
 
-const MonthView = ({ currentDate, events, onEditEvent, getEventsForDay }: MonthViewProps) => {
+const MonthView = ({ currentDate, onEditEvent, getEventsForDay }: MonthViewProps) => {
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });

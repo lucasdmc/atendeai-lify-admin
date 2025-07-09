@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { QrCode } from 'lucide-react';
 
-interface AgentWhatsAppConnectionProps {
+import { Button } from '@/components/ui/button';
+import { QrCode, PhoneOff } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useAgentWhatsAppConnection } from '@/hooks/useAgentWhatsAppConnection';
+import { supabase } from '@/integrations/supabase/client';
+
+interface AgentWhatsAppConnection {
   id: string;
   agent_id: string;
   whatsapp_number: string;
@@ -127,14 +130,14 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
       </div>
 
       {/* Exibir número conectado e botão de desconectar apenas se houver conexão ativa (connected) */}
-      {connections.some(conn => conn.connection_status === 'connected') && (
+      {connections.some((conn: AgentWhatsAppConnection) => conn.connection_status === 'connected') && (
         <div className="flex flex-col items-center gap-2 mt-4">
           <div className="text-base font-medium text-green-700">
-            Número conectado: {connections.find(conn => conn.connection_status === 'connected')?.whatsapp_number}
+            Número conectado: {connections.find((conn: AgentWhatsAppConnection) => conn.connection_status === 'connected')?.whatsapp_number}
           </div>
           <Button
             variant="destructive"
-            onClick={() => handleDisconnectConnection(connections.find(conn => conn.connection_status === 'connected')!.id)}
+            onClick={() => handleDisconnectConnection(connections.find((conn: AgentWhatsAppConnection) => conn.connection_status === 'connected')!.id)}
             disabled={isLoading}
             className="flex items-center gap-2"
           >

@@ -19,7 +19,7 @@ import { UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getRolePermissionDescription } from './UserRoleUtils';
-import type { Database } from '../../integrations/supabase/types';
+
 import userService from '../../services/userService';
 
 // Tipo local para os roles disponíveis no sistema
