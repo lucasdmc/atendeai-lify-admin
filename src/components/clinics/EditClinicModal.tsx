@@ -89,13 +89,9 @@ const EditClinicModal = ({ clinic, isOpen, onClose, onClinicUpdated }: EditClini
         .from('clinics')
         .update({
           name: formData.name,
-          address: formData.address ? {
-            street: formData.address,
-            city: formData.city,
-            state: formData.state
-          } : null,
-          phone: formData.phone ? { value: formData.phone } : null,
-          email: formData.email ? { value: formData.email } : null
+          address: formData.address || null,
+          phone: formData.phone || null,
+          email: formData.email || null
         })
         .eq('id', clinic.id);
 

@@ -1,13 +1,9 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { QrCode, Phone, PhoneOff, MessageSquare, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
-import { useAgentWhatsAppConnection } from '@/hooks/useAgentWhatsAppConnection';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { QrCode } from 'lucide-react';
 
-interface AgentWhatsAppConnection {
+interface AgentWhatsAppConnectionProps {
   id: string;
   agent_id: string;
   whatsapp_number: string;

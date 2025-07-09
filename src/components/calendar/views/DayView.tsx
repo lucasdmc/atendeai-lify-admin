@@ -12,7 +12,7 @@ interface DayViewProps {
   getEventsForDay: (day: Date) => GoogleCalendarEvent[];
 }
 
-const DayView = ({ currentDate, events, onEditEvent, getEventsForDay }: DayViewProps) => {
+const DayView = ({ currentDate, onEditEvent, getEventsForDay }: DayViewProps) => {
   const dayEvents = getEventsForDay(currentDate);
   
   return (

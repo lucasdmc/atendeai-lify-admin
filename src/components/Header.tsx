@@ -11,7 +11,6 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { LogOut, User } from 'lucide-react';
 import ClinicSelector from './ClinicSelector';
-import { useClinic } from '@/contexts/ClinicContext';
 
 const Header = () => {
   const { user, signOut, userRole } = useAuth();

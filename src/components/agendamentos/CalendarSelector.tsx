@@ -53,11 +53,9 @@ const CalendarSelector = ({
   onAddCalendar,
   isLoading = false,
   calendars = [],
-  onCalendarsSelected,
-  onCancel
 }: CalendarSelectorProps) => {
   const [isExpanded, setIsExpanded] = useState(true)
-  const [selectedAvailableCalendars, setSelectedAvailableCalendars] = useState<string[]>([])
+  
   const [calendarsToDisconnect, setCalendarsToDisconnect] = useState<string[]>([])
   const { toast } = useToast()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -68,15 +66,6 @@ const CalendarSelector = ({
     }
   }
 
-  const handleAvailableCalendarToggle = (calendarId: string) => {
-    setSelectedAvailableCalendars(prev => {
-      if (prev.includes(calendarId)) {
-        return prev.filter(id => id !== calendarId)
-      } else {
-        return [...prev, calendarId]
-      }
-    })
-  }
 
   const handleDisconnectToggle = (calendarId: string) => {
     setCalendarsToDisconnect(prev => {
@@ -149,30 +138,7 @@ const CalendarSelector = ({
     return <Calendar className="h-4 w-4 text-gray-500" />
   }
 
-  const handleConnectCalendars = async () => {
-    if (selectedAvailableCalendars.length === 0) {
-      toast({
-        title: 'Seleção necessária',
-        description: 'Selecione pelo menos um calendário para conectar.',
-        variant: 'destructive',
-      })
-      return
-    }
 
-    if (!onCalendarsSelected) return
-
-    const selectedCalendars = calendars.filter(cal => 
-      selectedAvailableCalendars.includes(cal.id)
-    )
-
-    onCalendarsSelected(selectedCalendars)
-  }
-
-  const handleCancel = () => {
-    if (onCancel) {
-      onCancel()
-    }
-  }
 
   const handleDelete = () => {
     if (onDisconnectCalendars && selectedCalendars.length > 0) {

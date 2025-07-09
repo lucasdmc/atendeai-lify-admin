@@ -3,7 +3,7 @@ import { FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/comp
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tag } from 'lucide-react';
-import { appointmentLabels, AppointmentLabel } from '@/utils/appointmentLabels';
+import { appointmentLabels } from '@/utils/appointmentLabels';
 import { Control } from 'react-hook-form';
 
 interface LabelSelectorProps {
