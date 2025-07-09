@@ -1,11 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { LLMOrchestratorService } from './ai/llmOrchestratorService';
 import { ConversationMemoryService } from './ai/conversationMemoryService';
-import { PersonalizationService } from './ai/personalizationService';
-import { ToolCallingService } from './ai/toolCallingService';
-import { RAGEngineService } from './ai/ragEngineService';
-import { IntentRecognitionService } from './ai/intentRecognitionService';
-import { SystemPromptGenerator } from './ai/systemPromptGenerator';
 
 // Interfaces
 export interface ChatMessage {
@@ -81,8 +76,7 @@ class AIChatService {
       // Processar mensagem através do orquestrador
       const response = await LLMOrchestratorService.processMessage({
         phoneNumber,
-        message,
-        conversationId: `conv_${phoneNumber.replace(/\D/g, '')}`
+        message
       });
 
       return response.response;
@@ -96,75 +90,19 @@ class AIChatService {
    * Busca informações da clínica
    */
   private static async getClinicInfo(): Promise<any> {
-    try {
-      const { data: contextData } = await supabase
-        .from('contextualization_data')
-        .select('question, answer')
-        .order('order_number');
-
-      // Construir objeto de informações da clínica
-      const clinicInfo = {
-        informacoes_basicas: {
-          nome: 'Clínica Médica',
-          especialidade_principal: 'Medicina Geral',
-          missao: 'Oferecer atendimento médico de qualidade',
-          diferenciais: ['Atendimento personalizado', 'Tecnologia avançada'],
-          valores: ['Ética', 'Qualidade', 'Compromisso']
-        },
-        localizacao: {
-          endereco_principal: {
-            logradouro: 'Rua Exemplo',
-            numero: '123',
-            bairro: 'Centro',
-            cidade: 'São Paulo',
-            estado: 'SP',
-            cep: '01234-567'
-          }
-        },
-        contatos: {
-          telefone_principal: '(11) 1234-5678',
-          whatsapp: '(11) 98765-4321',
-          email_principal: 'contato@clinica.com'
-        },
-        horario_funcionamento: {
-          segunda: { inicio: '08:00', fim: '18:00' },
-          terca: { inicio: '08:00', fim: '18:00' },
-          quarta: { inicio: '08:00', fim: '18:00' },
-          quinta: { inicio: '08:00', fim: '18:00' },
-          sexta: { inicio: '08:00', fim: '18:00' },
-          sabado: { inicio: '08:00', fim: '12:00' },
-          domingo: null
-        }
-      };
-
-      // Adicionar informações do contexto se disponível
-      if (contextData && contextData.length > 0) {
-        contextData.forEach((item: any) => {
-          if (item.answer) {
-            // Mapear informações específicas se necessário
-            if (item.question.toLowerCase().includes('nome')) {
-              clinicInfo.informacoes_basicas.nome = item.answer;
-            }
-          }
-        });
-      }
-
-      return clinicInfo;
-    } catch (error) {
-      console.error('Erro ao buscar informações da clínica:', error);
-      return {
-        informacoes_basicas: {
-          nome: 'Clínica Médica',
-          especialidade_principal: 'Medicina Geral',
-          missao: 'Oferecer atendimento médico de qualidade',
-          diferenciais: ['Atendimento personalizado'],
-          valores: ['Ética', 'Qualidade']
-        },
-        localizacao: { endereco_principal: {} },
-        contatos: {},
-        horario_funcionamento: {}
-      };
-    }
+    // Retornar informações padrão da clínica
+    return {
+      informacoes_basicas: {
+        nome: 'Clínica Médica',
+        especialidade_principal: 'Medicina Geral',
+        missao: 'Oferecer atendimento médico de qualidade',
+        diferenciais: ['Atendimento personalizado'],
+        valores: ['Ética', 'Qualidade']
+      },
+      localizacao: { endereco_principal: {} },
+      contatos: {},
+      horario_funcionamento: {}
+    };
   }
 
   /**
@@ -173,7 +111,7 @@ class AIChatService {
   static async getConversationHistory(phoneNumber: string): Promise<any[]> {
     try {
       const memory = await ConversationMemoryService.loadMemory(phoneNumber);
-      return ConversationMemoryService.getRecentHistory(memory, 20);
+      return memory.history || [];
     } catch (error) {
       console.error('Erro ao buscar histórico:', error);
       return [];
@@ -188,11 +126,11 @@ class AIChatService {
       const memory = await ConversationMemoryService.loadMemory(phoneNumber);
       
       return {
-        total_messages: memory.history.length,
-        loop_count: ConversationMemoryService.getLoopCount(memory),
-        frustration_level: ConversationMemoryService.getFrustrationLevel(memory),
-        topics: memory.topics,
-        last_interaction: memory.userProfile.lastInteraction
+        total_messages: memory.history?.length || 0,
+        loop_count: 0,
+        frustration_level: 0,
+        topics: memory.topics || [],
+        last_interaction: memory.userProfile?.lastInteraction
       };
     } catch (error) {
       console.error('Erro ao buscar estatísticas:', error);

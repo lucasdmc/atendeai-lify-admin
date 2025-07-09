@@ -191,15 +191,7 @@ export class PersonalizationService {
     };
   }
 
-  private static extractPreferredDoctor(appointments: any[]): string | undefined {
-    if (!appointments || appointments.length === 0) return undefined;
-    // Exemplo: retorna o médico mais frequente
-    const freq: Record<string, number> = {};
-    appointments.forEach(a => {
-      if (a.doctor_name) freq[a.doctor_name] = (freq[a.doctor_name] || 0) + 1;
-    });
-    return Object.entries(freq).sort((a, b) => b[1] - a[1])[0]?.[0];
-  }
+  // Função removida pois não está sendo utilizada
 
   private static extractPreferredTimes(appointments: any[]): string[] {
     const times = appointments.map(apt => apt.appointment_time).filter(Boolean);

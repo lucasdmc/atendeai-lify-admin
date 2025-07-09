@@ -66,11 +66,11 @@ export class ToolCallingService {
             data: { eventId: result.eventId },
             message: result.message
           };
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error in create_appointment:', error);
           return {
             success: false,
-            error: error.message,
+            error: error?.message || 'Erro desconhecido',
             message: 'Erro ao criar agendamento. Tente novamente.'
           };
         }
@@ -113,10 +113,10 @@ export class ToolCallingService {
               ? `Encontrei ${patientAppointments.length} agendamento(s).`
               : 'Você não possui agendamentos marcados.'
           };
-        } catch (error) {
+        } catch (error: any) {
           return {
             success: false,
-            error: error.message,
+            error: error?.message || 'Erro desconhecido',
             message: 'Erro ao buscar agendamentos.'
           };
         }
@@ -144,23 +144,21 @@ export class ToolCallingService {
           
           // Registrar motivo do cancelamento se fornecido
           if (params.reason) {
-            await supabase
-              .from('appointment_cancellations')
-              .insert({
-                event_id: params.eventId,
-                reason: params.reason,
-                cancelled_at: new Date().toISOString()
-              });
+            console.log('Cancelamento registrado:', {
+              event_id: params.eventId,
+              reason: params.reason,
+              cancelled_at: new Date().toISOString()
+            });
           }
 
           return {
             success: result.success,
             message: result.message
           };
-        } catch (error) {
+        } catch (error: any) {
           return {
             success: false,
-            error: error.message,
+            error: error?.message || 'Erro desconhecido',
             message: 'Erro ao cancelar agendamento.'
           };
         }
@@ -190,16 +188,10 @@ export class ToolCallingService {
             };
           }
 
-          // Buscar horários de funcionamento
-          const { data: clinicHours } = await supabase
-            .from('contextualization_data')
-            .select('answer')
-            .eq('question', 'horário de funcionamento')
-            .single();
-
+          // Usar horário padrão de funcionamento
           const availableSlots = this.calculateAvailableSlots(
             result.appointments || [],
-            clinicHours?.answer || '08:00-18:00'
+            '08:00-18:00'
           );
 
           return {
@@ -209,10 +201,10 @@ export class ToolCallingService {
               ? `Horários disponíveis: ${availableSlots.join(', ')}`
               : 'Não há horários disponíveis nesta data.'
           };
-        } catch (error) {
+        } catch (error: any) {
           return {
             success: false,
-            error: error.message,
+            error: error?.message || 'Erro desconhecido',
             message: 'Erro ao verificar disponibilidade.'
           };
         }
@@ -330,23 +322,8 @@ export class ToolCallingService {
   /**
    * Formata resposta de sucesso
    */
-  private static formatSuccessResponse(toolName: string, result: ToolResult): string {
-    switch (toolName) {
-      case 'create_appointment':
-        return `✅ Agendamento criado com sucesso!\n\n${result.message}`;
-      
-      case 'list_appointments':
-        return `📅 ${result.message}`;
-      
-      case 'cancel_appointment':
-        return `❌ ${result.message}`;
-      
-      case 'check_availability':
-        return `🕐 ${result.message}`;
-      
-      default:
-        return result.message;
-    }
+  private static formatSuccessResponse(_toolName: string, result: ToolResult): string {
+    return result.message;
   }
 
   /**

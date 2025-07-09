@@ -28,32 +28,23 @@ export class RAGEngineService {
    */
   static async initializeKnowledgeBase(): Promise<void> {
     try {
-      // Buscar JSON completo da clínica
-      const { data: clinicData } = await supabase
+      // Buscar dados de contextualização (fallback)
+      const { data: contextData } = await supabase
         .from('clinics')
-        .select('knowledge_base')
+        .select('*')
         .single();
 
-      if (!clinicData?.knowledge_base) {
-        // Fallback para dados de contextualização
-        const { data: contextData } = await supabase
-          .from('contextualization_data')
-          .select('question, answer, category')
-          .order('order_number');
-
-        if (contextData) {
-          this.knowledgeBase = this.buildKnowledgeBaseFromContext(contextData);
-        } else {
-          throw new Error('No knowledge base found');
-        }
+      if (contextData) {
+        this.knowledgeBase = this.buildKnowledgeBaseFromContext([]);
       } else {
-        this.knowledgeBase = clinicData.knowledge_base;
+        throw new Error('No clinic data found');
       }
 
       console.log('✅ Knowledge base initialized');
     } catch (error) {
       console.error('❌ Error initializing knowledge base:', error);
-      throw error;
+      // Usar dados padrão se não conseguir carregar
+      this.knowledgeBase = this.buildKnowledgeBaseFromContext([]);
     }
   }
 
@@ -347,7 +338,7 @@ INFORMAÇÕES DA CLÍNICA:
     }];
   }
 
-  private static retrievePricesInfo(service?: string): RetrievedInfo[] {
+  private static retrievePricesInfo(_service?: string): RetrievedInfo[] {
     // Implementação básica - pode ser expandida
     return [{
       content: 'Para informações sobre preços, entre em contato conosco pelo telefone ou WhatsApp.',

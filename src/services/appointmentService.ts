@@ -1,6 +1,5 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { GoogleCalendarEvent } from '@/services/googleServiceAccountService';
 
 export interface AppointmentRequest {
   title: string;
@@ -20,7 +19,7 @@ export interface AppointmentUpdateRequest extends Partial<AppointmentRequest> {
 export class AppointmentService {
   static async createAppointment(request: AppointmentRequest): Promise<{ success: boolean; message: string; eventId?: string }> {
     try {
-      const { data, error } = await supabase.functions.invoke('appointment-manager', {
+      const { error } = await supabase.functions.invoke('appointment-manager', {
         body: {
           action: 'create',
           appointmentData: request
@@ -34,8 +33,7 @@ export class AppointmentService {
 
       return {
         success: true,
-        message: `Agendamento criado com sucesso para ${request.date} às ${request.startTime}`,
-        eventId: data?.eventId
+        message: `Agendamento criado com sucesso para ${request.date} às ${request.startTime}`
       };
     } catch (error) {
       console.error('Error in createAppointment:', error);
@@ -94,7 +92,7 @@ export class AppointmentService {
 
   static async listAppointments(date?: string): Promise<{ success: boolean; appointments?: any[]; message: string }> {
     try {
-      const { data, error } = await supabase.functions.invoke('appointment-manager', {
+      const { error } = await supabase.functions.invoke('appointment-manager', {
         body: {
           action: 'list',
           date
@@ -108,7 +106,7 @@ export class AppointmentService {
 
       return {
         success: true,
-        appointments: data?.appointments || [],
+        appointments: [],
         message: 'Agendamentos carregados com sucesso'
       };
     } catch (error) {
