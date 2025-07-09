@@ -133,6 +133,9 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
     } else if (selectedCalendars.length === 0) {
       setState(prev => ({ ...prev, events: [] }));
     }
+    
+    // Retorna undefined explicitamente para todos os outros casos
+    return undefined;
   }, [selectedCalendars, user, fetchEventsFromCalendars]);
 
   useEffect(() => {
