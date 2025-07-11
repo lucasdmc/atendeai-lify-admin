@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,23 +27,11 @@ import EditClinicModal from '@/components/clinics/EditClinicModal';
 import CreateClinicModal from '@/components/clinics/CreateClinicModal';
 import DeleteClinicModal from '@/components/clinics/DeleteClinicModal';
 import { testClinicCreation, checkUserPermissions, testClinicViewing } from '@/utils/clinicTest';
-
-interface Clinic {
-  id: string;
-  name: string;
-  cnpj?: string | null;
-  email?: string | null;
-  phone?: string | null;
-  address?: string | null;
-  city?: string | null;
-  state?: string | null;
-  website?: string | null;
-  is_active: boolean | null;
-  created_at: string | null;
-}
+import { Clinic } from '@/types/clinic';
+import { canCreateClinics, canEditClinics, canDeleteClinics } from '@/components/users/UserRoleUtils';
 
 const Clinicas = () => {
-  const [clinics, setClinics] = useState<any[]>([]);
+  const [clinics, setClinics] = useState<Clinic[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [editingClinic, setEditingClinic] = useState<Clinic | null>(null);
@@ -118,33 +106,12 @@ const Clinicas = () => {
   };
 
   const handleToggleClinicStatus = async (clinicId: string) => {
-    try {
-      const clinic = clinics.find(c => c.id === clinicId);
-      const newStatus = !clinic?.is_active;
-
-      const { error } = await supabase
-        .from('clinics')
-        .update({ is_active: newStatus })
-        .eq('id', clinicId);
-
-      if (error) throw error;
-
-      setClinics(prev => prev.map(clinic => 
-        clinic.id === clinicId ? { ...clinic, is_active: newStatus } : clinic
-      ));
-
-      toast({
-        title: "Status atualizado",
-        description: "O status da clínica foi atualizado.",
-      });
-    } catch (error) {
-      console.error('Error updating clinic status:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível atualizar o status.",
-        variant: "destructive",
-      });
-    }
+    // Função removida - campo is_active não existe na tabela
+    toast({
+      title: "Funcionalidade não disponível",
+      description: "Ativação/desativação de clínicas não está implementada.",
+      variant: "destructive",
+    });
   };
 
   const handleTestClinicCreation = async () => {
@@ -164,7 +131,7 @@ const Clinicas = () => {
   };
 
   const handleTestClinicViewing = async () => {
-    console.log('�� Iniciando teste de visualização de clínica...');
+    console.log('🧪 Iniciando teste de visualização de clínica...');
     
     // Verificar permissões do usuário
     const userInfo = await checkUserPermissions();
@@ -182,9 +149,7 @@ const Clinicas = () => {
   const filteredClinics = clinics.filter(clinic =>
     // Filtrar a Clínica Principal (não mostrar na lista)
     clinic.id !== '00000000-0000-0000-0000-000000000001' &&
-    (clinic.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    clinic.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    clinic.email?.toLowerCase().includes(searchTerm.toLowerCase()))
+    clinic.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   console.log('📊 Estado atual das clínicas:');
@@ -234,7 +199,7 @@ const Clinicas = () => {
           
           <Button 
             onClick={() => setIsCreateModalOpen(true)}
-            disabled={!userPermissions.includes('criar_clinicas')}
+            disabled={!canCreateClinics(userRole)}
             className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -251,8 +216,9 @@ const Clinicas = () => {
               <div><strong>Debug Info:</strong></div>
               <div>Role: {userRole}</div>
               <div>Permissions: {userPermissions.join(', ')}</div>
-              <div>Can create clinics: {userPermissions.includes('criar_clinicas') ? '✅' : '❌'}</div>
-              <div>Can delete clinics: {userRole === 'admin_lify' || userPermissions.includes('deletar_clinicas') ? '✅' : '❌'}</div>
+              <div>Can create clinics: {canCreateClinics(userRole) ? '✅' : '❌'}</div>
+              <div>Can edit clinics: {canEditClinics(userRole) ? '✅' : '❌'}</div>
+              <div>Can delete clinics: {canDeleteClinics(userRole) ? '✅' : '❌'}</div>
               <div>Total clinics in DB: {clinics.length}</div>
               <div>Visible clinics: {filteredClinics.length}</div>
               <div>Admin Lify oculta: {clinics.some(c => c.id === '00000000-0000-0000-0000-000000000001') ? '✅' : '❌'}</div>
@@ -298,21 +264,17 @@ const Clinicas = () => {
                   <TableCell>
                     <div>
                       <div className="font-medium">{clinic.name}</div>
-                      {clinic.cnpj && (
-                        <div className="text-sm text-gray-500">CNPJ: {clinic.cnpj}</div>
-                      )}
+                      <div className="text-sm text-gray-500">ID: {clinic.id}</div>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="space-y-1">
-                      {clinic.city && clinic.state && (
-                        <div className="flex items-center gap-1 text-sm">
-                          <MapPin className="h-3 w-3" />
-                          {clinic.city}, {clinic.state}
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1 text-sm">
+                        <MapPin className="h-3 w-3" />
+                        {clinic.timezone || 'Não informado'}
+                      </div>
                       {clinic.address && (
-                        <div className="text-xs text-gray-500">{clinic.address}</div>
+                        <div className="text-xs text-gray-500">Endereço configurado</div>
                       )}
                     </div>
                   </TableCell>
@@ -321,22 +283,19 @@ const Clinicas = () => {
                       {clinic.phone && (
                         <div className="flex items-center gap-1 text-sm">
                           <Phone className="h-3 w-3" />
-                          {clinic.phone}
+                          Telefone configurado
                         </div>
                       )}
                       {clinic.email && (
                         <div className="flex items-center gap-1 text-sm">
                           <Mail className="h-3 w-3" />
-                          {clinic.email}
+                          Email configurado
                         </div>
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Switch
-                      checked={clinic.is_active ?? false}
-                      onCheckedChange={() => handleToggleClinicStatus(clinic.id)}
-                    />
+                    <Badge variant="default">Ativa</Badge>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -344,6 +303,8 @@ const Clinicas = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleEditClinic(clinic)}
+                        disabled={!canEditClinics(userRole)}
+                        title={!canEditClinics(userRole) ? 'Você não tem permissão para editar clínicas' : 'Editar clínica'}
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -354,12 +315,12 @@ const Clinicas = () => {
                         className="text-red-600 hover:text-red-700 disabled:text-gray-400 disabled:cursor-not-allowed"
                         disabled={
                           clinic.id === '00000000-0000-0000-0000-000000000001' ||
-                          (userRole !== 'admin_lify' && !userPermissions.includes('deletar_clinicas'))
+                          !canDeleteClinics(userRole)
                         }
                         title={
                           clinic.id === '00000000-0000-0000-0000-000000000001'
                             ? 'Admin Lify não pode ser excluída'
-                            : userRole !== 'admin_lify' && !userPermissions.includes('deletar_clinicas')
+                            : !canDeleteClinics(userRole)
                             ? 'Você não tem permissão para excluir clínicas'
                             : 'Excluir clínica'
                         }
@@ -382,7 +343,7 @@ const Clinicas = () => {
       />
 
       <EditClinicModal
-        clinic={editingClinic as any}
+        clinic={editingClinic}
         isOpen={isEditModalOpen}
         onClose={handleCloseEditModal}
         onClinicUpdated={handleClinicUpdated}

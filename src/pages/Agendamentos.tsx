@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useGoogleUserAuth } from '@/hooks/useGoogleUserAuth'
 import { useMultiCalendar } from '@/hooks/useMultiCalendar'
+import { useClinic } from '@/contexts/ClinicContext'
 import CalendarView from '@/components/calendar/CalendarView'
 import AgendamentosHeader from '@/components/agendamentos/AgendamentosHeader'
 import UpcomingAppointments from '@/components/agendamentos/UpcomingAppointments'
@@ -11,10 +12,14 @@ import LoadingState from '@/components/agendamentos/LoadingState'
 import { GroupCalendarWarning } from '@/components/agendamentos/GroupCalendarWarning'
 import { GoogleCalendarEvent } from '@/types/calendar'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { RefreshCw, AlertCircle } from 'lucide-react'
 
 const Agendamentos = () => {
   // Hook para autenticação geral
   const { user } = useAuth()
+  const { selectedClinic } = useClinic();
   
   // Hook para autenticação Google
   const {
@@ -30,10 +35,15 @@ const Agendamentos = () => {
     disconnectCalendars
   } = useGoogleUserAuth()
 
+  // Filtrar os calendários pela clínica selecionada
+  const filteredUserCalendars = selectedClinic
+    ? userCalendars.filter(cal => cal.clinic_id === selectedClinic.id)
+    : userCalendars;
+
   // Estado para calendários selecionados
   const [selectedCalendars, setSelectedCalendars] = useState<string[]>([])
 
-  // Hook para múltiplos calendários - só chamar quando há usuário autenticado, calendários selecionados e não está mostrando o seletor
+  // Hook para múltiplos calendários
   const {
     events,
     isLoading: eventsLoading,
@@ -48,40 +58,22 @@ const Agendamentos = () => {
     user && isAuthenticated && !showCalendarSelector && selectedCalendars.length > 0 ? selectedCalendars : []
   )
 
-  // DEBUG: Log eventos e calendários selecionados - Comentado para limpar console
-  // console.log('[DEBUG] 🎯 Events state:', {
-  //   eventsCount: events.length,
-  //   selectedCalendarsCount: selectedCalendars.length,
-  //   selectedCalendars,
-  //   eventsLoading,
-  //   eventsError,
-  //   events: events.slice(0, 2) // Mostrar apenas os 2 primeiros eventos para debug
-  // })
-
-  // DEBUG LOG - Comentado para limpar console
-  // console.log('[DEBUG] showCalendarSelector:', showCalendarSelector, 'availableCalendars:', availableCalendars)
-  // console.log('[DEBUG] showCalendarSelector type:', typeof showCalendarSelector)
-  // console.log('[DEBUG] availableCalendars.length:', availableCalendars.length)
-  // console.log('[DEBUG] availableCalendars type:', typeof availableCalendars)
-  // console.log('[DEBUG] Condition check:', showCalendarSelector && availableCalendars.length > 0)
-  
   // Selecionar calendários ativos automaticamente
   useEffect(() => {
     if (
-      userCalendars.length > 0 &&
+      filteredUserCalendars.length > 0 &&
       selectedCalendars.length === 0 &&
       isAuthenticated
     ) {
-      const activeCalendars = userCalendars
+      const activeCalendars = filteredUserCalendars
         .filter(cal => cal.is_active)
         .map(cal => cal.google_calendar_id);
 
-      // Só atualiza se for diferente e não estiver vazio
       if (activeCalendars.length > 0) {
         setSelectedCalendars(activeCalendars);
       }
     }
-  }, [userCalendars, isAuthenticated, selectedCalendars.length]);
+  }, [filteredUserCalendars, isAuthenticated, selectedCalendars.length]);
 
   // Toggle de calendário
   const handleCalendarToggle = (calendarId: string) => {
@@ -100,10 +92,9 @@ const Agendamentos = () => {
       throw new Error('Selecione pelo menos um calendário')
     }
 
-    // Criar no primeiro calendário selecionado (ou calendário principal)
-    const targetCalendar = userCalendars.find(cal => 
+    const targetCalendar = filteredUserCalendars.find(cal => 
       selectedCalendars.includes(cal.google_calendar_id) && cal.is_primary
-    ) || userCalendars.find(cal => 
+    ) || filteredUserCalendars.find(cal => 
       selectedCalendars.includes(cal.google_calendar_id)
     )
 
@@ -120,8 +111,7 @@ const Agendamentos = () => {
       throw new Error('Selecione pelo menos um calendário')
     }
 
-    // Encontrar o calendário que contém o evento
-    const targetCalendar = userCalendars.find(cal => 
+    const targetCalendar = filteredUserCalendars.find(cal => 
       selectedCalendars.includes(cal.google_calendar_id)
     )
 
@@ -138,8 +128,7 @@ const Agendamentos = () => {
       throw new Error('Selecione pelo menos um calendário')
     }
 
-    // Encontrar o calendário que contém o evento
-    const targetCalendar = userCalendars.find(cal => 
+    const targetCalendar = filteredUserCalendars.find(cal => 
       selectedCalendars.includes(cal.google_calendar_id)
     )
 
@@ -156,16 +145,14 @@ const Agendamentos = () => {
   }
 
   // Loading inicial
-  // console.log('[DEBUG] 🎯 CHECKING AUTH LOADING:', authLoading)
   if (authLoading) {
-    // console.log('[DEBUG] 🎯 RETURNING LOADING STATE')
     return <LoadingState />
   }
 
-  // Se está mostrando o seletor de calendários (PRIORIDADE MÁXIMA)
+  // Se está mostrando o seletor de calendários
   if (showCalendarSelector && availableCalendars.length > 0) {
     return (
-      <div className="space-y-4 p-6">
+      <div className="container mx-auto p-6">
         <div className="max-w-2xl mx-auto">
           <CalendarSelector
             calendars={availableCalendars}
@@ -178,19 +165,17 @@ const Agendamentos = () => {
   }
 
   // Se não está autenticado, mostrar setup do Google
-  // console.log('[DEBUG] 🎯 CHECKING AUTHENTICATION:', isAuthenticated)
-  // console.log('[DEBUG] 🎯 Will show Google setup?', !isAuthenticated)
   if (!isAuthenticated) {
     return (
-      <div className="space-y-4 p-6">
+      <div className="container mx-auto p-6">
         <div className="max-w-2xl mx-auto">
           <GoogleAuthSetup
             isAuthenticated={isAuthenticated}
-            userCalendars={userCalendars}
+            userCalendars={filteredUserCalendars}
             isLoading={authLoading}
             error={authError}
             onInitiateAuth={initiateAuth}
-            onRefreshCalendars={() => {}} // Removido checkAuthentication
+            onRefreshCalendars={() => {}}
             onDisconnectCalendars={disconnectCalendars}
           />
         </div>
@@ -198,52 +183,64 @@ const Agendamentos = () => {
     )
   }
 
+  // Verificar se há clínica selecionada
+  if (!selectedClinic) {
+    return (
+      <div className="container mx-auto p-6">
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Selecione uma clínica no cabeçalho para visualizar os agendamentos.
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-4 p-6">
-      {/* Botão de atualizar eventos */}
-      <div className="flex justify-end mb-2 gap-2">
+    <div className="container mx-auto p-6 space-y-6">
+      {/* Botões de ação */}
+      <div className="flex justify-end gap-2">
         <Button 
-          onClick={async () => {
-            // Testar janela de tempo específica
-            const now = new Date()
-            const timeMin = new Date(now.getFullYear(), 0, 1).toISOString() // 1º de janeiro
-            const timeMax = new Date(now.getFullYear(), 11, 31, 23, 59, 59).toISOString() // 31 de dezembro
-            
-            await fetchEventsFromCalendars(selectedCalendars, timeMin, timeMax)
-          }} 
+          onClick={handleRefreshEvents} 
           disabled={eventsLoading} 
           variant="outline"
+          size="sm"
         >
-          {eventsLoading ? 'Testando...' : 'Testar Ano Todo'}
-        </Button>
-        <Button onClick={handleRefreshEvents} disabled={eventsLoading} variant="outline">
+          <RefreshCw className={`h-4 w-4 mr-2 ${eventsLoading ? 'animate-spin' : ''}`} />
           {eventsLoading ? 'Atualizando...' : 'Atualizar eventos'}
         </Button>
       </div>
+
       {/* Header com estatísticas */}
       <AgendamentosHeader 
         isConnected={isAuthenticated}
         onCreateEvent={handleCreateEvent}
         eventsCount={events.length}
-        calendarsCount={userCalendars.length}
+        calendarsCount={filteredUserCalendars.length}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+      {/* Layout principal */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Sidebar com seleção de calendários */}
         <div className="lg:col-span-1">
-          <CalendarSelector 
-            userCalendars={userCalendars}
-            selectedCalendars={selectedCalendars}
-            onCalendarToggle={handleCalendarToggle}
-            onRefreshCalendars={() => {}} // Removido checkAuthentication
-            onDisconnectCalendars={disconnectCalendars}
-            onAddCalendar={initiateAuth}
-            isLoading={authLoading || eventsLoading}
-          />
+          <Card>
+            <CardContent className="p-4">
+              <CalendarSelector 
+                userCalendars={filteredUserCalendars}
+                selectedCalendars={selectedCalendars}
+                onCalendarToggle={handleCalendarToggle}
+                onRefreshCalendars={() => {}}
+                onDisconnectCalendars={disconnectCalendars}
+                onAddCalendar={initiateAuth}
+                isLoading={authLoading || eventsLoading}
+              />
+            </CardContent>
+          </Card>
         </div>
         
         {/* Área principal do calendário */}
-        <div className="lg:col-span-3 space-y-4">
+        <div className="lg:col-span-3 space-y-6">
           {/* Aviso para calendários de grupo com erro */}
           {eventsError && selectedCalendars.some(cal => cal.includes('@group.calendar.google.com')) && (
             <GroupCalendarWarning 
@@ -261,24 +258,33 @@ const Agendamentos = () => {
           />
 
           {/* Calendário principal */}
-          <div className="w-full">
-            <CalendarView 
-              events={events} 
-              isLoading={eventsLoading}
-              onUpdateEvent={handleUpdateEvent}
-              onDeleteEvent={handleDeleteEvent}
-            />
-          </div>
+          <CalendarView 
+            events={events} 
+            isLoading={eventsLoading}
+            onUpdateEvent={handleUpdateEvent}
+            onDeleteEvent={handleDeleteEvent}
+          />
         </div>
       </div>
 
       {/* Mensagem de erro */}
       {eventsError && (
-        <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-700">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
             Erro ao carregar eventos: {eventsError}
-          </p>
-        </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Mensagem quando não há calendários selecionados */}
+      {isAuthenticated && selectedCalendars.length === 0 && filteredUserCalendars.length > 0 && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Selecione pelo menos um calendário para visualizar os eventos.
+          </AlertDescription>
+        </Alert>
       )}
     </div>
   )

@@ -82,6 +82,9 @@ export const rolePermissions = {
     'contextualizar',     // Contextualização
     'gestao_usuarios',    // Gestão de Usuários
     'clinicas',           // Clínicas
+    'criar_clinicas',     // Criar clínicas
+    'editar_clinicas',    // Editar clínicas
+    'deletar_clinicas',   // Deletar clínicas
     'configuracoes'       // Configurações
   ]
 };
@@ -102,6 +105,26 @@ export const hasGlobalClinicAccess = (userRole: string | null): boolean => {
 // Função para verificar se um usuário pode gerenciar clínicas
 export const canManageClinics = (userRole: string | null): boolean => {
   return userRole === 'admin_lify';
+};
+
+// Função para verificar se um usuário pode criar clínicas
+export const canCreateClinics = (userRole: string | null): boolean => {
+  return userRole === 'admin_lify';
+};
+
+// Função para verificar se um usuário pode editar clínicas
+export const canEditClinics = (userRole: string | null): boolean => {
+  return userRole === 'admin_lify';
+};
+
+// Função para verificar se um usuário pode deletar clínicas
+export const canDeleteClinics = (userRole: string | null): boolean => {
+  return userRole === 'admin_lify';
+};
+
+// Função para verificar se um usuário pode editar agentes
+export const canEditAgents = (userRole: string | null): boolean => {
+  return userRole === 'admin_lify' || userRole === 'admin' || userRole === 'gestor';
 };
 
 // Função para obter o escopo de acesso às clínicas

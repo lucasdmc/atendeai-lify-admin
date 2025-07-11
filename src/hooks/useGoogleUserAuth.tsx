@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { useClinic } from '@/contexts/ClinicContext'
 import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
 import { UserCalendar, GoogleAuthState } from '@/types/calendar'
@@ -9,6 +10,7 @@ import { googleTokenManager } from '@/services/google/tokens'
 
 export const useGoogleUserAuth = () => {
   const { user } = useAuth()
+  const { selectedClinic } = useClinic()
   const { toast } = useToast()
   
   const [state, setState] = useState<GoogleAuthState>({
@@ -31,7 +33,7 @@ export const useGoogleUserAuth = () => {
       // Buscar calendários do usuário na tabela user_calendars
       const { data: userCalendars, error: calendarsError } = await supabase
         .from('user_calendars')
-        .select('*')
+        .select('*, clinic_id')
         .eq('user_id', user.id)
         .eq('is_active', true)
 
@@ -137,6 +139,7 @@ export const useGoogleUserAuth = () => {
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token || null,
         expires_at: tokens.expires_at,
+        clinic_id: selectedClinic?.id || null, // Adicionar clínica selecionada
       }))
 
       const { error: saveError } = await supabase
@@ -165,7 +168,7 @@ export const useGoogleUserAuth = () => {
     } finally {
       setState(prev => ({ ...prev, isLoading: false }))
     }
-  }, [user, checkAuthentication, toast])
+  }, [user, selectedClinic, checkAuthentication, toast])
 
   // Função para cancelar seleção
   const handleCancelSelection = useCallback(() => {

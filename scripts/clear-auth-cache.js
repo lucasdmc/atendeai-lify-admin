@@ -1,0 +1,31 @@
+console.log('🧹 Script para limpar cache de autenticação\n');
+
+console.log('📋 Instruções para limpar o cache:');
+console.log('');
+console.log('1️⃣ Abra o DevTools do navegador (F12)');
+console.log('2️⃣ Vá para a aba "Application" (Chrome) ou "Storage" (Firefox)');
+console.log('3️⃣ No painel esquerdo, expanda "Local Storage"');
+console.log('4️⃣ Clique com botão direito em "http://localhost:8080"');
+console.log('5️⃣ Selecione "Clear"');
+console.log('');
+console.log('6️⃣ Faça o mesmo para "Session Storage"');
+console.log('7️⃣ Vá para "IndexedDB" e delete qualquer banco relacionado ao Supabase');
+console.log('8️⃣ Vá para "Cookies" e delete cookies do localhost');
+console.log('');
+console.log('🔄 Depois recarregue a página (Ctrl+F5 ou Cmd+Shift+R)');
+console.log('');
+console.log('💡 Alternativa: Abra uma aba anônima/privada para testar');
+
+console.log('\n🎯 Comandos JavaScript para executar no console:');
+console.log('');
+console.log('// Limpar localStorage');
+console.log('localStorage.clear();');
+console.log('');
+console.log('// Limpar sessionStorage');
+console.log('sessionStorage.clear();');
+console.log('');
+console.log('// Limpar IndexedDB');
+console.log('indexedDB.databases().then(dbs => dbs.forEach(db => indexedDB.deleteDatabase(db.name)));');
+console.log('');
+console.log('// Recarregar página');
+console.log('window.location.reload(true);'); 

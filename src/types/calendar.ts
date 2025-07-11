@@ -13,6 +13,7 @@ export interface UserCalendar {
   expires_at: string
   created_at: string
   updated_at: string
+  clinic_id?: string
 }
 
 export interface CalendarSyncLog {

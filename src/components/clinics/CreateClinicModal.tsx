@@ -11,6 +11,8 @@ import { AddressInput } from '@/components/ui/address-input';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { Clinic } from '@/types/clinic';
+import { canCreateClinics } from '@/components/users/UserRoleUtils';
 
 interface CreateClinicModalProps {
   isOpen: boolean;
@@ -22,16 +24,14 @@ const CreateClinicModal = ({ isOpen, onClose, onClinicCreated }: CreateClinicMod
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    cnpj: '',
     email: '',
     phone: '',
     address: '',
-    city: '',
-    state: '',
-    website: ''
+    timezone: '',
+    language: 'pt-BR'
   });
   const { toast } = useToast();
-  const { user, userRole, userPermissions } = useAuth();
+  const { user, userRole } = useAuth();
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -51,13 +51,12 @@ const CreateClinicModal = ({ isOpen, onClose, onClinicCreated }: CreateClinicMod
     console.log('🔍 Debug - Criando clínica:');
     console.log('👤 User ID:', user?.id);
     console.log('👑 User Role:', userRole);
-    console.log('🔐 User Permissions:', userPermissions);
     console.log('📋 Form Data:', formData);
 
     setIsLoading(true);
     try {
       // Verificar se o usuário tem permissão para criar clínicas
-      if (!userPermissions.includes('criar_clinicas') && userRole !== 'admin_lify') {
+      if (!canCreateClinics(userRole)) {
         console.error('❌ Usuário não tem permissão para criar clínicas');
         toast({
           title: "Erro de Permissão",
@@ -71,14 +70,12 @@ const CreateClinicModal = ({ isOpen, onClose, onClinicCreated }: CreateClinicMod
 
       const clinicData = {
         name: formData.name,
-        cnpj: formData.cnpj || null,
         email: formData.email || null,
         phone: formData.phone || null,
         address: formData.address || null,
-        city: formData.city || null,
-        state: formData.state || null,
-        website: formData.website || null,
-        is_active: true
+        timezone: formData.timezone || null,
+        language: formData.language || 'pt-BR',
+        created_by: user?.id || ''
       };
 
       console.log('📊 Dados da clínica a serem inseridos:', clinicData);
@@ -105,13 +102,11 @@ const CreateClinicModal = ({ isOpen, onClose, onClinicCreated }: CreateClinicMod
       // Reset form
       setFormData({
         name: '',
-        cnpj: '',
         email: '',
         phone: '',
         address: '',
-        city: '',
-        state: '',
-        website: ''
+        timezone: '',
+        language: 'pt-BR'
       });
 
       onClinicCreated();
@@ -124,7 +119,7 @@ const CreateClinicModal = ({ isOpen, onClose, onClinicCreated }: CreateClinicMod
       if (error.code === '42501') {
         errorMessage = "Você não tem permissão para criar clínicas. Entre em contato com o administrador.";
       } else if (error.code === '23505') {
-        errorMessage = "Já existe uma clínica com este CNPJ.";
+        errorMessage = "Já existe uma clínica com este nome.";
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -151,29 +146,18 @@ const CreateClinicModal = ({ isOpen, onClose, onClinicCreated }: CreateClinicMod
           <div className="p-3 bg-gray-100 rounded text-xs">
             <div><strong>Debug:</strong></div>
             <div>Role: {userRole}</div>
-            <div>Permissions: {userPermissions.join(', ')}</div>
-            <div>Can create: {userPermissions.includes('criar_clinicas') ? '✅' : '❌'}</div>
+            <div>Can create: {canCreateClinics(userRole) ? '✅' : '❌'}</div>
           </div>
         )}
         
         <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium">Nome da Clínica *</label>
-              <Input
-                value={formData.name}
-                onChange={(e) => handleInputChange('name', e.target.value)}
-                placeholder="Nome da clínica"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">CNPJ</label>
-              <Input
-                value={formData.cnpj}
-                onChange={(e) => handleInputChange('cnpj', e.target.value)}
-                placeholder="00.000.000/0000-00"
-              />
-            </div>
+          <div>
+            <label className="text-sm font-medium">Nome da Clínica *</label>
+            <Input
+              value={formData.name}
+              onChange={(e) => handleInputChange('name', e.target.value)}
+              placeholder="Nome da clínica"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -198,53 +182,39 @@ const CreateClinicModal = ({ isOpen, onClose, onClinicCreated }: CreateClinicMod
 
           <div>
             <label className="text-sm font-medium">Endereço</label>
-            <AddressInput
+            <Input
               value={formData.address}
-              onChange={(value) => handleInputChange('address', value)}
-              onAddressComplete={(addressData) => {
-                handleInputChange('address', addressData.address);
-                handleInputChange('city', addressData.city);
-                handleInputChange('state', addressData.state);
-              }}
-              placeholder="Digite o endereço ou CEP"
+              onChange={(e) => handleInputChange('address', e.target.value)}
+              placeholder="Endereço completo"
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium">Cidade</label>
+              <label className="text-sm font-medium">Fuso Horário</label>
               <Input
-                value={formData.city}
-                onChange={(e) => handleInputChange('city', e.target.value)}
-                placeholder="São Paulo"
+                value={formData.timezone}
+                onChange={(e) => handleInputChange('timezone', e.target.value)}
+                placeholder="America/Sao_Paulo"
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Estado</label>
+              <label className="text-sm font-medium">Idioma</label>
               <Input
-                value={formData.state}
-                onChange={(e) => handleInputChange('state', e.target.value)}
-                placeholder="SP"
-                maxLength={2}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Website</label>
-              <Input
-                value={formData.website}
-                onChange={(e) => handleInputChange('website', e.target.value)}
-                placeholder="https://clinica.com"
+                value={formData.language}
+                onChange={(e) => handleInputChange('language', e.target.value)}
+                placeholder="pt-BR"
               />
             </div>
           </div>
 
-          <div className="flex justify-end space-x-2">
+          <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={onClose}>
               Cancelar
             </Button>
             <Button 
-              onClick={handleCreateClinic}
-              disabled={isLoading || !userPermissions.includes('criar_clinicas')}
+              onClick={handleCreateClinic} 
+              disabled={isLoading || !formData.name.trim()}
               className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600"
             >
               {isLoading ? 'Criando...' : 'Criar Clínica'}

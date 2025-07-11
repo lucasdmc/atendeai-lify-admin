@@ -1,10 +1,9 @@
-
 import { useWhatsAppStatus } from './whatsapp/useWhatsAppStatus';
 import { useWhatsAppActions } from './whatsapp/useWhatsAppActions';
 import { whatsappLogger } from '@/utils/whatsappLogger';
 
 interface WhatsAppConnectionHook {
-  connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'demo';
+  connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'demo' | 'no_connection';
   qrCode: string | null;
   isLoading: boolean;
   clientInfo: any;

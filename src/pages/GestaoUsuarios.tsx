@@ -9,6 +9,7 @@ import DeleteUserModal from '@/components/users/DeleteUserModal';
 import CreateUserModal from '@/components/users/CreateUserModal';
 import UserTable from '@/components/users/UserTable';
 import type { Database } from '@/integrations/supabase/types';
+import { useClinic } from '@/contexts/ClinicContext';
 
 type UserRole = Database['public']['Enums']['user_role'];
 
@@ -30,27 +31,29 @@ const GestaoUsuarios = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const { toast } = useToast();
+  const { selectedClinic } = useClinic();
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [selectedClinic]);
 
   const fetchUsers = async () => {
+    if (!selectedClinic) {
+      setUsers([]);
+      setIsLoading(false);
+      return;
+    }
     try {
       const { data, error } = await supabase
-        .from('user_profiles')
-        .select(`
-          id,
-          name,
-          email,
-          role,
-          status,
-          created_at
-        `);
+        .from('clinic_users')
+        .select(`user_profiles(id, name, email, role, status, created_at)`)
+        .eq('clinic_id', selectedClinic.id)
+        .eq('is_active', true);
 
       if (error) throw error;
 
-      setUsers(data || []);
+      const users = (data || []).map((item: any) => item.user_profiles).filter(Boolean);
+      setUsers(users);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({

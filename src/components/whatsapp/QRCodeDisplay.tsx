@@ -1,12 +1,11 @@
-
-import { QrCode, PhoneOff } from 'lucide-react';
+import { QrCode, PhoneOff, Settings } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
 interface QRCodeDisplayProps {
   qrCode: string | null;
   isLoading: boolean;
-  connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'demo';
+  connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'demo' | 'no_connection';
   onGenerateQR: () => void;
   onDisconnect: () => void;
 }
@@ -17,6 +16,40 @@ export const QRCodeDisplay = ({ qrCode, isLoading, connectionStatus, onGenerateQ
     isLoading, 
     connectionStatus 
   });
+
+  // Se não há conexão WhatsApp configurada
+  if (connectionStatus === 'no_connection') {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5 text-gray-500" />
+            Configuração WhatsApp
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-center space-y-4">
+          <div className="flex justify-center items-center h-48 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+            <div className="text-center">
+              <Settings className="h-16 w-16 text-gray-400 mx-auto mb-2" />
+              <p className="text-gray-500 font-medium mb-2">WhatsApp não configurado</p>
+              <p className="text-gray-400 text-sm">
+                Configure uma conexão WhatsApp para esta clínica para ativar o chatbot.
+              </p>
+            </div>
+          </div>
+          
+          <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
+            <p className="font-medium">Próximos passos:</p>
+            <ul className="text-left mt-2 space-y-1">
+              <li>• Configure um número WhatsApp na seção de agentes</li>
+              <li>• Associe o número a um agente de IA</li>
+              <li>• Ative a conexão WhatsApp</li>
+            </ul>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
