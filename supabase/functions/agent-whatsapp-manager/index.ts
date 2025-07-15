@@ -23,7 +23,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     // WhatsApp server URL from environment
-    const whatsappServerUrl = Deno.env.get('WHATSAPP_SERVER_URL') || 'http://localhost:3000'
+    const whatsappServerUrl = Deno.env.get('WHATSAPP_SERVER_URL') || 'https://lify.magah.com.br'
 
     console.log(`Agent WhatsApp Manager - Method: ${method}, Path: ${path}`)
 

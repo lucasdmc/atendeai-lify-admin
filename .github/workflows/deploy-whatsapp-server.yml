@@ -1,0 +1,77 @@
+name: Deploy WhatsApp Server
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'server/**'
+      - 'whatsapp/**'
+      - '.github/workflows/deploy-whatsapp-server.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        
+    - name: Install dependencies
+      run: |
+        cd server
+        npm install
+        
+    - name: Deploy to VPS
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USERNAME }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        script: |
+          # Navegar para diretório do servidor WhatsApp
+          cd /path/to/whatsapp-server
+          
+          # Fazer backup
+          cp server.js server.js.backup.$(date +%Y%m%d_%H%M%S)
+          
+          # Parar servidor
+          pm2 stop whatsapp-server || systemctl stop whatsapp-server
+          
+          # Atualizar código
+          git pull origin main
+          
+          # Instalar dependências
+          npm install
+          
+          # Reiniciar servidor
+          pm2 restart whatsapp-server || systemctl restart whatsapp-server
+          
+          # Verificar status
+          pm2 status || systemctl status whatsapp-server
+          
+    - name: Test deployment
+      run: |
+        # Aguardar servidor inicializar
+        sleep 30
+        
+        # Testar endpoints
+        curl -f https://lify.magah.com.br/health || exit 1
+        echo "✅ Servidor WhatsApp está funcionando!"
+        
+    - name: Notify deployment
+      if: success()
+      run: |
+        echo "✅ Deploy do servidor WhatsApp concluído com sucesso!"
+        echo "🌐 URL: https://lify.magah.com.br"
+        
+    - name: Notify failure
+      if: failure()
+      run: |
+        echo "❌ Falha no deploy do servidor WhatsApp!"
+        echo "🔧 Verifique os logs da VPS" 
