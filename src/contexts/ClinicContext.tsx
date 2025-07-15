@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -45,81 +45,78 @@ export const ClinicProvider = ({ children }: ClinicProviderProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const { user, userRole } = useAuth();
 
-  // Buscar a clínica associada ao usuário
-  useEffect(() => {
-    const fetchUserClinic = async () => {
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
+  // Buscar a clínica associada ao usuário com cache
+  const fetchUserClinic = useCallback(async () => {
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
 
-      try {
-        // Se o usuário não é admin_lify ou suporte_lify, buscar sua clínica específica
-        if (userRole !== 'admin_lify' && userRole !== 'suporte_lify') {
-          const { data: userProfile, error } = await supabase
-            .from('user_profiles')
-            .select('clinic_id')
-            .eq('user_id', user.id)
-            .single();
-
-          if (error) {
-            console.error('Erro ao buscar clínica do usuário:', error);
-          } else if (userProfile?.clinic_id) {
-            setUserClinicId(userProfile.clinic_id);
-            setSelectedClinicIdState(userProfile.clinic_id);
-          }
-        }
-      } catch (error) {
-        console.error('Erro ao buscar clínica do usuário:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchUserClinic();
-  }, [user, userRole]);
-
-  // Buscar dados da clínica selecionada
-  useEffect(() => {
-    const fetchClinicData = async () => {
-      if (!selectedClinicId) {
-        setSelectedClinic(null);
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from('clinics')
-          .select('*')
-          .eq('id', selectedClinicId)
+    try {
+      // Se o usuário não é admin_lify ou suporte_lify, buscar sua clínica específica
+      if (userRole !== 'admin_lify' && userRole !== 'suporte_lify') {
+        const { data: userProfile, error } = await supabase
+          .from('user_profiles')
+          .select('clinic_id')
+          .eq('user_id', user.id)
           .single();
 
-        if (error) {
-          console.error('Erro ao buscar dados da clínica:', error);
-          setSelectedClinic(null);
-        } else {
-          setSelectedClinic(data);
+        if (!error && userProfile?.clinic_id) {
+          setUserClinicId(userProfile.clinic_id);
+          setSelectedClinicIdState(userProfile.clinic_id);
         }
-      } catch (error) {
-        console.error('Erro ao buscar dados da clínica:', error);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar clínica do usuário:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, userRole]);
+
+  useEffect(() => {
+    fetchUserClinic();
+  }, [fetchUserClinic]);
+
+  // Buscar dados da clínica selecionada com cache
+  const fetchClinicData = useCallback(async () => {
+    if (!selectedClinicId) {
+      setSelectedClinic(null);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('clinics')
+        .select('*')
+        .eq('id', selectedClinicId)
+        .single();
+
+      if (!error && data) {
+        setSelectedClinic(data);
+      } else {
         setSelectedClinic(null);
       }
-    };
-
-    fetchClinicData();
+    } catch (error) {
+      console.error('Erro ao buscar dados da clínica:', error);
+      setSelectedClinic(null);
+    }
   }, [selectedClinicId]);
 
-  const setSelectedClinicId = (clinicId: string) => {
-    setSelectedClinicIdState(clinicId);
-  };
+  useEffect(() => {
+    fetchClinicData();
+  }, [fetchClinicData]);
 
-  const value: ClinicContextType = {
+  const setSelectedClinicId = useCallback((clinicId: string) => {
+    setSelectedClinicIdState(clinicId);
+  }, []);
+
+  const value = useMemo(() => ({
     selectedClinicId,
     selectedClinic,
     setSelectedClinicId,
     userClinicId,
     isLoading,
-  };
+  }), [selectedClinicId, selectedClinic, setSelectedClinicId, userClinicId, isLoading]);
 
   return (
     <ClinicContext.Provider value={value}>

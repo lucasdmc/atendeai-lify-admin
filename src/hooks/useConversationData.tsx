@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Conversation, Message } from '@/types/conversation';
@@ -11,27 +11,22 @@ export const useConversationData = (conversationId: string | undefined) => {
   const [sending, setSending] = useState(false);
   const { toast } = useToast();
 
-  const fetchConversationData = async () => {
+  const fetchConversationData = useCallback(async () => {
     if (!conversationId) return;
     
     try {
-      console.log('🔍 Fetching conversation data for ID:', conversationId);
       const { data, error } = await supabase
         .from('whatsapp_conversations')
         .select('*')
         .eq('id', conversationId)
         .single();
 
-      if (error) {
-        console.error('❌ Error fetching conversation:', error);
-        throw error;
+      if (!error && data) {
+        setConversation({
+          ...data,
+          updated_at: data.updated_at || new Date().toISOString()
+        });
       }
-      
-      console.log('✅ Conversation data found:', data);
-      setConversation({
-        ...data,
-        updated_at: data.updated_at || new Date().toISOString()
-      });
     } catch (error) {
       console.error('❌ Error fetching conversation:', error);
       toast({
@@ -40,14 +35,13 @@ export const useConversationData = (conversationId: string | undefined) => {
         variant: "destructive",
       });
     }
-  };
+  }, [conversationId, toast]);
 
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     if (!conversationId) return;
     
     try {
       setLoading(true);
-      console.log('📨 Fetching messages for conversation:', conversationId);
       
       const { data, error } = await supabase
         .from('whatsapp_messages')
@@ -55,20 +49,15 @@ export const useConversationData = (conversationId: string | undefined) => {
         .eq('conversation_id', conversationId)
         .order('timestamp', { ascending: true });
 
-      if (error) {
-        console.error('❌ Error fetching messages:', error);
-        throw error;
+      if (!error && data) {
+        const typedMessages = data.map(msg => ({
+          ...msg,
+          message_type: msg.message_type as 'received' | 'sent',
+          timestamp: msg.timestamp || new Date().toISOString()
+        }));
+        
+        setMessages(typedMessages);
       }
-      
-      console.log(`✅ Messages found: ${data?.length || 0}`);
-      
-      const typedMessages = (data || []).map(msg => ({
-        ...msg,
-        message_type: msg.message_type as 'received' | 'sent',
-        timestamp: msg.timestamp || new Date().toISOString()
-      }));
-      
-      setMessages(typedMessages);
     } catch (error) {
       console.error('❌ Error fetching messages:', error);
       toast({
@@ -79,7 +68,7 @@ export const useConversationData = (conversationId: string | undefined) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [conversationId, toast]);
 
   const sendMessage = async (messageContent: string) => {
     if (!conversation) {
@@ -187,18 +176,17 @@ export const useConversationData = (conversationId: string | undefined) => {
 
   useEffect(() => {
     if (conversationId) {
-      console.log('🔄 useConversationData - Loading conversation:', conversationId);
       fetchConversationData();
       fetchMessages();
     }
-  }, [conversationId]);
+  }, [conversationId, fetchConversationData, fetchMessages]);
 
-  return {
+  return useMemo(() => ({
     conversation,
     messages,
     loading,
     sending,
     sendMessage,
     fetchMessages
-  };
+  }), [conversation, messages, loading, sending, sendMessage, fetchMessages]);
 };

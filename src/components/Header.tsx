@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { 
@@ -12,22 +13,22 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { LogOut, User } from 'lucide-react';
 import ClinicSelector from './ClinicSelector';
 
-const Header = () => {
+const Header = memo(() => {
   const { user, signOut, userRole } = useAuth();
 
-  const getUserInitials = (email: string) => {
-    return email.slice(0, 2).toUpperCase();
-  };
+  const getUserInitials = useMemo(() => {
+    return (email: string) => email.slice(0, 2).toUpperCase();
+  }, []);
 
-  const getRoleLabel = (role: string) => {
+  const getRoleLabel = useMemo(() => {
     const roleLabels = {
       admin: 'Administrador',
       admin_lify: 'Administrador Lify',
       suporte_lify: 'Suporte Lify',
       atendente: 'Atendente'
     };
-    return roleLabels[role as keyof typeof roleLabels] || role;
-  };
+    return (role: string) => roleLabels[role as keyof typeof roleLabels] || role;
+  }, []);
 
   return (
     <header className="bg-white shadow-sm border-b px-6 py-4">
@@ -44,20 +45,20 @@ const Header = () => {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                <Avatar className="h-10 w-10">
-                  <AvatarFallback className="bg-gradient-to-r from-orange-400 to-pink-400 text-white">
-                    {user?.email ? getUserInitials(user.email) : 'U'}
-                  </AvatarFallback>
-                </Avatar>
+                 <Avatar className="h-10 w-10">
+                   <AvatarFallback className="bg-gradient-to-r from-orange-400 to-pink-400 text-white">
+                     {user?.email ? getUserInitials(user.email) : 'U'}
+                   </AvatarFallback>
+                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">{user?.email}</p>
-                  <p className="text-xs leading-none text-muted-foreground">
-                    {userRole ? getRoleLabel(userRole) : 'Carregando...'}
-                  </p>
+                   <p className="text-xs leading-none text-muted-foreground">
+                     {userRole ? getRoleLabel(userRole) : 'Carregando...'}
+                   </p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -76,6 +77,8 @@ const Header = () => {
       </div>
     </header>
   );
-};
+});
+
+Header.displayName = 'Header';
 
 export default Header;

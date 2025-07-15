@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface DashboardMetrics {
@@ -24,31 +24,29 @@ export const useDashboardMetrics = () => {
   const [topicsData, setTopicsData] = useState<TopicData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchMetrics = async () => {
+  const fetchMetrics = useCallback(async () => {
     try {
       setLoading(true);
 
-      // Chamar a edge function para atualizar métricas
-      const { data: metricsResponse, error: metricsError } = await supabase.functions
-        .invoke('update-dashboard-metrics');
+      // Otimizar chamadas - fazer em paralelo
+      const hoje = new Date().toISOString().split('T')[0];
+      
+      const [metricsResponse, mensagensResponse] = await Promise.all([
+        supabase.functions.invoke('update-dashboard-metrics').catch(err => ({ error: err })),
+        supabase
+          .from('whatsapp_messages')
+          .select('content')
+          .eq('message_type', 'received')
+          .gte('created_at', hoje)
+          .limit(50) // Reduzir limite para melhor performance
+      ]);
 
-      if (metricsError) {
-        console.error('Erro ao atualizar métricas:', metricsError);
-      } else if (metricsResponse?.metrics) {
-        setMetrics(metricsResponse.metrics);
+      if ('data' in metricsResponse && metricsResponse.data?.metrics) {
+        setMetrics(metricsResponse.data.metrics);
       }
 
-      // Buscar tópicos principais das conversas de hoje
-      const hoje = new Date().toISOString().split('T')[0];
-      const { data: mensagensHoje, error: mensagensError } = await supabase
-        .from('whatsapp_messages')
-        .select('content')
-        .eq('message_type', 'received')
-        .gte('created_at', hoje)
-        .limit(100);
-
-      if (!mensagensError && mensagensHoje) {
-        const topicos = analyzeTopics(mensagensHoje.map(m => m.content));
+      if (!mensagensResponse.error && mensagensResponse.data) {
+        const topicos = analyzeTopics(mensagensResponse.data.map(m => m.content));
         setTopicsData(topicos);
       }
 
@@ -57,9 +55,9 @@ export const useDashboardMetrics = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const analyzeTopics = (messages: string[]): TopicData[] => {
+  const analyzeTopics = useCallback((messages: string[]): TopicData[] => {
     const keywords = {
       'Agendamento': ['consulta', 'agendamento', 'agendar', 'marcar', 'horario', 'disponivel'],
       'Resultados': ['exame', 'resultado', 'laboratorio', 'sangue', 'urina'],
@@ -85,16 +83,16 @@ export const useDashboardMetrics = () => {
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
-  };
+  }, []);
 
   useEffect(() => {
     fetchMetrics();
-  }, []);
+  }, [fetchMetrics]);
 
-  return {
+  return useMemo(() => ({
     metrics,
     topicsData,
     loading,
     refreshMetrics: fetchMetrics
-  };
+  }), [metrics, topicsData, loading, fetchMetrics]);
 };

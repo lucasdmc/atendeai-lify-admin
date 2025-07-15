@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocation, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -75,15 +75,17 @@ const menuItems = [
   }
 ];
 
-const Sidebar = () => {
+const Sidebar = memo(() => {
   const [isOpen, setIsOpen] = useState(false);
   const { userRole, loading } = useAuth();
   const location = useLocation();
 
-  // Filtrar itens do menu baseado nas permissões do usuário
-  const filteredMenuItems = menuItems.filter(item => {
-    return hasPermission(userRole, item.permission);
-  });
+  // Filtrar itens do menu baseado nas permissões do usuário com memoização
+  const filteredMenuItems = useMemo(() => {
+    return menuItems.filter(item => {
+      return hasPermission(userRole, item.permission);
+    });
+  }, [userRole]);
 
   // Se ainda está carregando, mostrar loading
   if (loading) {
@@ -170,6 +172,8 @@ const Sidebar = () => {
       )}
     </>
   );
-};
+});
+
+Sidebar.displayName = 'Sidebar';
 
 export default Sidebar;
