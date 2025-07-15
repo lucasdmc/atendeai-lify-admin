@@ -12,7 +12,14 @@ serve(async (req) => {
 
   try {
     const { agentId } = await req.json();
-    const whatsappServerUrl = Deno.env.get('WHATSAPP_SERVER_URL') || 'http://localhost:3000';
+    
+    // Para desenvolvimento local, usar localhost
+    // Para produção, usar VPS
+    // Como a Edge Function roda no Supabase, sempre usar VPS
+    const whatsappServerUrl = Deno.env.get('WHATSAPP_SERVER_URL') || 'http://31.97.241.19:3001';
+
+    console.log(`Generating QR Code for agent ${agentId}`);
+    console.log(`Using WhatsApp server: ${whatsappServerUrl}`);
 
     // Chama o backend Node para gerar o QR Code
     const response = await fetch(`${whatsappServerUrl}/api/whatsapp/generate-qr`, {
@@ -22,27 +29,49 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Backend error: ${response.status} - ${errorText}`);
       return new Response(
-        JSON.stringify({ error: 'Erro ao gerar QR Code no servidor WhatsApp', status: 'error' }),
+        JSON.stringify({ 
+          success: false,
+          error: `Erro ao gerar QR Code no servidor WhatsApp (${response.status})`, 
+          status: 'error' 
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const data = await response.json();
+    console.log(`Backend response: ${JSON.stringify(data).substring(0, 200)}...`);
+    
     if (!data.qrCode) {
+      console.error('QR Code not returned by backend');
       return new Response(
-        JSON.stringify({ error: 'QR Code não retornado pelo backend', status: 'error' }),
+        JSON.stringify({ 
+          success: false,
+          error: 'QR Code não retornado pelo backend', 
+          status: 'error' 
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    console.log('QR Code generated successfully');
     return new Response(
-      JSON.stringify({ qrCode: data.qrCode }),
+      JSON.stringify({ 
+        success: true,
+        qrCode: data.qrCode 
+      }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
+    console.error('Error in generate-qr:', error);
     return new Response(
-      JSON.stringify({ error: error.message, status: 'error' }),
+      JSON.stringify({ 
+        success: false,
+        error: error.message, 
+        status: 'error' 
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
