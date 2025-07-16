@@ -151,8 +151,8 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
           ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' 
           : process.platform === 'win32'
           ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
-          : '/usr/bin/google-chrome-stable', // Para Linux/VPS
-        userDataDir: './.chrome_data' // Diretório para dados do Chrome
+          : '/usr/bin/chromium-browser' // Para Linux/VPS
+        // Removido userDataDir para compatibilidade com LocalAuth
       },
       webVersionCache: {
         type: 'remote',
