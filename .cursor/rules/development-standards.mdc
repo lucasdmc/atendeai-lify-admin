@@ -1,0 +1,131 @@
+# Padrões de Desenvolvimento e Confirmação
+
+## 🎯 Confirmação de Mudanças de Comportamento
+
+### Antes de implementar qualquer alteração:
+
+1. **Identificar se a mudança afeta comportamento existente**
+2. **Documentar o comportamento atual**
+3. **Explicar o impacto da mudança**
+4. **Solicitar confirmação explícita**
+
+### Perguntas obrigatórias:
+
+- ✅ "Esta mudança mantém o comportamento atual?"
+- ✅ "Há risco de quebrar funcionalidades existentes?"
+- ✅ "A mudança foi explicitamente solicitada?"
+- ✅ "Existe plano de rollback se necessário?"
+
+## 🔧 Padrões de Código
+
+### Estrutura de Arquivos
+- Manter organização de pastas existente
+- Não mover arquivos sem consultar
+- Preservar imports e exports
+
+### APIs e Endpoints
+- Manter URLs existentes
+- Preservar estrutura de requests/responses
+- Adicionar novos endpoints sem quebrar os antigos
+
+### Banco de Dados
+- Não alterar schemas sem consultar
+- Preservar relacionamentos existentes
+- Usar migrations para mudanças
+
+### Integrações
+- Manter configurações de serviços externos
+- Preservar webhooks e callbacks
+- Não alterar tokens ou chaves sem aviso
+
+## 📋 Checklist de Implementação
+
+### Antes de começar:
+- [ ] Comportamento atual documentado
+- [ ] Impacto da mudança avaliado
+- [ ] Usuário consultado sobre mudanças
+- [ ] Plano de rollback preparado
+- [ ] Testes planejados
+
+### Durante implementação:
+- [ ] Código comentado adequadamente
+- [ ] Logs adicionados para debug
+- [ ] Tratamento de erros implementado
+- [ ] Validações mantidas
+
+### Após implementação:
+- [ ] Testes executados
+- [ ] Comportamento validado
+- [ ] Documentação atualizada
+- [ ] Usuário notificado
+
+## 🚨 Áreas de Atenção Especial
+
+### Sistema de Agendamentos
+- Calendário e eventos
+- Integração Google Calendar
+- Estados de loading
+
+### Sistema de WhatsApp
+- Conexão de agentes
+- QR Code e autenticação
+- Envio/recebimento de mensagens
+
+### Sistema de IA
+- Contextualização
+- Memória de conversas
+- Integração GPT-4
+
+### Autenticação e Permissões
+- Roles de usuário
+- RLS do Supabase
+- Fluxo de login
+
+## 💬 Comunicação com Usuário
+
+### Para mudanças de comportamento:
+```
+⚠️ ATENÇÃO: Esta mudança pode alterar o comportamento atual.
+
+Comportamento atual: [descrever]
+Nova implementação: [descrever]
+Impacto: [explicar]
+
+Confirma a implementação? (s/n)
+```
+
+### Para correções de bug:
+```
+🐛 BUG IDENTIFICADO: [descrever problema]
+🔧 CORREÇÃO: [explicar solução]
+✅ COMPORTAMENTO PRESERVADO: [confirmar]
+
+Implementando correção...
+```
+
+### Para novas features:
+```
+✨ NOVA FEATURE: [descrever]
+🔗 INTEGRAÇÃO: [explicar como se integra]
+⚠️ IMPACTO: [mudanças necessárias]
+
+Confirma implementação? (s/n)
+```
+
+## 📚 Documentação
+
+### Manter documentação atualizada:
+- README.md
+- Comentários no código
+- Logs de mudanças
+- Guias de uso
+
+### Registrar mudanças:
+- Data da mudança
+- Motivo da mudança
+- Impacto em outras features
+- Como testar a mudança
+description:
+globs:
+alwaysApply: false
+---

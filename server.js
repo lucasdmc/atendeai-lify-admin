@@ -268,6 +268,119 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
       setTimeout(() => cleanupSession(agentId), 5000);
     });
 
+    // Adicionar listener de mensagens
+    console.log('🟢 Registrando listener de mensagens WhatsApp...');
+    client.on('message', async (message) => {
+      console.log('📨 Mensagem recebida para agente:', agentId);
+      console.log('📱 De:', message.from);
+      console.log('💬 Conteúdo:', message.body);
+      console.log('🆔 Message ID:', message.id._serialized);
+      
+      try {
+        // Extrair informações da mensagem
+        const from = message.from;
+        const messageText = message.body;
+        const messageId = message.id._serialized;
+        const timestamp = message.timestamp * 1000; // Converter para milissegundos
+        const contactName = message._data.notifyName || message.from.split('@')[0];
+        
+        console.log('📋 Dados da mensagem:', {
+          agentId,
+          from,
+          messageText,
+          messageId,
+          timestamp,
+          contactName
+        });
+        
+        // Enviar para webhook do Supabase
+        const webhookUrl = process.env.SUPABASE_WEBHOOK_URL || 'https://your-project.supabase.co/functions/v1/agent-whatsapp-manager/webhook';
+        
+        const webhookData = {
+          agentId,
+          connectionId: agentId, // Usar agentId como connectionId por enquanto
+          phoneNumber: from,
+          contactName,
+          message: messageText,
+          messageType: 'received',
+          messageId,
+          timestamp
+        };
+        
+        console.log('🌐 Enviando para webhook:', webhookUrl);
+        console.log('📤 Dados do webhook:', webhookData);
+        
+        const webhookResponse = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+          },
+          body: JSON.stringify(webhookData)
+        });
+        
+        if (webhookResponse.ok) {
+          console.log('✅ Webhook processado com sucesso');
+        } else {
+          console.error('❌ Erro no webhook:', webhookResponse.status, await webhookResponse.text());
+        }
+        
+      } catch (error) {
+        console.error('❌ Erro ao processar mensagem:', error);
+      }
+    });
+
+    // Adicionar listener para mensagens de mídia
+    console.log('🟢 Registrando listener de mensagens de mídia WhatsApp...');
+    client.on('media_message', async (message) => {
+      console.log('📷 Mensagem de mídia recebida para agente:', agentId);
+      console.log('📱 De:', message.from);
+      console.log('🖼️ Tipo de mídia:', message.type);
+      
+      try {
+        const from = message.from;
+        const messageText = `[${message.type.toUpperCase()}] ${message.body || 'Mídia recebida'}`;
+        const messageId = message.id._serialized;
+        const timestamp = message.timestamp * 1000;
+        const contactName = message._data.notifyName || message.from.split('@')[0];
+        
+        // Enviar para webhook do Supabase
+        const webhookUrl = process.env.SUPABASE_WEBHOOK_URL || 'https://your-project.supabase.co/functions/v1/agent-whatsapp-manager/webhook';
+        
+        const webhookData = {
+          agentId,
+          connectionId: agentId,
+          phoneNumber: from,
+          contactName,
+          message: messageText,
+          messageType: 'received',
+          messageId,
+          timestamp,
+          mediaType: message.type
+        };
+        
+        console.log('🌐 Enviando mídia para webhook:', webhookUrl);
+        
+        const webhookResponse = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+          },
+          body: JSON.stringify(webhookData)
+        });
+        
+        if (webhookResponse.ok) {
+          console.log('✅ Webhook de mídia processado com sucesso');
+        } else {
+          console.error('❌ Erro no webhook de mídia:', webhookResponse.status, await webhookResponse.text());
+        }
+        
+      } catch (error) {
+        console.error('❌ Erro ao processar mensagem de mídia:', error);
+      }
+    });
+
     console.log('🚀 Inicializando cliente WhatsApp para:', agentId);
     await client.initialize();
     whatsappClients.set(agentId, client);
@@ -376,6 +489,88 @@ app.post('/api/whatsapp/refresh-qr', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Rota para enviar mensagem
+app.post('/api/whatsapp/send-message', async (req, res) => {
+  try {
+    const { agentId, to, message } = req.body;
+    
+    if (!agentId || !to || !message) {
+      return res.status(400).json({ error: 'agentId, to e message são obrigatórios' });
+    }
+    
+    const client = whatsappClients.get(agentId);
+    if (!client) {
+      return res.status(400).json({ error: 'Agente não encontrado ou não conectado' });
+    }
+    
+    const state = sessionStates.get(agentId);
+    if (!state || !state.connected) {
+      return res.status(400).json({ error: 'Agente não está conectado' });
+    }
+    
+    console.log('📤 Enviando mensagem para:', to);
+    console.log('💬 Conteúdo:', message);
+    console.log('🤖 Agente:', agentId);
+    
+    // Formatar número do telefone
+    const chatId = to.includes('@c.us') ? to : `${to}@c.us`;
+    
+    // Enviar mensagem
+    const result = await client.sendMessage(chatId, message);
+    
+    console.log('✅ Mensagem enviada com sucesso');
+    console.log('🆔 Message ID:', result.id._serialized);
+    
+    // Enviar confirmação para webhook
+    try {
+      const webhookUrl = process.env.SUPABASE_WEBHOOK_URL || 'https://your-project.supabase.co/functions/v1/agent-whatsapp-manager/webhook';
+      
+      const webhookData = {
+        agentId,
+        connectionId: agentId,
+        phoneNumber: to,
+        contactName: to.split('@')[0],
+        message,
+        messageType: 'sent',
+        messageId: result.id._serialized,
+        timestamp: Date.now()
+      };
+      
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+        },
+        body: JSON.stringify(webhookData)
+      });
+      
+      console.log('✅ Confirmação enviada para webhook');
+    } catch (webhookError) {
+      console.error('❌ Erro ao enviar confirmação para webhook:', webhookError);
+    }
+    
+    res.json({ 
+      success: true, 
+      messageId: result.id._serialized,
+      message: 'Mensagem enviada com sucesso'
+    });
+    
+  } catch (error) {
+    console.error('❌ Erro ao enviar mensagem:', error);
+    res.status(500).json({ 
+      error: 'Erro ao enviar mensagem',
+      details: error.message 
+    });
+  }
+});
+
+// Garantir fetch global para Node.js
+if (typeof fetch === 'undefined') {
+  global.fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+  console.log('🌐 fetch global habilitado via node-fetch');
+}
 
 app.listen(PORT, () => {
   console.log(`🚀 Servidor WhatsApp rodando na porta ${PORT}`);

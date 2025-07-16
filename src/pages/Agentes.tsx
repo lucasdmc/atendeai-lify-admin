@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Plus, Bot, Settings, Building2, QrCode } from 'lucide-react';
+import { Plus, Bot, Settings, Building2, QrCode, Phone, PhoneOff } from 'lucide-react';
 import AgentWhatsAppManager from '@/components/agentes/AgentWhatsAppManager';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,6 +30,19 @@ interface Agent {
   clinics?: {
     name: string;
   } | null;
+}
+
+interface AgentWhatsAppConnection {
+  id: string;
+  agent_id: string;
+  whatsapp_number: string;
+  whatsapp_name: string;
+  connection_status: 'disconnected' | 'connecting' | 'connected' | 'error';
+  qr_code: string | null;
+  client_info: any;
+  last_connection_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface Clinic {
@@ -63,6 +76,7 @@ const Agentes = () => {
   const [showQRDialog, setShowQRDialog] = useState(false);
   const [qrAgent, setQrAgent] = useState<Agent | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [agentConnections, setAgentConnections] = useState<Record<string, AgentWhatsAppConnection[]>>({});
   const { toast } = useToast();
   const { userRole, userPermissions } = useAuth();
   const { selectedClinicId, selectedClinic } = useClinic();
@@ -74,6 +88,26 @@ const Agentes = () => {
     loadAgents();
     loadClinics();
   }, [selectedClinicId]);
+
+  // Carregar conexões WhatsApp dos agentes
+  const loadAgentConnections = async (agentId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('agent-whatsapp-manager/status', {
+        body: { agentId }
+      });
+
+      if (error) throw error;
+
+      if (data?.success && data.connections) {
+        setAgentConnections(prev => ({
+          ...prev,
+          [agentId]: data.connections
+        }));
+      }
+    } catch (error) {
+      console.error('Erro ao carregar conexões do agente:', error);
+    }
+  };
 
   const loadAgents = async () => {
     try {
@@ -94,6 +128,13 @@ const Agentes = () => {
 
       if (error) throw error;
       setAgents(data || []);
+
+      // Carregar conexões WhatsApp para cada agente
+      if (data) {
+        for (const agent of data) {
+          await loadAgentConnections(agent.id);
+        }
+      }
     } catch (error) {
       console.error('Erro ao carregar agentes:', error);
       toast({
@@ -340,6 +381,43 @@ const Agentes = () => {
     }
   };
 
+  // Função para obter a conexão ativa de um agente
+  const getActiveConnection = (agentId: string): AgentWhatsAppConnection | null => {
+    const connections = agentConnections[agentId] || [];
+    return connections.find(conn => conn.connection_status === 'connected') || null;
+  };
+
+  // Função para desconectar WhatsApp do agente
+  const disconnectWhatsApp = async (agentId: string, connectionId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('agent-whatsapp-manager/disconnect', {
+        body: {
+          agentId,
+          connectionId
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast({
+          title: "Sucesso",
+          description: "WhatsApp desconectado com sucesso",
+        });
+        
+        // Recarregar conexões do agente
+        await loadAgentConnections(agentId);
+      }
+    } catch (error) {
+      console.error('Erro ao desconectar WhatsApp:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível desconectar o WhatsApp",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -524,6 +602,36 @@ const Agentes = () => {
               </div>
 
               <Separator />
+
+              {/* Status de conexão WhatsApp */}
+              {(() => {
+                const activeConnection = getActiveConnection(agent.id);
+                return activeConnection ? (
+                  <div className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded-md mb-3">
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-green-600" />
+                      <div>
+                        <span className="text-sm font-medium text-green-800">
+                          Conectado: {activeConnection.whatsapp_number}
+                        </span>
+                        {activeConnection.whatsapp_name && (
+                          <div className="text-xs text-green-600">
+                            {activeConnection.whatsapp_name}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => disconnectWhatsApp(agent.id, activeConnection.id)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <PhoneOff className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : null;
+              })()}
 
               <div className="flex gap-2">
                 <Button

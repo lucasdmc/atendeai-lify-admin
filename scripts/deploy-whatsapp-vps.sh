@@ -1,94 +1,46 @@
 #!/bin/bash
 
-echo "🚀 Deploy do WhatsApp Server na VPS"
-echo "=================================="
+# ===============================
+# 🚀 DEPLOY AUTOMÁTICO - VPS WHATSAPP
+# ===============================
 
-# Verificar se estamos no diretório correto
-if [ ! -f "server.js" ]; then
-    echo "❌ Erro: Execute este script dentro da pasta LifyChatbot-Node-Server"
-    exit 1
-fi
+VPS_HOST="31.97.241.19"
+VPS_USER="root"
+REPO_URL="https://github.com/lucasdmc/atendeai-lify-admin.git"
+PROJ_DIR="/root/atendeai-lify-admin"
 
-# Atualizar URLs do webhook
-echo ""
-echo "🔧 Atualizando URLs do webhook..."
+log() {
+  echo -e "\033[0;32m[$(date +'%Y-%m-%d %H:%M:%S')] $1\033[0m"
+}
 
-OLD_URL="https://lify-chatbot-production.up.railway.app/webhook/whatsapp"
-NEW_URL="http://31.97.241.19:3001/webhook/whatsapp"
+error() {
+  echo -e "\033[0;31m[$(date +'%Y-%m-%d %H:%M:%S')] ERROR: $1\033[0m"
+}
 
-# Fazer backup e atualizar server.js
-if [ -f "server.js" ]; then
-    echo "📝 Atualizando server.js..."
-    cp server.js server.js.backup.$(date +%Y%m%d_%H%M%S)
-    sed -i "s|$OLD_URL|$NEW_URL|g" server.js
-    echo "✅ server.js atualizado"
-fi
+log "🔄 Iniciando deploy automático para a VPS..."
 
-# Atualizar env.example
-if [ -f "env.example" ]; then
-    echo "📝 Atualizando env.example..."
-    cp env.example env.example.backup.$(date +%Y%m%d_%H%M%S)
-    sed -i "s|$OLD_URL|$NEW_URL|g" env.example
-    echo "✅ env.example atualizado"
-fi
+# 1. Parar servidor WhatsApp
+log "🛑 Parando servidor WhatsApp na VPS..."
+ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST "pm2 stop atendeai-backend || true"
 
-# Atualizar README.md
-if [ -f "README.md" ]; then
-    echo "📝 Atualizando README.md..."
-    cp README.md README.md.backup.$(date +%Y%m%d_%H%M%S)
-    sed -i "s|$OLD_URL|$NEW_URL|g" README.md
-    echo "✅ README.md atualizado"
-fi
+# 2. Backup do projeto antigo
+log "💾 Backup do projeto antigo (se existir)..."
+ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST "if [ -d $PROJ_DIR ]; then mv $PROJ_DIR ${PROJ_DIR}_bkp_$(date +%s); fi"
 
-echo ""
-echo "🎯 URLs atualizadas com sucesso!"
-echo "📍 Nova URL do webhook: $NEW_URL"
+# 3. Clonar repositório atualizado
+log "⬇️ Clonando repositório atualizado..."
+ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST "git clone $REPO_URL $PROJ_DIR"
 
-# Parar o servidor se estiver rodando
-echo ""
-echo "🛑 Parando servidor atual..."
-pm2 stop atendeai-backend 2>/dev/null || echo "Servidor não estava rodando"
+# 4. Instalar dependências
+log "📦 Instalando dependências..."
+ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST "cd $PROJ_DIR && npm install"
 
-# Iniciar o servidor com PM2
-echo ""
-echo "🚀 Iniciando servidor com PM2..."
-pm2 start server.js --name atendeai-backend
+# 5. Iniciar servidor WhatsApp
+log "🚀 Iniciando servidor WhatsApp com PM2..."
+ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST "cd $PROJ_DIR && pm2 start server.cjs --name 'atendeai-backend' --env production && pm2 save"
 
-# Verificar status
-echo ""
-echo "📊 Status do servidor:"
-pm2 list
+# 6. Verificar status
+log "📊 Verificando status do PM2..."
+ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST "pm2 status"
 
-# Testar endpoints
-echo ""
-echo "🧪 Testando endpoints..."
-
-# Teste 1: Health check
-echo "1️⃣ Testando health check..."
-curl -s http://localhost:3001/health
-echo ""
-
-# Teste 2: Webhook
-echo "2️⃣ Testando webhook..."
-curl -s -X POST http://localhost:3001/webhook/whatsapp -H "Content-Type: application/json" -d '{"test":"webhook"}'
-echo ""
-
-# Teste 3: QR Code
-echo "3️⃣ Testando geração de QR Code..."
-curl -s -X POST http://localhost:3001/api/whatsapp/generate-qr -H "Content-Type: application/json" -d '{"agentId":"test"}'
-echo ""
-
-echo ""
-echo "✅ Deploy concluído!"
-echo ""
-echo "📋 Informações importantes:"
-echo "📍 Servidor: http://31.97.241.19:3001"
-echo "📍 Webhook: http://31.97.241.19:3001/webhook/whatsapp"
-echo "📍 Health: http://31.97.241.19:3001/health"
-echo ""
-echo "📋 Comandos úteis:"
-echo "• Ver logs: pm2 logs atendeai-backend"
-echo "• Reiniciar: pm2 restart atendeai-backend"
-echo "• Parar: pm2 stop atendeai-backend"
-echo "• Status: pm2 list"
-echo "" 
+log "✅ Deploy automático concluído!" 

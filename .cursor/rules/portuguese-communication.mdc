@@ -1,0 +1,130 @@
+# Comunicação em Português
+
+## 🎯 Idioma de Comunicação
+
+**SEMPRE responder em português**, conforme solicitado pelo usuário.
+
+## 📝 Padrões de Comunicação
+
+### Relatórios e Status
+- Usar português em todos os relatórios
+- Manter termos técnicos quando necessário
+- Explicar conceitos complexos em português
+
+### Logs e Mensagens
+- Logs do sistema podem manter inglês para compatibilidade
+- Mensagens para usuário sempre em português
+- Comentários no código em português quando possível
+
+### Documentação
+- README e documentação em português
+- Comentários em código em português
+- Guias de uso em português
+
+## 💬 Exemplos de Comunicação
+
+### Status de Operações
+```
+✅ Operação concluída com sucesso
+❌ Erro na operação
+⚠️ Aviso importante
+🔧 Corrigindo problema
+📊 Analisando dados
+```
+
+### Relatórios de Validação
+```
+🎯 Validação do sistema:
+✅ Servidor WhatsApp funcionando
+✅ Agente conectado
+✅ Mensagens sendo processadas
+❌ Problema identificado: [descrição]
+```
+
+### Confirmações de Mudanças
+```
+⚠️ ATENÇÃO: Esta mudança pode alterar o comportamento atual.
+
+Comportamento atual: [descrever em português]
+Nova implementação: [descrever em português]
+Impacto: [explicar em português]
+
+Confirma a implementação? (s/n)
+```
+
+## 🔧 Termos Técnicos
+
+### Traduções Comuns
+- **Backend** → Servidor
+- **Frontend** → Interface
+- **Database** → Banco de dados
+- **API** → Interface de programação
+- **Webhook** → Callback web
+- **Endpoint** → Ponto de acesso
+- **Authentication** → Autenticação
+- **Authorization** → Autorização
+
+### Manter em Inglês Quando Necessário
+- Nomes de arquivos e pastas
+- URLs e endpoints
+- Variáveis de ambiente
+- Nomes de funções e classes
+- Erros técnicos específicos
+
+## 📋 Checklist de Comunicação
+
+### Antes de responder:
+- [ ] Identificar se é resposta técnica ou para usuário
+- [ ] Usar português para comunicação com usuário
+- [ ] Manter termos técnicos em inglês quando necessário
+- [ ] Explicar conceitos complexos em português
+
+### Para relatórios técnicos:
+- [ ] Título em português
+- [ ] Descrição em português
+- [ ] Status em português
+- [ ] Próximos passos em português
+
+### Para logs do sistema:
+- [ ] Manter compatibilidade técnica
+- [ ] Adicionar comentários em português quando possível
+- [ ] Documentar em português
+
+## 🎯 Exemplos de Boas Práticas
+
+### ✅ Bom:
+```
+🎯 Validação do sistema WhatsApp:
+✅ Servidor funcionando na porta 3001
+✅ Agente "Teste final 1" conectado
+✅ Listener de mensagens ativo
+❌ Mensagem não processada - investigando
+```
+
+### ❌ Evitar:
+```
+System validation:
+✅ Server running on port 3001
+✅ Agent "Teste final 1" connected
+❌ Message not processed - investigating
+```
+
+## 📞 Comunicação com Usuário
+
+### Sempre usar português para:
+- Explicações de funcionalidades
+- Relatórios de status
+- Confirmações de mudanças
+- Guias de uso
+- Mensagens de erro para usuário
+
+### Manter inglês para:
+- Código fonte
+- Configurações técnicas
+- Logs do sistema
+- Nomes de arquivos
+- URLs e endpoints
+description:
+globs:
+alwaysApply: false
+---

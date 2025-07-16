@@ -740,6 +740,30 @@ async function handleGenerateQR(req: Request, supabase: any, whatsappServerUrl: 
 
     console.log(`Agent found: ${agent.name}`)
 
+    // NOVO: Limpar sessão antes de gerar QR Code
+    try {
+      console.log(`Tentando desconectar sessão antiga para agentId: ${agentId}`)
+      const disconnectResponse = await fetch(`${whatsappServerUrl}/api/whatsapp/disconnect`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Supabase-Edge-Function/1.0',
+          'Accept': 'application/json',
+          'X-Agent-ID': agentId,
+          'X-Request-ID': crypto.randomUUID()
+        },
+        body: JSON.stringify({ agentId })
+      })
+      if (disconnectResponse.ok) {
+        console.log('Sessão antiga desconectada com sucesso.')
+      } else {
+        const errText = await disconnectResponse.text()
+        console.warn(`Não foi possível desconectar sessão antiga: ${disconnectResponse.status} - ${errText}`)
+      }
+    } catch (disconnectError) {
+      console.warn('Erro ao tentar desconectar sessão antiga:', disconnectError)
+    }
+
     // CORREÇÃO 1: Adicionar timeout e melhorar headers
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 segundos de timeout

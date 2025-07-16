@@ -1,0 +1,14 @@
+# Consulta obrigatória às tabelas reais do Supabase
+
+Sempre que for sugerir, alterar, criar ou remover dados, políticas, migrations ou scripts relacionados ao banco de dados, **consulte primeiro as tabelas reais do Supabase** para garantir que a sugestão/alteração está de acordo com o estado real do banco.
+
+- Use queries reais, inspeção via scripts ou ferramentas de administração do Supabase.
+- Nunca assuma a estrutura apenas pelo código, documentação ou exemplos.
+- Valide nomes de tabelas, colunas, constraints, índices e políticas diretamente no Supabase antes de propor qualquer alteração.
+- Se necessário, peça para o usuário rodar queries de inspeção ou forneça scripts para isso.
+
+**Motivo:** O ambiente pode estar diferente do código/documentação, e alterações sem validação podem causar erros ou inconsistências.
+description:
+globs:
+alwaysApply: false
+---

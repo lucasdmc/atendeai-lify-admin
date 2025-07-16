@@ -1,0 +1,15 @@
+# Análise deve ser sempre completa e abrangente
+
+Sempre realize análises completas, cobrindo 100% dos pontos críticos do sistema, para garantir o funcionamento real e confiável:
+
+- Não se limite a sintomas superficiais; investigue causas-raiz e dependências.
+- Valide integrações, conexões externas, variáveis de ambiente, scripts, banco de dados e endpoints.
+- Gere checklists e relatórios detalhados após cada análise.
+- Sempre proponha testes práticos e automáticos para validar o funcionamento real.
+- Se necessário, peça logs, prints ou evidências do ambiente real.
+
+**Motivo:** Só uma análise completa garante que o sistema está realmente funcionando e evita surpresas em produção.
+description:
+globs:
+alwaysApply: false
+---
