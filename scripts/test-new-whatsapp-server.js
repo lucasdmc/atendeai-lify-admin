@@ -16,7 +16,7 @@ async function testNewWhatsAppServer() {
   try {
     console.log('🧪 Testando novo servidor WhatsApp...');
     
-    const whatsappServerUrl = 'https://lify.magah.com.br';
+    const whatsappServerUrl = 'https://atendeai.server.com.br';
     console.log(`📡 URL do servidor: ${whatsappServerUrl}`);
     
     // Teste 1: Verificar se o servidor está online

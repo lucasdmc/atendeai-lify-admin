@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
-const WHATSAPP_SERVER_URL = Deno.env.get('WHATSAPP_SERVER_URL') || 'https://lify.magah.com.br';
+const WHATSAPP_SERVER_URL = Deno.env.get('WHATSAPP_SERVER_URL') || 'http://31.97.241.19:3001';
 
 async function makeRequest(path: string, method: string = 'GET', data: any = null) {
   const url = `${WHATSAPP_SERVER_URL}${path}`;

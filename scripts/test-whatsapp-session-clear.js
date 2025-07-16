@@ -1,11 +1,11 @@
 import https from 'https';
 
-const WHATSAPP_SERVER_URL = 'https://lify.magah.com.br';
+const WHATSAPP_SERVER_URL = 'https://atendeai.server.com.br';
 
 async function makeRequest(path, method = 'GET', data = null) {
   return new Promise((resolve, reject) => {
     const options = {
-      hostname: 'lify.magah.com.br',
+      hostname: 'atendeai.server.com.br',
       port: 443,
       path: path,
       method: method,
@@ -131,7 +131,7 @@ async function testWhatsAppSessionClear() {
     console.log('🔧 Ações necessárias no servidor VPS:');
     console.log('');
     console.log('1. Acessar a VPS e verificar logs:');
-    console.log('   ssh usuario@lify.magah.com.br');
+    console.log('   ssh usuario@atendeai.server.com.br');
     console.log('   pm2 logs # ou docker logs');
     console.log('');
     console.log('2. Verificar permissões de arquivo:');

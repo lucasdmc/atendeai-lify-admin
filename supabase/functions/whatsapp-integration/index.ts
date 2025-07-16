@@ -23,7 +23,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     // WhatsApp server URL from environment
-    const whatsappServerUrl = Deno.env.get('WHATSAPP_SERVER_URL') || Deno.env.get('VITE_WHATSAPP_SERVER_URL') || 'http://localhost:3000'
+    const whatsappServerUrl = Deno.env.get('WHATSAPP_SERVER_URL') || Deno.env.get('VITE_WHATSAPP_SERVER_URL') || 'http://31.97.241.19:3001'
 
     console.log(`WhatsApp Integration - Method: ${method}, Path: ${path}`)
 
@@ -538,7 +538,7 @@ Sempre responda de forma profissional, acolhedora e especializada em gastroenter
       }
 
       // Send response via WhatsApp
-      const whatsappServerUrl = Deno.env.get('WHATSAPP_SERVER_URL') || 'http://localhost:3000'
+      const whatsappServerUrl = Deno.env.get('WHATSAPP_SERVER_URL') || 'http://31.97.241.19:3001'
       
       try {
         await fetch(`${whatsappServerUrl}/api/whatsapp/send-message`, {

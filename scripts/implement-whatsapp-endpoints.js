@@ -1,11 +1,11 @@
 import https from 'https';
 
-const WHATSAPP_SERVER_URL = 'https://lify.magah.com.br';
+const WHATSAPP_SERVER_URL = 'https://atendeai.lify.com.br';
 
 async function makeRequest(path, method = 'GET', data = null) {
   return new Promise((resolve, reject) => {
     const options = {
-      hostname: 'lify.magah.com.br',
+      hostname: 'atendeai.lify.com.br',
       port: 443,
       path: path,
       method: method,
@@ -287,7 +287,7 @@ console.log('✅ Endpoints de limpeza implementados!');
   console.log('\n📋 INSTRUÇÕES DE IMPLEMENTAÇÃO:');
   console.log(`
   1. Acesse a VPS via SSH:
-     ssh user@lify.magah.com.br
+     ssh user@atendeai.lify.com.br
   
   2. Navegue até o diretório do servidor WhatsApp:
      cd /path/to/whatsapp-server
@@ -303,8 +303,8 @@ console.log('✅ Endpoints de limpeza implementados!');
      systemctl restart whatsapp-server
   
   6. Teste os endpoints:
-     curl -X POST https://lify.magah.com.br/api/whatsapp/clear-sessions
-     curl -X GET https://lify.magah.com.br/api/whatsapp/sessions
+     curl -X POST https://atendeai.lify.com.br/api/whatsapp/clear-sessions
+curl -X GET https://atendeai.lify.com.br/api/whatsapp/sessions
   `);
 
   // Testar se os endpoints já existem

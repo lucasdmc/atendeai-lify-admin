@@ -13,9 +13,16 @@ serve(async (req) => {
   try {
     const { agentId } = await req.json();
     
-    // Para desenvolvimento local, usar localhost
-    // Para produção, usar VPS
-    // Como a Edge Function roda no Supabase, sempre usar VPS
+    if (!agentId) {
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'agentId é obrigatório' 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const whatsappServerUrl = Deno.env.get('WHATSAPP_SERVER_URL') || 'http://31.97.241.19:3001';
 
     console.log(`Generating QR Code for agent ${agentId}`);
@@ -24,9 +31,14 @@ serve(async (req) => {
     // Chama o backend Node para gerar o QR Code
     const response = await fetch(`${whatsappServerUrl}/api/whatsapp/generate-qr`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ agentId }),
+      headers: { 
+        'Content-Type': 'application/json',
+        'User-Agent': 'Supabase-Edge-Function/1.0'
+      },
+      body: JSON.stringify({ agentId })
     });
+
+    console.log(`Backend response status: ${response.status}`);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -34,7 +46,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: `Erro ao gerar QR Code no servidor WhatsApp (${response.status})`, 
+          error: `Erro ao gerar QR Code no servidor WhatsApp (${response.status}): ${errorText}`, 
           status: 'error' 
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -42,7 +54,7 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    console.log(`Backend response: ${JSON.stringify(data).substring(0, 200)}...`);
+    console.log(`Backend response data: ${JSON.stringify(data).substring(0, 200)}...`);
     
     if (!data.qrCode) {
       console.error('QR Code not returned by backend');

@@ -1,133 +1,124 @@
-import https from 'https';
+#!/usr/bin/env node
 
-const WHATSAPP_SERVER_URL = 'https://lify.magah.com.br';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 
-async function makeRequest(path, method = 'GET', data = null) {
-  return new Promise((resolve, reject) => {
-    const options = {
-      hostname: 'lify.magah.com.br',
-      port: 443,
-      path: path,
-      method: method,
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    };
-
-    const req = https.request(options, (res) => {
-      let body = '';
-      res.on('data', (chunk) => {
-        body += chunk;
-      });
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(body);
-          resolve({ status: res.statusCode, data: json });
-        } catch (error) {
-          resolve({ status: res.statusCode, data: body });
-        }
-      });
-    });
-
-    req.on('error', (error) => {
-      reject(error);
-    });
-
-    if (data) {
-      req.write(JSON.stringify(data));
-    }
-    req.end();
-  });
-}
+const execAsync = promisify(exec);
+const WHATSAPP_SERVER_URL = 'http://31.97.241.19:3001';
 
 async function testWhatsAppConnection() {
-  console.log('🔍 Testando conexão WhatsApp...\n');
+  console.log('🔍 Testando conectividade com servidor WhatsApp...\n');
 
+  // Teste 1: Verificar se o servidor está respondendo
+  console.log('1️⃣ Testando resposta do servidor...');
   try {
-    // 1. Testar saúde do servidor
-    console.log('1. Verificando saúde do servidor...');
-    const health = await makeRequest('/health');
-    console.log('✅ Servidor saudável:', health.data.status);
-    console.log('📊 Sessões ativas:', health.data.activeSessions);
-    console.log('');
-
-    // 2. Testar inicialização de uma nova sessão
-    console.log('2. Inicializando nova sessão de teste...');
-    const initData = {
-      agentId: 'test-connection-' + Date.now(),
-      whatsappNumber: '5511999999999',
-      connectionId: 'test-connection-' + Date.now()
-    };
-    
-    const init = await makeRequest('/api/whatsapp/initialize', 'POST', initData);
-    console.log('✅ Inicialização:', init.data.success ? 'Sucesso' : 'Falha');
-    console.log('📱 QR Code gerado:', init.data.qrCode ? 'Sim' : 'Não');
-    console.log('');
-
-    // 3. Verificar status da sessão
-    console.log('3. Verificando status da sessão...');
-    const status = await makeRequest('/api/whatsapp/status', 'POST', initData);
-    console.log('📊 Status:', status.data.status);
-    console.log('🔗 Conectado:', status.data.connected || false);
-    console.log('');
-
-    // 4. Testar webhook endpoint
-    console.log('4. Testando endpoint de webhook...');
-    const webhookTest = await makeRequest('/api/whatsapp/webhook', 'POST', {
-      object: 'whatsapp_business_account',
-      entry: [{
-        id: 'test-entry',
-        changes: [{
-          value: {
-            messaging_product: 'whatsapp',
-            metadata: {
-              display_phone_number: '5511999999999',
-              phone_number_id: 'test-phone-id'
-            },
-            contacts: [{
-              profile: {
-                name: 'Test User'
-              },
-              wa_id: '5511999999999'
-            }],
-            messages: [{
-              from: '5511999999999',
-              id: 'test-message-id',
-              timestamp: Date.now(),
-              type: 'text',
-              text: {
-                body: 'Test message'
-              }
-            }]
-          },
-          field: 'messages'
-        }]
-      }]
-    });
-    console.log('✅ Webhook testado:', webhookTest.status);
-    console.log('');
-
-    // 5. Verificar logs de erro
-    console.log('5. Verificando logs de erro...');
-    const logs = await makeRequest('/api/whatsapp/logs');
-    console.log('📋 Logs disponíveis:', logs.status === 200 ? 'Sim' : 'Não');
-    console.log('');
-
-    console.log('🎯 Resumo do teste:');
-    console.log('- Servidor: ✅ Funcionando');
-    console.log('- QR Code: ✅ Gerando');
-    console.log('- Webhook: ✅ Configurado');
-    console.log('');
-    console.log('💡 Se o QR Code não conecta, verifique:');
-    console.log('1. Configuração do WhatsApp Business API');
-    console.log('2. Token de acesso válido');
-    console.log('3. Webhook URL configurado corretamente');
-    console.log('4. Firewall/Proxy não bloqueando conexões');
-    console.log('5. Certificado SSL válido');
-
+    const response = await fetch(`${WHATSAPP_SERVER_URL}/health`);
+    if (response.ok) {
+      console.log('✅ Servidor WhatsApp está respondendo');
+      const data = await response.text();
+      console.log('📊 Resposta:', data);
+    } else {
+      console.log('❌ Servidor não está respondendo corretamente');
+      console.log('📊 Status:', response.status);
+    }
   } catch (error) {
-    console.error('❌ Erro no teste:', error.message);
+    console.log('❌ Erro ao conectar com servidor:', error.message);
+  }
+
+  // Teste 2: Testar endpoint de geração de QR Code
+  console.log('\n2️⃣ Testando endpoint de geração de QR Code...');
+  try {
+    const response = await fetch(`${WHATSAPP_SERVER_URL}/api/whatsapp/generate-qr`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ agentId: 'test-agent-id' }),
+    });
+
+    console.log('📊 Status da resposta:', response.status);
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('✅ Endpoint funcionando');
+      console.log('📊 Dados retornados:', JSON.stringify(data, null, 2));
+    } else {
+      const errorText = await response.text();
+      console.log('❌ Erro no endpoint:', errorText);
+    }
+  } catch (error) {
+    console.log('❌ Erro ao testar endpoint:', error.message);
+  }
+
+  // Teste 3: Verificar logs do servidor
+  console.log('\n3️⃣ Verificando logs do servidor...');
+  try {
+    const response = await fetch(`${WHATSAPP_SERVER_URL}/api/whatsapp/status`);
+    if (response.ok) {
+      const data = await response.json();
+      console.log('✅ Status do WhatsApp:', JSON.stringify(data, null, 2));
+    } else {
+      console.log('❌ Não foi possível obter status');
+    }
+  } catch (error) {
+    console.log('❌ Erro ao obter status:', error.message);
+  }
+
+  // Teste 4: Verificar conectividade de rede
+  console.log('\n4️⃣ Testando conectividade de rede...');
+  
+  try {
+    const { stdout } = await execAsync(`ping -c 3 31.97.241.19`);
+    console.log('✅ Ping bem-sucedido');
+    console.log('📊 Resultado:', stdout);
+  } catch (error) {
+    console.log('❌ Erro ao fazer ping:', error.message);
+  }
+
+  // Teste 5: Verificar porta 3001
+  console.log('\n5️⃣ Testando porta 3001...');
+  try {
+    const { stdout } = await execAsync(`nc -zv 31.97.241.19 3001`);
+    console.log('✅ Porta 3001 está acessível');
+    console.log('📊 Resultado:', stdout);
+  } catch (error) {
+    console.log('❌ Porta 3001 não está acessível:', error.message);
   }
 }
 
-testWhatsAppConnection(); 
+// Função para testar via curl
+async function testWithCurl() {
+  console.log('\n🔧 Testando com curl...\n');
+  
+  // Teste de health check
+  try {
+    const { stdout } = await execAsync(`curl -s -o /dev/null -w "%{http_code}" ${WHATSAPP_SERVER_URL}/health`);
+    console.log('📊 Health check status:', stdout);
+  } catch (error) {
+    console.log('❌ Erro no curl health check:', error.message);
+  }
+
+  // Teste de geração de QR Code
+  try {
+    const { stdout } = await execAsync(`curl -X POST ${WHATSAPP_SERVER_URL}/api/whatsapp/generate-qr -H "Content-Type: application/json" -d '{"agentId":"test"}' -s`);
+    console.log('📊 QR Code response:', stdout);
+  } catch (error) {
+    console.log('❌ Erro no curl QR Code:', error.message);
+  }
+}
+
+// Executar testes
+async function runTests() {
+  console.log('🚀 Iniciando testes de conectividade WhatsApp\n');
+  console.log('📍 Servidor:', WHATSAPP_SERVER_URL);
+  console.log('⏰ Timestamp:', new Date().toISOString());
+  console.log('='.repeat(60));
+
+  await testWhatsAppConnection();
+  await testWithCurl();
+
+  console.log('\n' + '='.repeat(60));
+  console.log('🏁 Testes concluídos');
+}
+
+runTests().catch(console.error); 

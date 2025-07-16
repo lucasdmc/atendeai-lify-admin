@@ -59,7 +59,7 @@ async function testWhatsAppQRFlow() {
     // 3. Testar conexão direta com o servidor WhatsApp
     console.log('\n3️⃣ Testando conexão direta com servidor WhatsApp...');
     try {
-      const response = await fetch('https://lify.magah.com.br/api/whatsapp/generate-qr', {
+      const response = await fetch('https://atendeai.lify.com.br/api/whatsapp/generate-qr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agentId: agent.id })

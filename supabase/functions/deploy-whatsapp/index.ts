@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
-const VPS_HOST = Deno.env.get('VPS_HOST') || 'lify.magah.com.br';
+const VPS_HOST = Deno.env.get('VPS_HOST') || 'atendeai.server.com.br';
 const VPS_USER = Deno.env.get('VPS_USER') || 'root';
 const VPS_PATH = Deno.env.get('VPS_PATH') || '/path/to/whatsapp-server';
 const VPS_SSH_KEY = Deno.env.get('VPS_SSH_KEY');

@@ -8,7 +8,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   userRole: string | null;
   userPermissions: string[];
@@ -24,6 +24,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userPermissions, setUserPermissions] = useState<string[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
+  const [hasInitialized, setHasInitialized] = useState(false);
   const { toast } = useToast();
 
   const fetchUserData = useCallback(async (userId: string) => {
@@ -104,7 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    // Verificar sessão inicial com timeout de segurança
+    // Verificar sessão inicial com timeout reduzido
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!mounted) return;
       
@@ -123,20 +124,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
-    // Timeout de segurança para evitar loading infinito
+    // Timeout reduzido para melhor performance
     const timeoutId = setTimeout(() => {
-      if (mounted) {
+      if (mounted && !hasInitialized) {
         console.warn('⚠️ [useAuth] Loading timeout, forcing completion');
         setLoading(false);
+        setHasInitialized(true);
       }
-    }, 10000); // 10 segundos
+    }, 5000); // Reduzido para 5 segundos
 
     return () => {
       mounted = false;
       clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
-  }, []);
+  }, [hasInitialized]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
@@ -161,6 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await supabase.auth.signOut();
       setUserRole(null);
       setUserPermissions([]);
+      setHasInitialized(false);
       
       console.log('✅ Logout concluído com sucesso');
     } catch (error) {

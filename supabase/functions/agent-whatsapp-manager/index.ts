@@ -23,7 +23,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     // WhatsApp server URL from environment
-    const whatsappServerUrl = Deno.env.get('WHATSAPP_SERVER_URL') || 'https://lify.magah.com.br'
+    const whatsappServerUrl = Deno.env.get('WHATSAPP_SERVER_URL') || 'http://31.97.241.19:3001'
 
     console.log(`Agent WhatsApp Manager - Method: ${method}, Path: ${path}`)
 
@@ -151,14 +151,12 @@ async function handleAgentInitialize(req: Request, supabase: any, whatsappServer
       connectionId = newConnection.id
     }
 
-    // Inicializar conexão no servidor WhatsApp
-    const response = await fetch(`${whatsappServerUrl}/api/whatsapp/initialize`, {
+    // Inicializar conexão no servidor WhatsApp usando generate-qr
+    const response = await fetch(`${whatsappServerUrl}/api/whatsapp/generate-qr`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
-        agentId,
-        whatsappNumber,
-        connectionId 
+        agentId
       })
     })
 
@@ -714,6 +712,7 @@ async function handleGenerateQR(req: Request, supabase: any, whatsappServerUrl: 
     }
 
     console.log(`Generating QR Code for agent ${agentId}`)
+    console.log(`WhatsApp server URL: ${whatsappServerUrl}`)
 
     // Verificar se o agente existe
     const { data: agent, error: agentError } = await supabase
@@ -723,6 +722,7 @@ async function handleGenerateQR(req: Request, supabase: any, whatsappServerUrl: 
       .single()
 
     if (agentError || !agent) {
+      console.error('Agent not found:', agentError)
       return new Response(
         JSON.stringify({
           success: false,
@@ -735,59 +735,153 @@ async function handleGenerateQR(req: Request, supabase: any, whatsappServerUrl: 
       )
     }
 
-    // Chama o backend Node para gerar o QR Code
-    const response = await fetch(`${whatsappServerUrl}/api/whatsapp/generate-qr`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ agentId }),
-    })
+    console.log(`Agent found: ${agent.name}`)
 
-    if (!response.ok) {
-      return new Response(
-        JSON.stringify({ 
-          success: false,
-          error: 'Erro ao gerar QR Code no servidor WhatsApp', 
-          status: 'error' 
-        }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    // CORREÇÃO 1: Adicionar timeout e melhorar headers
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 segundos de timeout
+
+    try {
+      console.log(`Making request to: ${whatsappServerUrl}/api/whatsapp/generate-qr`)
+      
+      const response = await fetch(`${whatsappServerUrl}/api/whatsapp/generate-qr`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'User-Agent': 'Supabase-Edge-Function/1.0',
+          'Accept': 'application/json',
+          'Connection': 'keep-alive',
+          'X-Agent-ID': agentId,
+          'X-Request-ID': crypto.randomUUID()
+        },
+        body: JSON.stringify({ agentId }),
+        signal: controller.signal
+      })
+
+      clearTimeout(timeoutId)
+
+      console.log(`Backend response status: ${response.status}`)
+      console.log(`Backend response headers:`, Object.fromEntries(response.headers.entries()))
+      
+      // CORREÇÃO 2: Melhor tratamento de erros HTTP
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}`
+        let errorDetails = ''
+        
+        try {
+          const contentType = response.headers.get('content-type')
+          if (contentType && contentType.includes('application/json')) {
+            const errorData = await response.json()
+            errorDetails = errorData.error || errorData.message || JSON.stringify(errorData)
+          } else {
+            errorDetails = await response.text()
+          }
+          errorMessage = `${errorMessage}: ${errorDetails}`
+        } catch (e) {
+          console.error('Error parsing error response:', e)
         }
-      )
-    }
-
-    const data = await response.json()
-    if (!data.qrCode) {
-      return new Response(
-        JSON.stringify({ 
-          success: false,
-          error: 'QR Code não retornado pelo backend', 
-          status: 'error' 
-        }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    return new Response(
-      JSON.stringify({ 
-        success: true,
-        qrCode: data.qrCode 
-      }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        
+        console.error(`Backend error: ${errorMessage}`)
+        
+        // CORREÇÃO 3: Retornar informações mais úteis no erro
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            error: errorMessage,
+            status: 'error',
+            details: {
+              httpStatus: response.status,
+              serverUrl: whatsappServerUrl,
+              timestamp: new Date().toISOString()
+            }
+          }),
+          { 
+            status: response.status >= 500 ? 502 : response.status, // 502 Bad Gateway para erros do servidor upstream
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
       }
-    )
+
+      const data = await response.json()
+      console.log(`Backend response data received, has QR: ${!!data.qrCode}`)
+      
+      // CORREÇÃO 4: Validar resposta antes de retornar
+      if (!data || typeof data !== 'object') {
+        throw new Error('Invalid response format from backend')
+      }
+
+      // Se backend retornou sucesso mas sem QR Code, aguardar um pouco
+      if (data.success && !data.qrCode) {
+        console.log('Success but no QR Code yet, waiting for status...')
+        
+        // Aguardar 2 segundos e verificar status
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        
+        // Verificar status no backend
+        const statusResponse = await fetch(`${whatsappServerUrl}/api/whatsapp/status/${agentId}`, {
+          headers: { 
+            'Accept': 'application/json',
+            'X-Agent-ID': agentId
+          }
+        })
+        
+        if (statusResponse.ok) {
+          const statusData = await statusResponse.json()
+          if (statusData.qrCode) {
+            data.qrCode = statusData.qrCode
+          }
+        }
+      }
+
+      console.log('Returning success response')
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          qrCode: data.qrCode,
+          status: data.qrCode ? 'qr_ready' : 'initializing',
+          message: data.message || 'QR Code generation initiated'
+        }),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+      
+    } catch (fetchError) {
+      clearTimeout(timeoutId)
+      
+      // CORREÇÃO 5: Tratamento específico para timeout
+      if (fetchError.name === 'AbortError') {
+        console.error('Request timeout after 30 seconds')
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            error: 'Request timeout - servidor não respondeu em 30 segundos',
+            status: 'timeout'
+          }),
+          { 
+            status: 504, // Gateway Timeout
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+      
+      throw fetchError
+    }
+    
   } catch (error) {
     console.error('Error in handleGenerateQR:', error)
+    console.error('Error stack:', error.stack)
+    
     return new Response(
       JSON.stringify({ 
         success: false,
-        error: error.message, 
-        status: 'error' 
+        error: error.message || 'Unknown error',
+        status: 'error',
+        details: {
+          type: error.name,
+          timestamp: new Date().toISOString()
+        }
       }),
       { 
         status: 500, 

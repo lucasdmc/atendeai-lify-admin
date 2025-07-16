@@ -1,57 +1,46 @@
-import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
+import fetch from 'node-fetch'
 
-dotenv.config();
+const SUPABASE_URL = 'https://niakqdolcdwxtrkbqmdi.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxODI1NTksImV4cCI6MjA2NTc1ODU1OX0.90ihAk2geP1JoHIvMj_pxeoMe6dwRwH-rBbJwbFeomw'
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error('❌ Variáveis de ambiente não encontradas');
-  process.exit(1);
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-async function testCreateUser() {
-  console.log('🧪 Testando Edge Function create-user...');
-  
+async function testEdgeFunction(agentId) {
   try {
-    const testUser = {
-      name: 'Teste Edge Function',
-      email: 'teste-edge@lify.com',
-      password: 'teste123456',
-      role: 'atendente'
-    };
-
-    console.log('📤 Enviando dados:', testUser);
-
-    const { data, error } = await supabase.functions.invoke('create-user', {
-      body: testUser
-    });
-
-    console.log('📡 Resposta completa:', { data, error });
-
-    if (error) {
-      console.error('❌ Erro:', error);
-      console.error('❌ Mensagem:', error.message);
-      
-      // Tentar extrair o corpo da resposta
-      if (error.context && error.context.body) {
-        try {
-          const responseText = await error.context.body.text();
-          console.error('❌ Corpo da resposta:', responseText);
-        } catch (e) {
-          console.error('❌ Não foi possível ler o corpo da resposta');
-        }
-      }
+    console.log(`🧪 Testando Edge Function com agentId: ${agentId}`)
+    
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/agent-whatsapp-manager/generate-qr`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      },
+      body: JSON.stringify({ agentId })
+    })
+    
+    const data = await response.json()
+    
+    console.log(`📊 Status: ${response.status}`)
+    console.log(`📄 Resposta:`, JSON.stringify(data, null, 2))
+    
+    if (response.ok && data.success) {
+      console.log('✅ Edge Function funcionando corretamente!')
     } else {
-      console.log('✅ Sucesso:', data);
+      console.log('❌ Edge Function com erro:', data.error)
     }
-
+    
   } catch (error) {
-    console.error('❌ Erro geral:', error);
+    console.error('❌ Erro ao testar Edge Function:', error)
   }
 }
 
-testCreateUser(); 
+// Testar com diferentes agentIds
+const agentIds = [
+  'default-agent',
+  'test-agent',
+  'demo-agent',
+  'lucas-agent'
+]
+
+for (const agentId of agentIds) {
+  await testEdgeFunction(agentId)
+  console.log('---')
+} 

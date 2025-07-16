@@ -1,13 +1,13 @@
 import https from 'https';
 
-const WHATSAPP_SERVER_URL = 'https://lify.magah.com.br';
+const WHATSAPP_SERVER_URL = 'https://atendeai.lify.com.br';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 async function makeRequest(path, method = 'GET', data = null) {
   return new Promise((resolve, reject) => {
     const options = {
-      hostname: 'lify.magah.com.br',
+      hostname: 'atendeai.lify.com.br',
       port: 443,
       path: path,
       method: method,

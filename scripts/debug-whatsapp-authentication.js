@@ -1,11 +1,11 @@
 import https from 'https';
 
-const WHATSAPP_SERVER_URL = 'https://lify.magah.com.br';
+const WHATSAPP_SERVER_URL = 'https://atendeai.lify.com.br';
 
 async function makeRequest(path, method = 'GET', data = null) {
   return new Promise((resolve, reject) => {
     const options = {
-      hostname: 'lify.magah.com.br',
+      hostname: 'atendeai.lify.com.br',
       port: 443,
       path: path,
       method: method,
@@ -176,7 +176,7 @@ async function debugWhatsAppAuthentication() {
     console.log('🔧 Ações recomendadas:');
     console.log('');
     console.log('1. Limpar sessão atual:');
-    console.log('   curl -X POST https://lify.magah.com.br/api/whatsapp/clear-auth');
+    console.log('   curl -X POST https://atendeai.lify.com.br/api/whatsapp/clear-auth');
     console.log('');
     console.log('2. Verificar logs do servidor:');
     console.log('   - Acessar a VPS e verificar logs do processo Node');

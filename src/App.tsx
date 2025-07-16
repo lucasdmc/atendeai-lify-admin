@@ -5,8 +5,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { LoadingPage } from "@/components/ui/loading";
+import { LoadingOptimized } from "@/components/ui/loading-optimized";
 import { ClinicProvider } from "@/contexts/ClinicContext";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 // Lazy loading para melhorar performance
 const Auth = lazy(() => import("./pages/Auth"));
@@ -38,7 +39,7 @@ const queryClient = new QueryClient({
   },
 });
 
-// Componente de loading otimizado
+// Componente de loading otimizado para páginas
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen">
     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -49,20 +50,28 @@ const App = () => {
   const { session, loading } = useAuth();
   const [appTimeout, setAppTimeout] = useState(false);
 
-  // Timeout de segurança para evitar loading infinito
+  // Timeout de segurança reduzido para melhor performance
   useEffect(() => {
     const timer = setTimeout(() => {
       if (loading) {
         console.warn('⚠️ App loading timeout - forcing render');
         setAppTimeout(true);
       }
-    }, 15000); // 15 segundos
+    }, 8000); // Reduzido para 8 segundos
 
     return () => clearTimeout(timer);
   }, [loading]);
 
+  // Mostrar loading otimizado durante carregamento inicial
   if (loading && !appTimeout) {
-    return <LoadingPage text="Carregando aplicação..." />;
+    return (
+      <LoadingOptimized 
+        isLoading={true}
+        message="Inicializando AtendeAI..."
+        showProgress={true}
+        timeout={3000}
+      />
+    );
   }
 
   return (
@@ -72,8 +81,9 @@ const App = () => {
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
+            <ErrorBoundary>
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
                 {!session ? (
                   <>
                     <Route path="/auth" element={<Auth />} />
@@ -169,6 +179,7 @@ const App = () => {
                 )}
               </Routes>
             </Suspense>
+            </ErrorBoundary>
           </BrowserRouter>
         </ClinicProvider>
       </TooltipProvider>

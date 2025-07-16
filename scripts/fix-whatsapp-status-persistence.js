@@ -1,11 +1,11 @@
 import https from 'https';
 
-const WHATSAPP_SERVER_URL = 'https://lify.magah.com.br';
+const WHATSAPP_SERVER_URL = 'https://atendeai.lify.com.br';
 
 async function makeRequest(path, method = 'GET', data = null) {
   return new Promise((resolve, reject) => {
     const options = {
-      hostname: 'lify.magah.com.br',
+      hostname: 'atendeai.lify.com.br',
       port: 443,
       path: path,
       method: method,
@@ -196,7 +196,7 @@ async function analyzeStatusPersistence() {
     B. Limpeza manual via SSH:
     
     1. Conectar na VPS:
-       ssh user@lify.magah.com.br
+       ssh user@atendeai.lify.com.br
     
     2. Parar o servidor WhatsApp:
        pm2 stop whatsapp-server

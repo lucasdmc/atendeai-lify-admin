@@ -4,15 +4,15 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
-const WHATSAPP_SERVER_URL = 'https://lify.magah.com.br';
-const VPS_HOST = process.env.VPS_HOST || 'lify.magah.com.br';
+const WHATSAPP_SERVER_URL = 'https://atendeai.server.com.br';
+const VPS_HOST = process.env.VPS_HOST || 'atendeai.server.com.br';
 const VPS_USER = process.env.VPS_USER || 'root';
 const VPS_PATH = process.env.VPS_PATH || '/path/to/whatsapp-server';
 
 async function makeRequest(path, method = 'GET', data = null) {
   return new Promise((resolve, reject) => {
     const options = {
-      hostname: 'lify.magah.com.br',
+      hostname: 'atendeai.server.com.br',
       port: 443,
       path: path,
       method: method,
@@ -59,7 +59,7 @@ async function deployWhatsAppServer() {
     } catch (error) {
       console.error('❌ Erro de conexão SSH:', error.message);
       console.log('💡 Configure as variáveis de ambiente:');
-      console.log('   VPS_HOST=lify.magah.com.br');
+      console.log('   VPS_HOST=atendeai.server.com.br');
       console.log('   VPS_USER=seu_usuario');
       console.log('   VPS_PATH=/caminho/para/whatsapp-server');
       return;
@@ -132,7 +132,7 @@ async function deployWhatsAppServer() {
     }
 
     console.log('\n✅ Deploy automático concluído!');
-    console.log('🌐 URL: https://lify.magah.com.br');
+    console.log('🌐 URL: https://atendeai.server.com.br');
 
   } catch (error) {
     console.error('❌ Erro durante deploy:', error.message);
@@ -145,7 +145,7 @@ async function setupEnvironment() {
   
   console.log('📋 Variáveis de ambiente necessárias:');
   console.log(`
-  VPS_HOST=lify.magah.com.br
+  VPS_HOST=atendeai.server.com.br
   VPS_USER=seu_usuario_ssh
   VPS_PATH=/caminho/para/whatsapp-server
   
@@ -157,7 +157,7 @@ async function setupEnvironment() {
      VPS_PATH=/opt/whatsapp-server
   
   2. Configure SSH key:
-     ssh-copy-id seu_usuario@lify.magah.com.br
+     ssh-copy-id seu_usuario@atendeai.server.com.br
   
   3. Execute o deploy:
      node scripts/deploy-whatsapp-automatic.js

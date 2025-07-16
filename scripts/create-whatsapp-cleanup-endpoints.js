@@ -6,7 +6,7 @@ const SERVICE_ROLE_KEY = process.env.SERVICE_ROLE_KEY;
 async function makeRequest(path, method = 'GET', data = null) {
   return new Promise((resolve, reject) => {
     const options = {
-      hostname: 'lify.magah.com.br',
+      hostname: 'atendeai.lify.com.br',
       port: 443,
       path: path,
       method: method,

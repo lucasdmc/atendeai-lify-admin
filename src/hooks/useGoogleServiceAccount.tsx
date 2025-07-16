@@ -1,8 +1,8 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface GoogleCalendarEvent {
   id: string;
@@ -21,19 +21,29 @@ export interface GoogleCalendarEvent {
   status: string;
 }
 
-export const useGoogleServiceAccount = () => {
-  const [isConnected] = useState(true); // Service Account sempre conectado
-  const [isLoading, setIsLoading] = useState(true);
-  const [events, setEvents] = useState<GoogleCalendarEvent[]>([]);
-  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
+export const useGoogleServiceAccount = (autoCheck = false) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [isConnected, setIsConnected] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [events, setEvents] = useState<GoogleCalendarEvent[]>([]);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
+  const [calendarId] = useState('primary');
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
-  const calendarId = 'fb2b1dfb1e6c600594b05785de5cf04fb38bd0376bd3f5e5d1c08c60d4c894df@group.calendar.google.com';
+  // Cache para evitar múltiplas requisições
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
 
-
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async (force = false) => {
     if (!user) return;
+    
+    // Verificar cache para evitar requisições desnecessárias
+    const now = Date.now();
+    if (!force && now - lastFetchTime < CACHE_DURATION && events.length > 0) {
+      console.log('📅 Usando cache de eventos (última busca há', Math.round((now - lastFetchTime) / 1000), 'segundos)');
+      return;
+    }
     
     try {
       setIsLoadingEvents(true);
@@ -44,11 +54,13 @@ export const useGoogleServiceAccount = () => {
         .from('calendar_events')
         .select('*')
         .gte('start_time', new Date().toISOString())
-        .order('start_time', { ascending: true });
+        .order('start_time', { ascending: true })
+        .limit(50); // Limitar para performance
 
       if (error) {
         console.error('❌ Erro ao buscar eventos do banco:', error);
-        throw error;
+        // Não mostrar toast para evitar spam
+        return;
       }
 
       console.log(`✅ ${dbEvents?.length || 0} eventos encontrados no banco`);
@@ -74,19 +86,16 @@ export const useGoogleServiceAccount = () => {
         }));
 
       setEvents(formattedEvents);
+      setLastFetchTime(now);
       console.log('✅ Eventos carregados:', formattedEvents.length);
       
     } catch (error) {
       console.error('❌ Erro ao buscar eventos:', error);
-      toast({
-        title: 'Erro',
-        description: 'Falha ao carregar agendamentos',
-        variant: 'destructive',
-      });
+      // Não mostrar toast para evitar spam em caso de erro
     } finally {
       setIsLoadingEvents(false);
     }
-  };
+  }, [user, lastFetchTime, events.length]);
 
   const createEvent = async (eventData: Omit<GoogleCalendarEvent, 'id' | 'status'>) => {
     try {
@@ -129,7 +138,7 @@ export const useGoogleServiceAccount = () => {
       });
 
       // Recarregar eventos
-      await fetchEvents();
+      await fetchEvents(true);
       
       return data.appointment;
     } catch (error) {
@@ -162,7 +171,7 @@ export const useGoogleServiceAccount = () => {
         description: 'Agendamento atualizado com sucesso',
       });
 
-      await fetchEvents();
+      await fetchEvents(true);
     } catch (error) {
       console.error('❌ Erro ao atualizar agendamento:', error);
       toast({
@@ -192,7 +201,7 @@ export const useGoogleServiceAccount = () => {
         description: 'Agendamento cancelado com sucesso',
       });
 
-      await fetchEvents();
+      await fetchEvents(true);
     } catch (error) {
       console.error('❌ Erro ao deletar agendamento:', error);
       toast({
@@ -206,18 +215,65 @@ export const useGoogleServiceAccount = () => {
 
   const refetch = () => {
     console.log('🔄 Recarregando agendamentos...');
-    fetchEvents();
+    fetchEvents(true);
   };
 
-  useEffect(() => {
-    if (user) {
-      console.log('👤 Usuário logado, carregando agendamentos...');
-      setIsLoading(false);
-      fetchEvents();
-    } else {
-      setIsLoading(false);
+  // Verificar se o usuário tem calendários conectados antes de carregar eventos
+  const checkCalendarConnection = useCallback(async () => {
+    if (!user) return false;
+    
+    try {
+      const { data: userCalendars, error } = await supabase
+        .from('user_calendars')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .limit(1);
+
+      if (error) {
+        console.error('❌ Erro ao verificar calendários:', error);
+        return false;
+      }
+
+      const hasCalendars = userCalendars && userCalendars.length > 0;
+      setIsConnected(hasCalendars);
+      return hasCalendars;
+    } catch (error) {
+      console.error('❌ Erro ao verificar conexão:', error);
+      setIsConnected(false);
+      return false;
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user && !hasInitialized) {
+      setHasInitialized(true);
+      
+      // Só verificar automaticamente se autoCheck for true
+      if (autoCheck) {
+        console.log('👤 Usuário logado, verificando conexão com calendários...');
+        
+        // Verificar conexão primeiro
+        checkCalendarConnection().then((hasConnection) => {
+          if (hasConnection) {
+            console.log('✅ Calendários conectados, carregando eventos...');
+            fetchEvents();
+          } else {
+            console.log('⚠️ Nenhum calendário conectado, pulando carregamento de eventos');
+          }
+          setIsLoading(false);
+        });
+      } else {
+        // Se não for autoCheck, apenas definir loading como false
+        setIsLoading(false);
+      }
+    } else if (!user) {
+      setIsLoading(false);
+      setHasInitialized(false);
+      setIsConnected(false);
+      setEvents([]);
+    }
+  }, [user, hasInitialized, checkCalendarConnection, fetchEvents, autoCheck]);
 
   return {
     isConnected,
@@ -230,5 +286,6 @@ export const useGoogleServiceAccount = () => {
     updateEvent,
     deleteEvent,
     refetch,
+    checkCalendarConnection, // Expor a função para uso manual
   };
 };

@@ -4,15 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { 
-  Calendar, 
-  CheckCircle, 
-  Loader2,
-  X
-} from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { Calendar, CheckCircle, X, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 
 interface GoogleCalendar {
   id: string;
@@ -69,16 +64,15 @@ export const GoogleCalendarSelector = ({
     setIsLoading(true);
 
     try {
-      // Primeiro, obter o token temporário
-      const { data: tempTokenData } = await supabase
-        .from('user_calendars')
+      // Buscar tokens do usuário na tabela google_calendar_tokens
+      const { data: tokenData, error: tokenError } = await supabase
+        .from('google_calendar_tokens')
         .select('access_token, refresh_token, expires_at')
         .eq('user_id', user.id)
-        .eq('google_calendar_id', 'temp_token')
         .single();
 
-      if (!tempTokenData) {
-        throw new Error('Token temporário não encontrado');
+      if (tokenError || !tokenData) {
+        throw new Error('Tokens do Google não encontrados. Faça a autenticação novamente.');
       }
 
       // Conectar cada calendário selecionado
@@ -95,20 +89,13 @@ export const GoogleCalendarSelector = ({
             calendar_color: calendar.backgroundColor || '#4285f4',
             is_primary: calendar.primary || false,
             is_active: true,
-            access_token: tempTokenData.access_token,
-            refresh_token: tempTokenData.refresh_token,
-            expires_at: tempTokenData.expires_at,
+            access_token: tokenData.access_token,
+            refresh_token: tokenData.refresh_token,
+            expires_at: tokenData.expires_at,
           }, {
             onConflict: 'user_id,google_calendar_id'
           });
       }
-
-      // Remover token temporário
-      await supabase
-        .from('user_calendars')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('google_calendar_id', 'temp_token');
 
       toast({
         title: 'Sucesso!',
@@ -120,7 +107,7 @@ export const GoogleCalendarSelector = ({
       console.error('Error connecting calendars:', error);
       toast({
         title: 'Erro',
-        description: 'Falha ao conectar calendários. Tente novamente.',
+        description: error instanceof Error ? error.message : 'Falha ao conectar calendários. Tente novamente.',
         variant: 'destructive',
       });
     } finally {
@@ -128,21 +115,7 @@ export const GoogleCalendarSelector = ({
     }
   };
 
-  const handleCancel = async () => {
-    // Limpar token temporário se o usuário cancelar
-    if (user) {
-      try {
-        await supabase
-          .from('user_calendars')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('google_calendar_id', 'temp_token');
-        console.log('Token temporário removido');
-      } catch (error) {
-        console.error('Error removing temp token:', error);
-      }
-    }
-    
+  const handleCancel = () => {
     onCancel();
   };
 

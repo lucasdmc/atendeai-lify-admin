@@ -17,7 +17,7 @@ async function setupWhatsAppEnvironment() {
     console.log('🚀 Configurando variáveis de ambiente do WhatsApp...');
     
     // URL do servidor WhatsApp - AJUSTE AQUI
-    const whatsappServerUrl = process.env.WHATSAPP_SERVER_URL || 'http://localhost:3000';
+    const whatsappServerUrl = process.env.WHATSAPP_SERVER_URL || 'https://atendeai.server.com.br';
     
     console.log(`📡 URL do servidor WhatsApp: ${whatsappServerUrl}`);
     

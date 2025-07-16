@@ -11,7 +11,7 @@ import { Building2, MapPin, Phone, Mail } from 'lucide-react';
 
 const Dashboard = () => {
   const { metrics, topicsData, loading, refreshMetrics } = useDashboardMetrics();
-  const { events } = useGoogleServiceAccount();
+  const { events } = useGoogleServiceAccount(false); // Não verificar automaticamente
   const { selectedClinic } = useClinic();
 
   if (loading) {
