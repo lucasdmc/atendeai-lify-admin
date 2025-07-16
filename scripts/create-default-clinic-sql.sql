@@ -21,19 +21,19 @@ INSERT INTO public.clinics (
 ) VALUES (
   gen_random_uuid(),
   'Clínica Padrão',
-  '{"street": "Endereço padrão", "city": "São Paulo", "state": "SP", "country": "Brasil", "zipCode": "00000-000"}',
-  '{"value": "(00) 0000-0000", "type": "principal"}',
-  '{"value": "contato@clinica.com", "type": "principal"}',
+  '{"street": "Endereço padrão", "city": "São Paulo", "state": "SP", "country": "Brasil", "zipCode": "00000-000"}'::jsonb,
+  '{"value": "(00) 0000-0000", "type": "principal"}'::jsonb,
+  '{"value": "contato@clinica.com", "type": "principal"}'::jsonb,
   '00000000-0000-0000-0000-000000000000',
   now(),
   now(),
   'America/Sao_Paulo',
   'pt-BR',
-  '{"monday": {"open": "08:00", "close": "18:00"}, "tuesday": {"open": "08:00", "close": "18:00"}, "wednesday": {"open": "08:00", "close": "18:00"}, "thursday": {"open": "08:00", "close": "18:00"}, "friday": {"open": "08:00", "close": "18:00"}, "saturday": {"open": "08:00", "close": "12:00"}, "sunday": {"open": null, "close": null}}',
-  '["Clínica Geral"]',
-  '["dinheiro", "cartao_credito", "cartao_debito", "pix"]',
-  '[]',
-  '{"phone": "(00) 0000-0000", "available": true}'
+  '{"monday": {"open": "08:00", "close": "18:00"}, "tuesday": {"open": "08:00", "close": "18:00"}, "wednesday": {"open": "08:00", "close": "18:00"}, "thursday": {"open": "08:00", "close": "18:00"}, "friday": {"open": "08:00", "close": "18:00"}, "saturday": {"open": "08:00", "close": "12:00"}, "sunday": {"open": null, "close": null}}'::jsonb,
+  '["Clínica Geral"]'::jsonb,
+  '["dinheiro", "cartao_credito", "cartao_debito", "pix"]'::jsonb,
+  '[]'::jsonb,
+  '{"phone": "(00) 0000-0000", "available": true}'::jsonb
 ) ON CONFLICT DO NOTHING;
 
 -- 2. Buscar a clínica criada
