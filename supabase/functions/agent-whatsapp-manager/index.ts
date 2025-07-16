@@ -49,6 +49,9 @@ serve(async (req) => {
       case 'connections':
         return await handleGetConnections(req, supabase)
       
+      case 'disconnect-all':
+        return await handleDisconnectAll(req, supabase, whatsappServerUrl)
+      
       default:
         return new Response(
           JSON.stringify({ error: 'Endpoint not found' }),
@@ -882,6 +885,79 @@ async function handleGenerateQR(req: Request, supabase: any, whatsappServerUrl: 
           type: error.name,
           timestamp: new Date().toISOString()
         }
+      }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    )
+  }
+} 
+
+async function handleDisconnectAll(req: Request, supabase: any, whatsappServerUrl: string) {
+  try {
+    console.log('Disconnecting all WhatsApp connections...')
+
+    // Atualizar todas as conexões para disconnected
+    const { data: connections, error: updateError } = await supabase
+      .from('agent_whatsapp_connections')
+      .update({ 
+        connection_status: 'disconnected',
+        qr_code: null,
+        client_info: null,
+        updated_at: new Date().toISOString()
+      })
+      .neq('connection_status', 'disconnected')
+
+    if (updateError) {
+      console.error('Error updating connections:', updateError)
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Failed to update connections'
+        }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    console.log(`Updated ${connections?.length || 0} connections to disconnected`)
+
+    // Tentar desconectar no servidor WhatsApp
+    try {
+      const response = await fetch(`${whatsappServerUrl}/api/whatsapp/disconnect-all`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+
+      if (response.ok) {
+        console.log('Successfully disconnected all sessions on WhatsApp server')
+      } else {
+        console.log('WhatsApp server disconnect-all endpoint not available or failed')
+      }
+    } catch (error) {
+      console.log('Error calling WhatsApp server disconnect-all:', error.message)
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: 'All connections disconnected',
+        updatedCount: connections?.length || 0
+      }),
+      { 
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    )
+  } catch (error) {
+    console.error('Error in handleDisconnectAll:', error)
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error.message
       }),
       { 
         status: 500, 

@@ -86,3 +86,12 @@
 2025/07/16-15:04:47.740 74b8fe Compacted 1@1 + 1@2 files => 1242147 bytes
 2025/07/16-15:04:47.741 74b8fe compacted to: files[ 0 0 1 0 0 0 0 ]
 2025/07/16-15:04:47.741 74b8fe Delete type=2 #25
+2025/07/16-15:44:28.680 74b8fe Level-0 table #28: started
+2025/07/16-15:44:28.705 74b8fe Level-0 table #28: 859268 bytes OK
+2025/07/16-15:44:28.708 74b8fe Delete type=2 #86
+2025/07/16-15:44:28.708 74b8fe Delete type=2 #87
+2025/07/16-15:46:59.313 74b8fc Compacting 1@1 + 1@2 files
+2025/07/16-15:46:59.350 74b8fc Generated table #29@1: 16905 keys, 1615762 bytes
+2025/07/16-15:46:59.350 74b8fc Compacted 1@1 + 1@2 files => 1615762 bytes
+2025/07/16-15:46:59.352 74b8fc compacted to: files[ 0 0 1 0 0 0 0 ]
+2025/07/16-15:46:59.352 74b8fc Delete type=2 #28
