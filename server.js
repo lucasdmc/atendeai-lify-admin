@@ -82,19 +82,56 @@ setInterval(() => {
   }
 }, CLEANUP_INTERVAL);
 
-// Rota de saúde
+// Rota de saúde detalhada
 app.get('/health', (req, res) => {
+  const activeSessions = Array.from(sessionStates.entries()).map(([agentId, state]) => ({
+    agentId,
+    status: state.status,
+    connected: state.connected || false,
+    connectedAt: state.connectedAt,
+    lastUpdate: state.lastUpdate,
+    qrRetryCount: state.qrRetryCount || 0
+  }));
+
+  const endpoints = [
+    {
+      method: 'GET',
+      path: '/health',
+      description: 'Health check detalhado do sistema'
+    },
+    {
+      method: 'POST',
+      path: '/api/whatsapp/generate-qr',
+      description: 'Gerar QR Code para um agente',
+      body: { agentId: 'string' }
+    },
+    {
+      method: 'GET',
+      path: '/api/whatsapp/status/:agentId',
+      description: 'Verificar status de um agente'
+    },
+    {
+      method: 'POST',
+      path: '/api/whatsapp/disconnect',
+      description: 'Desconectar um agente',
+      body: { agentId: 'string' }
+    }
+  ];
+
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
+    version: '1.0.0',
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
     activeSessions: whatsappClients.size,
-    sessions: Array.from(sessionStates.entries()).map(([agentId, state]) => ({
-      agentId,
-      status: state.status,
-      connected: state.connected || false,
-      connectedAt: state.connectedAt,
-      lastUpdate: state.lastUpdate
-    }))
+    sessions: activeSessions,
+    endpoints: endpoints,
+    server: {
+      port: PORT,
+      host: '0.0.0.0',
+      environment: process.env.NODE_ENV || 'production'
+    }
   });
 });
 
@@ -378,6 +415,247 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
         
       } catch (error) {
         console.error('❌ Erro ao processar mensagem de mídia:', error);
+      }
+    });
+
+    // Adicionar listener para message_create (mensagens criadas pelo próprio cliente)
+    console.log('🟢 Registrando listener de message_create...');
+    client.on('message_create', async (message) => {
+      console.log('📤 Mensagem criada pelo cliente para agente:', agentId);
+      console.log('📱 Para:', message.to);
+      console.log('💬 Conteúdo:', message.body);
+      console.log('🆔 Message ID:', message.id._serialized);
+      
+      try {
+        const to = message.to;
+        const messageText = message.body;
+        const messageId = message.id._serialized;
+        const timestamp = message.timestamp * 1000;
+        
+        console.log('📋 Dados da mensagem criada:', {
+          agentId,
+          to,
+          messageText,
+          messageId,
+          timestamp
+        });
+        
+        // Enviar para webhook do Supabase
+        const webhookUrl = process.env.SUPABASE_WEBHOOK_URL || 'https://your-project.supabase.co/functions/v1/agent-whatsapp-manager/webhook';
+        
+        const webhookData = {
+          agentId,
+          connectionId: agentId,
+          phoneNumber: to,
+          contactName: to.split('@')[0],
+          message: messageText,
+          messageType: 'sent',
+          messageId,
+          timestamp
+        };
+        
+        console.log('🌐 Enviando confirmação para webhook:', webhookUrl);
+        
+        const webhookResponse = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+          },
+          body: JSON.stringify(webhookData)
+        });
+        
+        if (webhookResponse.ok) {
+          console.log('✅ Confirmação enviada para webhook');
+        } else {
+          console.error('❌ Erro ao enviar confirmação:', webhookResponse.status, await webhookResponse.text());
+        }
+        
+      } catch (error) {
+        console.error('❌ Erro ao processar message_create:', error);
+      }
+    });
+
+    // Adicionar listener para message_ack (confirmação de entrega/leitura)
+    console.log('🟢 Registrando listener de message_ack...');
+    client.on('message_ack', async (message, ack) => {
+      console.log('✅ Confirmação de mensagem para agente:', agentId);
+      console.log('📱 Message ID:', message.id._serialized);
+      console.log('📊 Status ACK:', ack);
+      
+      try {
+        const messageId = message.id._serialized;
+        const ackStatus = ack;
+        const timestamp = Date.now();
+        
+        console.log('📋 Dados da confirmação:', {
+          agentId,
+          messageId,
+          ackStatus,
+          timestamp
+        });
+        
+        // Enviar para webhook do Supabase
+        const webhookUrl = process.env.SUPABASE_WEBHOOK_URL || 'https://your-project.supabase.co/functions/v1/agent-whatsapp-manager/webhook';
+        
+        const webhookData = {
+          agentId,
+          connectionId: agentId,
+          messageId,
+          ackStatus,
+          timestamp,
+          messageType: 'ack'
+        };
+        
+        console.log('🌐 Enviando ACK para webhook:', webhookUrl);
+        
+        const webhookResponse = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+          },
+          body: JSON.stringify(webhookData)
+        });
+        
+        if (webhookResponse.ok) {
+          console.log('✅ ACK enviado para webhook');
+        } else {
+          console.error('❌ Erro ao enviar ACK:', webhookResponse.status, await webhookResponse.text());
+        }
+        
+      } catch (error) {
+        console.error('❌ Erro ao processar message_ack:', error);
+      }
+    });
+
+    // Adicionar listener para group_message (mensagens de grupo)
+    console.log('🟢 Registrando listener de group_message...');
+    client.on('group_message', async (message) => {
+      console.log('👥 Mensagem de grupo recebida para agente:', agentId);
+      console.log('📱 De:', message.from);
+      console.log('👥 Grupo:', message._data.notifyName || 'Grupo');
+      console.log('💬 Conteúdo:', message.body);
+      
+      try {
+        const from = message.from;
+        const messageText = message.body;
+        const messageId = message.id._serialized;
+        const timestamp = message.timestamp * 1000;
+        const groupName = message._data.notifyName || 'Grupo';
+        const contactName = message._data.notifyName || message.from.split('@')[0];
+        
+        console.log('📋 Dados da mensagem de grupo:', {
+          agentId,
+          from,
+          groupName,
+          messageText,
+          messageId,
+          timestamp,
+          contactName
+        });
+        
+        // Enviar para webhook do Supabase
+        const webhookUrl = process.env.SUPABASE_WEBHOOK_URL || 'https://your-project.supabase.co/functions/v1/agent-whatsapp-manager/webhook';
+        
+        const webhookData = {
+          agentId,
+          connectionId: agentId,
+          phoneNumber: from,
+          contactName,
+          message: messageText,
+          messageType: 'group_received',
+          messageId,
+          timestamp,
+          groupName
+        };
+        
+        console.log('🌐 Enviando mensagem de grupo para webhook:', webhookUrl);
+        
+        const webhookResponse = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+          },
+          body: JSON.stringify(webhookData)
+        });
+        
+        if (webhookResponse.ok) {
+          console.log('✅ Mensagem de grupo processada com sucesso');
+        } else {
+          console.error('❌ Erro no webhook de grupo:', webhookResponse.status, await webhookResponse.text());
+        }
+        
+      } catch (error) {
+        console.error('❌ Erro ao processar mensagem de grupo:', error);
+      }
+    });
+
+    // Adicionar listener para change_state (mudanças de estado)
+    console.log('🟢 Registrando listener de change_state...');
+    client.on('change_state', (state) => {
+      console.log('🔄 Mudança de estado para agente:', agentId);
+      console.log('📊 Novo estado:', state);
+      
+      sessionStates.set(agentId, { 
+        ...sessionStates.get(agentId),
+        state,
+        lastUpdate: Date.now()
+      });
+    });
+
+    // Adicionar listener para incoming_call (chamadas recebidas)
+    console.log('🟢 Registrando listener de incoming_call...');
+    client.on('incoming_call', async (call) => {
+      console.log('📞 Chamada recebida para agente:', agentId);
+      console.log('📱 De:', call.peerJid);
+      console.log('📊 Tipo:', call.callState);
+      
+      try {
+        const from = call.peerJid;
+        const callState = call.callState;
+        const timestamp = Date.now();
+        
+        console.log('📋 Dados da chamada:', {
+          agentId,
+          from,
+          callState,
+          timestamp
+        });
+        
+        // Enviar para webhook do Supabase
+        const webhookUrl = process.env.SUPABASE_WEBHOOK_URL || 'https://your-project.supabase.co/functions/v1/agent-whatsapp-manager/webhook';
+        
+        const webhookData = {
+          agentId,
+          connectionId: agentId,
+          phoneNumber: from,
+          contactName: from.split('@')[0],
+          messageType: 'incoming_call',
+          callState,
+          timestamp
+        };
+        
+        console.log('🌐 Enviando chamada para webhook:', webhookUrl);
+        
+        const webhookResponse = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+          },
+          body: JSON.stringify(webhookData)
+        });
+        
+        if (webhookResponse.ok) {
+          console.log('✅ Chamada processada com sucesso');
+        } else {
+          console.error('❌ Erro no webhook de chamada:', webhookResponse.status, await webhookResponse.text());
+        }
+        
+      } catch (error) {
+        console.error('❌ Erro ao processar chamada:', error);
       }
     });
 
