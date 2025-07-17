@@ -3,7 +3,7 @@ import fetch from 'node-fetch';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co';
 const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxODI1NTksImV4cCI6MjA2NTc1ODU1OX0.90ihAk2geP1JoHIvMj_pxeoMe6dwRwH-rBbJwbFeomw';
-const backendUrl = process.env.VITE_BACKEND_URL || 'http://localhost:3001';
+const backendUrl = process.env.VITE_BACKEND_URL || 'http://31.97.241.19:3001';
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 

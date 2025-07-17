@@ -27,7 +27,7 @@ console.log('   - Exemplo: sk-...\n');
 
 console.log('2. VITE_SUPABASE_URL');
 console.log('   - URL do seu projeto Supabase');
-console.log('   - Exemplo: https://your-project.supabase.co\n');
+console.log('   - Exemplo: https://niakqdolcdwxtrkbqmdi.supabase.co\n');
 
 console.log('3. VITE_SUPABASE_ANON_KEY');
 console.log('   - Chave anônima do Supabase');
@@ -44,7 +44,7 @@ console.log(`# OpenAI Configuration
 OPENAI_API_KEY=sk-your-openai-api-key-here
 
 # Supabase Configuration
-VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_URL=https://niakqdolcdwxtrkbqmdi.supabase.co
 VITE_SUPABASE_ANON_KEY=your-supabase-anon-key-here
 
 # Google APIs (opcional)

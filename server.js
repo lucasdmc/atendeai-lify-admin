@@ -28,6 +28,68 @@ const CLEANUP_INTERVAL = 2 * 60 * 1000; // Limpeza a cada 2 minutos
 let qrRetryCount = 0;
 const maxQrRetries = 5;
 
+// Configurações de URLs para produção
+const PRODUCTION_CONFIG = {
+  supabaseUrl: process.env.SUPABASE_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co',
+  supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  webhookUrl: process.env.SUPABASE_WEBHOOK_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co/functions/v1/agent-whatsapp-manager/webhook',
+  environment: process.env.NODE_ENV || 'production'
+};
+
+// Função para atualizar status no banco
+const updateConnectionStatus = async (agentId, status, phoneNumber = null, clientInfo = null) => {
+  try {
+    if (!PRODUCTION_CONFIG.supabaseServiceKey) {
+      console.warn('⚠️ SUPABASE_SERVICE_ROLE_KEY não configurada, pulando atualização no banco');
+      return;
+    }
+
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(PRODUCTION_CONFIG.supabaseUrl, PRODUCTION_CONFIG.supabaseServiceKey);
+
+    // Buscar conexão existente
+    const { data: existingConnection } = await supabase
+      .from('agent_whatsapp_connections')
+      .select('*')
+      .eq('agent_id', agentId)
+      .eq('connection_status', 'connected')
+      .single();
+
+    if (existingConnection) {
+      // Atualizar conexão existente
+      await supabase
+        .from('agent_whatsapp_connections')
+        .update({
+          connection_status: status,
+          whatsapp_number: phoneNumber || existingConnection.whatsapp_number,
+          client_info: clientInfo || existingConnection.client_info,
+          last_connection_at: status === 'connected' ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingConnection.id);
+
+      console.log(`✅ Status atualizado no banco: ${agentId} -> ${status}`);
+    } else if (status === 'connected' && phoneNumber) {
+      // Criar nova conexão
+      await supabase
+        .from('agent_whatsapp_connections')
+        .insert({
+          agent_id: agentId,
+          whatsapp_number: phoneNumber,
+          connection_status: status,
+          client_info: clientInfo,
+          last_connection_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+
+      console.log(`✅ Nova conexão criada no banco: ${agentId} -> ${phoneNumber}`);
+    }
+  } catch (error) {
+    console.error('❌ Erro ao atualizar status no banco:', error);
+  }
+};
+
 // Função para limpar sessão
 const cleanupSession = async (agentId) => {
   console.log(`🧹 Limpando sessão para: ${agentId}`);
@@ -256,56 +318,58 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
     });
 
     // Melhor tratamento de autenticação
-    client.on('authenticated', () => {
-      console.log('Cliente autenticado com sucesso para:', agentId);
-      qrRetryCount = 0; // Reset retry count
+    client.on('authenticated', async () => {
+      console.log('🔐 Cliente WhatsApp autenticado para agente:', agentId);
       
       sessionStates.set(agentId, { 
-        status: 'authenticated', 
-        connected: false,
-        lastUpdate: Date.now()
-      });
-    });
-
-    client.on('ready', () => {
-      console.log('WhatsApp conectado para:', agentId);
-      sessionStates.set(agentId, { 
-        status: 'connected', 
+        status: 'connected',
         connected: true,
         connectedAt: new Date().toISOString(),
         lastUpdate: Date.now()
       });
-      
-      // Limpar timeout quando conectado
-      const timeoutId = sessionTimeouts.get(agentId);
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-        sessionTimeouts.delete(agentId);
-      }
+
+      // Atualizar status no banco
+      await updateConnectionStatus(agentId, 'connected');
     });
 
-    client.on('disconnected', (reason) => {
-      console.log('WhatsApp desconectado para:', agentId, 'Razão:', reason);
+    client.on('ready', async () => {
+      console.log('✅ Cliente WhatsApp pronto para agente:', agentId);
+      
       sessionStates.set(agentId, { 
-        status: 'disconnected', 
+        status: 'connected',
+        connected: true,
+        connectedAt: new Date().toISOString(),
+        lastUpdate: Date.now()
+      });
+
+      // Atualizar status no banco
+      await updateConnectionStatus(agentId, 'connected');
+    });
+
+    client.on('disconnected', async (reason) => {
+      console.log('🔌 Cliente WhatsApp desconectado para agente:', agentId, 'Motivo:', reason);
+      
+      sessionStates.set(agentId, { 
+        status: 'disconnected',
         connected: false,
         lastUpdate: Date.now()
       });
-      
-      // Limpar sessão após desconexão
-      setTimeout(() => cleanupSession(agentId), 5000);
+
+      // Atualizar status no banco
+      await updateConnectionStatus(agentId, 'disconnected');
     });
 
-    client.on('auth_failure', (msg) => {
-      console.error('Falha na autenticação para:', agentId, msg);
+    client.on('auth_failure', async () => {
+      console.log('❌ Falha na autenticação para agente:', agentId);
+      
       sessionStates.set(agentId, { 
-        status: 'auth_failure', 
+        status: 'error',
         connected: false,
         lastUpdate: Date.now()
       });
-      
-      // Limpar sessão após falha de autenticação
-      setTimeout(() => cleanupSession(agentId), 5000);
+
+      // Atualizar status no banco
+      await updateConnectionStatus(agentId, 'error');
     });
 
     // Adicionar listener de mensagens
@@ -334,7 +398,7 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
         });
         
         // Enviar para webhook do Supabase
-        const webhookUrl = process.env.SUPABASE_WEBHOOK_URL || 'https://your-project.supabase.co/functions/v1/agent-whatsapp-manager/webhook';
+        const webhookUrl = process.env.SUPABASE_WEBHOOK_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co/functions/v1/agent-whatsapp-manager/webhook';
         
         const webhookData = {
           agentId,
@@ -385,7 +449,7 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
         const contactName = message._data.notifyName || message.from.split('@')[0];
         
         // Enviar para webhook do Supabase
-        const webhookUrl = process.env.SUPABASE_WEBHOOK_URL || 'https://your-project.supabase.co/functions/v1/agent-whatsapp-manager/webhook';
+        const webhookUrl = process.env.SUPABASE_WEBHOOK_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co/functions/v1/agent-whatsapp-manager/webhook';
         
         const webhookData = {
           agentId,
@@ -444,7 +508,7 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
         });
         
         // Enviar para webhook do Supabase
-        const webhookUrl = process.env.SUPABASE_WEBHOOK_URL || 'https://your-project.supabase.co/functions/v1/agent-whatsapp-manager/webhook';
+        const webhookUrl = process.env.SUPABASE_WEBHOOK_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co/functions/v1/agent-whatsapp-manager/webhook';
         
         const webhookData = {
           agentId,
@@ -499,7 +563,7 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
         });
         
         // Enviar para webhook do Supabase
-        const webhookUrl = process.env.SUPABASE_WEBHOOK_URL || 'https://your-project.supabase.co/functions/v1/agent-whatsapp-manager/webhook';
+        const webhookUrl = process.env.SUPABASE_WEBHOOK_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co/functions/v1/agent-whatsapp-manager/webhook';
         
         const webhookData = {
           agentId,
@@ -559,7 +623,7 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
         });
         
         // Enviar para webhook do Supabase
-        const webhookUrl = process.env.SUPABASE_WEBHOOK_URL || 'https://your-project.supabase.co/functions/v1/agent-whatsapp-manager/webhook';
+        const webhookUrl = process.env.SUPABASE_WEBHOOK_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co/functions/v1/agent-whatsapp-manager/webhook';
         
         const webhookData = {
           agentId,
@@ -628,7 +692,7 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
         });
         
         // Enviar para webhook do Supabase
-        const webhookUrl = process.env.SUPABASE_WEBHOOK_URL || 'https://your-project.supabase.co/functions/v1/agent-whatsapp-manager/webhook';
+        const webhookUrl = process.env.SUPABASE_WEBHOOK_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co/functions/v1/agent-whatsapp-manager/webhook';
         
         const webhookData = {
           agentId,
@@ -805,7 +869,7 @@ app.post('/api/whatsapp/send-message', async (req, res) => {
     
     // Enviar confirmação para webhook
     try {
-      const webhookUrl = process.env.SUPABASE_WEBHOOK_URL || 'https://your-project.supabase.co/functions/v1/agent-whatsapp-manager/webhook';
+      const webhookUrl = process.env.SUPABASE_WEBHOOK_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co/functions/v1/agent-whatsapp-manager/webhook';
       
       const webhookData = {
         agentId,

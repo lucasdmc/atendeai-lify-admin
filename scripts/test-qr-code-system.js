@@ -1,6 +1,6 @@
 import fetch from 'node-fetch';
 
-const BACKEND_URL = 'http://localhost:3001';
+const BACKEND_URL = 'http://31.97.241.19:3001';
 
 async function testQRCodeSystem() {
   console.log('🧪 Testando sistema de QR Code...\n');

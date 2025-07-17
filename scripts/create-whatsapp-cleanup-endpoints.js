@@ -1,6 +1,6 @@
 import https from 'https';
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://your-project.supabase.co';
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co';
 const SERVICE_ROLE_KEY = process.env.SERVICE_ROLE_KEY;
 
 async function makeRequest(path, method = 'GET', data = null) {

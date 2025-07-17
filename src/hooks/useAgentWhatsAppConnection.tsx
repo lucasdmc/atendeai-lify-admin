@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { config } from '@/config/environment';
 
 interface AgentWhatsAppConnection {
   id: string;
@@ -32,14 +33,21 @@ export const useAgentWhatsAppConnection = (): AgentWhatsAppConnectionHook => {
 
   const loadConnections = async (agentId: string) => {
     try {
+      console.log('🔄 [useAgentWhatsAppConnection] Carregando conexões para agente:', agentId);
+      
       const { data, error } = await supabase.functions.invoke('agent-whatsapp-manager/connections', {
         body: { agentId }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro ao carregar conexões:', error);
+        throw error;
+      }
+      
+      console.log('✅ [useAgentWhatsAppConnection] Conexões carregadas:', data?.connections?.length || 0);
       setConnections(data.connections || []);
     } catch (error) {
-      console.error('Erro ao carregar conexões:', error);
+      console.error('❌ Erro ao carregar conexões:', error);
       toast({
         title: "Erro",
         description: "Não foi possível carregar as conexões de WhatsApp",
@@ -49,21 +57,14 @@ export const useAgentWhatsAppConnection = (): AgentWhatsAppConnectionHook => {
   };
 
   const generateQRCode = async (agentId: string, whatsappNumber: string) => {
-    if (!whatsappNumber.trim()) {
-      toast({
-        title: "Erro",
-        description: "Digite um número de WhatsApp válido",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('agent-whatsapp-manager/initialize', {
+      console.log('🔄 [useAgentWhatsAppConnection] Gerando QR Code para:', agentId);
+      
+      const { data, error } = await supabase.functions.invoke('agent-whatsapp-manager/generate-qr', {
         body: {
           agentId,
-          whatsappNumber: whatsappNumber.trim()
+          whatsappNumber
         }
       });
 
@@ -71,26 +72,17 @@ export const useAgentWhatsAppConnection = (): AgentWhatsAppConnectionHook => {
 
       if (data.success) {
         toast({
-          title: "Sucesso",
-          description: "Conexão inicializada. Aguardando QR Code...",
+          title: "QR Code Gerado",
+          description: "QR Code gerado com sucesso. Escaneie para conectar.",
         });
         
-        // Recarregar conexões
         await loadConnections(agentId);
-        
-        // Se tem QR Code, mostrar
-        if (data.qrCode) {
-          toast({
-            title: "QR Code Gerado",
-            description: "Escaneie o código com seu WhatsApp Business para conectar.",
-          });
-        }
       }
     } catch (error) {
-      console.error('Erro ao inicializar conexão:', error);
+      console.error('❌ Erro ao gerar QR Code:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível inicializar a conexão",
+        description: "Não foi possível gerar o QR Code",
         variant: "destructive",
       });
     } finally {
@@ -101,6 +93,8 @@ export const useAgentWhatsAppConnection = (): AgentWhatsAppConnectionHook => {
   const disconnect = async (agentId: string, connectionId: string) => {
     setIsLoading(true);
     try {
+      console.log('🔄 [useAgentWhatsAppConnection] Desconectando agente:', agentId);
+      
       const { data, error } = await supabase.functions.invoke('agent-whatsapp-manager/disconnect', {
         body: {
           agentId,
@@ -119,7 +113,7 @@ export const useAgentWhatsAppConnection = (): AgentWhatsAppConnectionHook => {
         await loadConnections(agentId);
       }
     } catch (error) {
-      console.error('Erro ao desconectar:', error);
+      console.error('❌ Erro ao desconectar:', error);
       toast({
         title: "Erro",
         description: "Não foi possível desconectar o WhatsApp",
@@ -132,6 +126,8 @@ export const useAgentWhatsAppConnection = (): AgentWhatsAppConnectionHook => {
 
   const checkStatus = async (agentId: string, connectionId: string) => {
     try {
+      console.log('🔄 [useAgentWhatsAppConnection] Verificando status para:', agentId);
+      
       const { data, error } = await supabase.functions.invoke('agent-whatsapp-manager/status', {
         body: {
           agentId,
@@ -150,28 +146,37 @@ export const useAgentWhatsAppConnection = (): AgentWhatsAppConnectionHook => {
 
       await loadConnections(agentId);
     } catch (error) {
-      console.error('Erro ao verificar status:', error);
+      console.error('❌ Erro ao verificar status:', error);
     }
   };
 
-  // Nova função para verificar status em tempo real
+  // Função melhorada para verificar status em tempo real
   const checkRealTimeStatus = async (agentId: string) => {
     try {
-      // Verificar status no backend
-      const response = await fetch(`http://31.97.241.19:3001/api/whatsapp/status/${agentId}`);
+      console.log('🔄 [useAgentWhatsAppConnection] Verificando status em tempo real para:', agentId);
+      
+      // 1. Verificar status no backend usando URL correta para produção
+      const backendUrl = config.whatsapp.serverUrl;
+      const response = await fetch(`${backendUrl}/api/whatsapp/status/${agentId}`);
+      
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        console.warn('⚠️ Backend não respondeu, usando status do banco');
+        await loadConnections(agentId);
+        return { status: 'disconnected' };
       }
       
       const backendStatus = await response.json();
+      console.log('✅ [useAgentWhatsAppConnection] Status do backend:', backendStatus);
       
-      // Se backend está conectado mas banco não mostra, atualizar
+      // 2. Se backend está conectado mas banco não mostra, atualizar
       if (backendStatus.status === 'connected') {
         const currentConnections = connections.filter(conn => conn.agent_id === agentId);
         const hasConnectedInDB = currentConnections.some(conn => conn.connection_status === 'connected');
         
         if (!hasConnectedInDB) {
           console.log('🔄 [useAgentWhatsAppConnection] Backend conectado, atualizando banco...');
+          
+          // Forçar sincronização com o banco
           await loadConnections(agentId);
           
           toast({
@@ -181,9 +186,25 @@ export const useAgentWhatsAppConnection = (): AgentWhatsAppConnectionHook => {
         }
       }
       
+      // 3. Se backend está desconectado mas banco mostra conectado, corrigir
+      if (backendStatus.status === 'disconnected') {
+        const currentConnections = connections.filter(conn => conn.agent_id === agentId);
+        const hasConnectedInDB = currentConnections.some(conn => conn.connection_status === 'connected');
+        
+        if (hasConnectedInDB) {
+          console.log('🔄 [useAgentWhatsAppConnection] Backend desconectado, corrigindo banco...');
+          
+          // Marcar como desconectado no banco
+          const connectedConnection = currentConnections.find(conn => conn.connection_status === 'connected');
+          if (connectedConnection) {
+            await disconnect(agentId, connectedConnection.id);
+          }
+        }
+      }
+      
       return backendStatus;
     } catch (error) {
-      console.error('Erro ao verificar status em tempo real:', error);
+      console.error('❌ Erro ao verificar status em tempo real:', error);
       return { status: 'disconnected' };
     }
   };

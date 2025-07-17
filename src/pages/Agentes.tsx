@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useClinic } from '@/contexts/ClinicContext';
+import AgentConnectionStatus from '@/components/agentes/AgentConnectionStatus';
 
 interface Agent {
   id: string;

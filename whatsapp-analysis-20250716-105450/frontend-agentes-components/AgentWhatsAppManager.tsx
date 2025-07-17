@@ -61,7 +61,7 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
   // Resetar sessão no backend
   const resetSession = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/whatsapp/reset-session', {
+      const response = await fetch('http://31.97.241.19:3001/api/whatsapp/reset-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agentId })
