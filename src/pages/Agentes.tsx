@@ -314,13 +314,22 @@ const Agentes = () => {
   };
 
   const createAgent = async () => {
+    console.log('🚀 [DEBUG] createAgent chamada');
+    console.log('📊 [DEBUG] Dados do agente:', newAgent);
+    console.log('👤 [DEBUG] userRole:', userRole);
+    console.log('🏥 [DEBUG] selectedClinicId:', selectedClinicId);
+    console.log('🏥 [DEBUG] selectedClinic:', selectedClinic);
+    
     try {
       // Determinar a clínica a ser usada
       const clinicIdToUse = userRole === 'admin_lify' || userRole === 'suporte_lify' 
         ? newAgent.clinic_id 
         : selectedClinicId;
 
+      console.log('🎯 [DEBUG] clinicIdToUse:', clinicIdToUse);
+
       if (!newAgent.name || !clinicIdToUse) {
+        console.error('❌ [DEBUG] Validação falhou:', { name: newAgent.name, clinicId: clinicIdToUse });
         toast({
           title: "Erro",
           description: "Nome e clínica são obrigatórios",
@@ -330,6 +339,7 @@ const Agentes = () => {
       }
 
       if (newAgent.context_json && !validateJSON(newAgent.context_json)) {
+        console.error('❌ [DEBUG] JSON inválido:', newAgent.context_json);
         toast({
           title: "Erro",
           description: "JSON de contextualização inválido",
@@ -338,18 +348,30 @@ const Agentes = () => {
         return;
       }
 
-      const { error } = await supabase
-        .from('agents')
-        .insert([{
-          name: newAgent.name,
-          description: newAgent.description || null,
-          personality: newAgent.personality,
-          temperature: newAgent.temperature,
-          clinic_id: clinicIdToUse,
-          context_json: newAgent.context_json || null
-        }]);
+      const agentData = {
+        name: newAgent.name,
+        description: newAgent.description || null,
+        personality: newAgent.personality,
+        temperature: newAgent.temperature,
+        clinic_id: clinicIdToUse,
+        context_json: newAgent.context_json || null
+      };
 
-      if (error) throw error;
+      console.log('📝 [DEBUG] Dados para inserção:', agentData);
+
+      const { data, error } = await supabase
+        .from('agents')
+        .insert([agentData])
+        .select();
+
+      console.log('📊 [DEBUG] Resposta do Supabase:', { data, error });
+
+      if (error) {
+        console.error('❌ [DEBUG] Erro do Supabase:', error);
+        throw error;
+      }
+
+      console.log('✅ [DEBUG] Agente criado com sucesso:', data);
 
       toast({
         title: "Sucesso",
@@ -367,7 +389,7 @@ const Agentes = () => {
       });
       loadAgents();
     } catch (error) {
-      console.error('Erro ao criar agente:', error);
+      console.error('❌ [DEBUG] Erro ao criar agente:', error);
       toast({
         title: "Erro",
         description: "Não foi possível criar o agente",
@@ -585,7 +607,20 @@ const Agentes = () => {
                 )}
               </div>
 
-              <Button onClick={createAgent} className="w-full">
+              <Button 
+                onClick={() => {
+                  console.log('🖱️ [DEBUG] Botão "Criar Agente" clicado');
+                  console.log('📊 [DEBUG] Estado atual:', {
+                    newAgent,
+                    userRole,
+                    selectedClinicId,
+                    selectedClinic,
+                    canCreateAgents
+                  });
+                  createAgent();
+                }} 
+                className="w-full"
+              >
                 Criar Agente
               </Button>
             </div>
