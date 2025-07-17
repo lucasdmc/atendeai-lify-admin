@@ -5,6 +5,7 @@ import { QrCode, PhoneOff, RefreshCw, AlertCircle, CheckCircle } from 'lucide-re
 import { useToast } from '@/hooks/use-toast';
 import { useAgentWhatsAppConnection } from '@/hooks/useAgentWhatsAppConnection';
 import { supabase } from '@/integrations/supabase/client';
+import { config } from '@/config/environment';
 
 interface AgentWhatsAppConnection {
   id: string;
@@ -64,7 +65,7 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
   // Resetar sessão no backend
   const resetSession = useCallback(async () => {
     try {
-      const response = await fetch('http://31.97.241.19:3001/api/whatsapp/disconnect', {
+      const response = await fetch(`${config.whatsapp.serverUrl}/api/whatsapp/disconnect`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agentId })
@@ -83,7 +84,7 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
   // Verificar status real da conexão no backend
   const checkBackendStatus = useCallback(async () => {
     try {
-      const response = await fetch(`http://31.97.241.19:3001/api/whatsapp/status/${agentId}`);
+      const response = await fetch(`${config.whatsapp.serverUrl}/api/whatsapp/status/${agentId}`);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }

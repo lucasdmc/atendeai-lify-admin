@@ -1,7 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
+import { config } from '@/config/environment';
 
-// Configuração do backend
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://31.97.241.19:3001';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || config.whatsapp.serverUrl;
 
 export interface CreateUserData {
   name: string;
