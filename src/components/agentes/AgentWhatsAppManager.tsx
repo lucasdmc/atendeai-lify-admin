@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { QrCode, PhoneOff, RefreshCw, AlertCircle } from 'lucide-react';
+import { QrCode, PhoneOff, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAgentWhatsAppConnection } from '@/hooks/useAgentWhatsAppConnection';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,9 +30,10 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
   const [qrError, setQrError] = useState<string | null>(null);
   const [qrStatus, setQrStatus] = useState<'idle' | 'generating' | 'ready' | 'error' | 'expired'>('idle');
   const [lastGeneratedAt, setLastGeneratedAt] = useState<number | null>(null);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const { toast } = useToast();
 
-  // Hook só para buscar conexões ativas (não para exibir QR Code)
+  // Hook para gerenciar conexões
   const {
     connections,
     isLoading,
@@ -43,6 +44,7 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
   // Configurações de timeout
   const QR_EXPIRY_TIME = 5 * 60 * 1000; // 5 minutos
   const RETRY_DELAY = 3000; // 3 segundos
+  const STATUS_CHECK_INTERVAL = 10000; // 10 segundos
 
   // Verificar se o QR Code expirou
   const isQRExpired = useCallback(() => {
@@ -61,7 +63,7 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
   // Resetar sessão no backend
   const resetSession = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/whatsapp/reset-session', {
+      const response = await fetch('http://31.97.241.19:3001/api/whatsapp/disconnect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agentId })
@@ -76,6 +78,45 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
       console.error('Erro ao resetar sessão:', error);
     }
   }, [agentId]);
+
+  // Verificar status real da conexão no backend
+  const checkBackendStatus = useCallback(async () => {
+    try {
+      const response = await fetch(`http://31.97.241.19:3001/api/whatsapp/status/${agentId}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Erro ao verificar status do backend:', error);
+      return { status: 'disconnected' };
+    }
+  }, [agentId]);
+
+  // Sincronizar status com backend
+  const syncStatusWithBackend = useCallback(async () => {
+    setIsCheckingStatus(true);
+    try {
+      const backendStatus = await checkBackendStatus();
+      const activeConnection = connections.find(conn => conn.connection_status === 'connected');
+      
+      if (backendStatus.status === 'disconnected' && activeConnection) {
+        // Backend desconectado mas banco mostra conectado - corrigir
+        console.log('Sincronizando: backend desconectado, marcando como desconectado no banco');
+        await disconnect(agentId, activeConnection.id);
+        await loadConnections(agentId);
+        clearQRCode();
+      } else if (backendStatus.status === 'connected' && !activeConnection) {
+        // Backend conectado mas banco não mostra - recarregar conexões
+        console.log('Sincronizando: backend conectado, recarregando conexões');
+        await loadConnections(agentId);
+      }
+    } catch (error) {
+      console.error('Erro ao sincronizar status:', error);
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  }, [agentId, connections, disconnect, loadConnections, checkBackendStatus, clearQRCode]);
 
   // Gera e exibe o QR Code com retry e timeout
   const generateQRCodeForAgent = useCallback(async (retryCount = 0) => {
@@ -156,15 +197,48 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
     }
   }, [qrStatus, lastGeneratedAt, isQRExpired, toast]);
 
+  // Verificar status periodicamente quando há conexão ativa
+  useEffect(() => {
+    const hasActiveConnection = connections.some(conn => conn.connection_status === 'connected');
+    
+    if (hasActiveConnection) {
+      const interval = setInterval(syncStatusWithBackend, STATUS_CHECK_INTERVAL);
+      return () => clearInterval(interval);
+    }
+  }, [connections, syncStatusWithBackend]);
+
+  // Carregar conexões ao montar componente
+  useEffect(() => {
+    loadConnections(agentId);
+  }, [agentId, loadConnections]);
+
   // Desconectar conexão ativa
   const handleDisconnectConnection = async (connectionId: string) => {
-    await disconnect(agentId, connectionId);
-    await loadConnections(agentId);
-    clearQRCode(); // Limpar QR Code quando desconectar
+    try {
+      await disconnect(agentId, connectionId);
+      await loadConnections(agentId);
+      clearQRCode();
+      
+      toast({
+        title: "Desconectado",
+        description: "WhatsApp desconectado com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao desconectar WhatsApp.",
+        variant: "destructive",
+      });
+    }
   };
 
-  // Verificar se há conexão ativa
+  // Verificar se há conexão ativa REAL (sincronizada com backend)
   const hasActiveConnection = connections.some((conn: AgentWhatsAppConnection) => 
+    conn.connection_status === 'connected'
+  );
+
+  // Buscar conexão ativa
+  const activeConnection = connections.find((conn: AgentWhatsAppConnection) => 
     conn.connection_status === 'connected'
   );
 
@@ -175,9 +249,51 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
           <h3 className="text-lg font-semibold">WhatsApp do Agente</h3>
           <p className="text-sm text-gray-600">Gerencie as conexões de WhatsApp para {agentName}</p>
         </div>
+        
+        {/* Botão de verificar status */}
+        <Button
+          onClick={syncStatusWithBackend}
+          disabled={isCheckingStatus}
+          variant="outline"
+          size="sm"
+        >
+          {isCheckingStatus ? (
+            <RefreshCw className="h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4" />
+          )}
+        </Button>
       </div>
 
-      {/* Botão de gerar QR Code - sempre disponível se não há conexão ativa */}
+      {/* Status da conexão */}
+      {hasActiveConnection && activeConnection && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              <div>
+                <p className="font-medium text-green-800">
+                  Número conectado: {activeConnection.whatsapp_number}
+                </p>
+                <p className="text-sm text-green-600">
+                  {activeConnection.whatsapp_name}
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="destructive"
+              onClick={() => handleDisconnectConnection(activeConnection.id)}
+              disabled={isLoading}
+              size="sm"
+            >
+              <PhoneOff className="h-4 w-4 mr-2" />
+              Desconectar
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Botão de gerar QR Code - apenas se não há conexão ativa */}
       {!hasActiveConnection && (
         <div className="text-center mt-4">
           <Button
@@ -266,7 +382,7 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
         )}
 
         {/* Instruções de conexão */}
-        {(qrStatus === 'ready' || qrStatus === 'idle') && (
+        {(qrStatus === 'ready' || qrStatus === 'idle') && !hasActiveConnection && (
           <div className="text-sm text-gray-600">
             <p className="font-medium">Como conectar:</p>
             <ol className="mt-2 space-y-1 text-left">
@@ -278,24 +394,6 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
           </div>
         )}
       </div>
-
-      {/* Exibir número conectado e botão de desconectar apenas se houver conexão ativa */}
-      {hasActiveConnection && (
-        <div className="flex flex-col items-center gap-2 mt-4">
-          <div className="text-base font-medium text-green-700">
-            Número conectado: {connections.find((conn: AgentWhatsAppConnection) => conn.connection_status === 'connected')?.whatsapp_number}
-          </div>
-          <Button
-            variant="destructive"
-            onClick={() => handleDisconnectConnection(connections.find((conn: AgentWhatsAppConnection) => conn.connection_status === 'connected')!.id)}
-            disabled={isLoading}
-            className="flex items-center gap-2"
-          >
-            <PhoneOff className="h-4 w-4" />
-            Desconectar
-          </Button>
-        </div>
-      )}
     </div>
   );
 };
