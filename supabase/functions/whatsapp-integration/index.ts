@@ -448,67 +448,58 @@ async function processMessageWithAI(supabase: any, conversationId: string, messa
   try {
     console.log(`Processing message with AI: ${message}`)
     
-    // Contextualização da ESADI
-    const esadiContext = `Você é a Jessica, assistente virtual da ESADI - Espaço de Saúde do Aparelho Digestivo.
+    // 1. Identificar qual agente está conectado ao número
+    const { data: agentConnection, error: connectionError } = await supabase
+      .from('agent_whatsapp_connections')
+      .select(`
+        agent_id,
+        agents (
+          id,
+          name,
+          description,
+          personality,
+          temperature,
+          context_json,
+          clinics (
+            name,
+            address,
+            phone,
+            email
+          )
+        )
+      `)
+      .eq('whatsapp_number', phoneNumber)
+      .eq('connection_status', 'connected')
+      .single()
 
-INFORMAÇÕES DA CLÍNICA:
-- Especialidade: Gastroenterologia
-- Especialidades: Endoscopia Digestiva, Hepatologia, Colonoscopia, Diagnóstico por Imagem Digestiva
-- Descrição: Centro especializado em saúde do aparelho digestivo com tecnologia de ponta para Santa Catarina
-- Missão: Proporcionar diagnósticos precisos e tratamentos eficazes para patologias do aparelho digestivo
+    if (connectionError || !agentConnection) {
+      console.log('No connected agent found for number:', phoneNumber)
+      // Usar contexto padrão se não houver agente conectado
+      return await processWithDefaultContext(supabase, conversationId, message, phoneNumber)
+    }
 
-CONTATOS:
-- Telefone: (47) 3222-0432
-- WhatsApp: (47) 99963-3223
-- Email: contato@esadi.com.br
-- Website: https://www.esadi.com.br
+    const agent = agentConnection.agents
+    console.log('Processing with agent:', agent.name)
 
-ENDEREÇO:
-Rua Sete de Setembro, 777
-Edifício Stein Office - Sala 511
-Centro, Blumenau - SC
-CEP: 89010-201
-
-HORÁRIO DE FUNCIONAMENTO:
-- Segunda a Quinta: 07:00 às 18:00
-- Sexta: 07:00 às 17:00
-- Sábado: 07:00 às 12:00
-- Domingo: Fechado
-
-SERVIÇOS DISPONÍVEIS:
-- Consulta Gastroenterológica (R$ 280,00)
-- Endoscopia Digestiva Alta (R$ 450,00)
-- Colonoscopia (R$ 650,00)
-- Teste Respiratório para H. Pylori (R$ 180,00)
-
-CONVÊNIOS ACEITOS:
-- Unimed
-- Bradesco Saúde
-- SulAmérica
-
-PROFISSIONAIS:
-- Dr. Carlos Eduardo Silva (CRM-SC 12345) - Gastroenterologia e Endoscopia
-- Dr. João da Silva (CRM-SC 9999) - Endoscopia, Colonoscopia e Hepatologia
-
-PERSONALIDADE: Profissional, acolhedora e especializada em gastroenterologia. Demonstra conhecimento técnico mas comunica de forma acessível.
-TOM DE COMUNICAÇÃO: Formal mas acessível, com foco na tranquilização do paciente
-
-Sempre responda de forma profissional, acolhedora e especializada em gastroenterologia. Use as informações acima para fornecer respostas precisas sobre a clínica, serviços, agendamentos e orientações médicas.`
-
-    // Call AI chat service
+    // 2. Gerar contexto baseado no agente
+    const context = await generateAgentContext(agent)
+    
+    // 3. Processar mensagem com contexto do agente
     const { data, error } = await supabase.functions.invoke('ai-chat-gpt4', {
       body: {
         messages: [
           {
             role: 'system',
-            content: esadiContext
+            content: context
           },
           {
             role: 'user',
             content: message
           }
         ],
-        phoneNumber: phoneNumber
+        phoneNumber: phoneNumber,
+        agentId: agent.id,
+        temperature: agent.temperature || 0.7
       }
     })
 
@@ -528,6 +519,8 @@ Sempre responda de forma profissional, acolhedora e especializada em gastroenter
           timestamp: new Date().toISOString(),
           metadata: {
             ai_generated: true,
+            agent_id: agent.id,
+            agent_name: agent.name,
             intent: data.intent,
             confidence: data.confidence
           }
@@ -555,5 +548,171 @@ Sempre responda de forma profissional, acolhedora e especializada em gastroenter
     }
   } catch (error) {
     console.error('Error processing message with AI:', error)
+  }
+}
+
+// Função para gerar contexto baseado no agente
+async function generateAgentContext(agent: any): Promise<string> {
+  let context = `Você é ${agent.name}, assistente virtual.`
+  
+  // Se o agente tem JSON de contextualização, usar ele
+  if (agent.context_json) {
+    try {
+      const contextData = typeof agent.context_json === 'string' 
+        ? JSON.parse(agent.context_json) 
+        : agent.context_json
+      
+      context = buildContextFromJSON(contextData, agent)
+    } catch (error) {
+      console.error('Error parsing agent context JSON:', error)
+      context = buildDefaultContext(agent)
+    }
+  } else {
+    // Usar contexto padrão baseado na clínica
+    context = buildDefaultContext(agent)
+  }
+  
+  return context
+}
+
+// Função para construir contexto a partir do JSON
+function buildContextFromJSON(contextData: any, agent: any): string {
+  const clinic = contextData.clinica || {}
+  const agentConfig = contextData.agente_ia?.configuracao || {}
+  
+  return `Você é ${agentConfig.nome || agent.name}, assistente virtual da ${clinic.informacoes_basicas?.nome || 'clínica'}.
+
+INFORMAÇÕES DA CLÍNICA:
+${clinic.informacoes_basicas?.descricao ? `- Descrição: ${clinic.informacoes_basicas.descricao}` : ''}
+${clinic.informacoes_basicas?.missao ? `- Missão: ${clinic.informacoes_basicas.missao}` : ''}
+
+${clinic.contatos ? `
+CONTATOS:
+${clinic.contatos.telefone_principal ? `- Telefone: ${clinic.contatos.telefone_principal}` : ''}
+${clinic.contatos.whatsapp ? `- WhatsApp: ${clinic.contatos.whatsapp}` : ''}
+${clinic.contatos.email_principal ? `- Email: ${clinic.contatos.email_principal}` : ''}
+${clinic.contatos.website ? `- Website: ${clinic.contatos.website}` : ''}
+` : ''}
+
+${clinic.localizacao?.endereco_principal ? `
+ENDEREÇO:
+${clinic.localizacao.endereco_principal.logradouro}, ${clinic.localizacao.endereco_principal.numero}
+${clinic.localizacao.endereco_principal.complemento}
+${clinic.localizacao.endereco_principal.bairro}, ${clinic.localizacao.endereco_principal.cidade} - ${clinic.localizacao.endereco_principal.estado}
+CEP: ${clinic.localizacao.endereco_principal.cep}
+` : ''}
+
+${contextData.profissionais && contextData.profissionais.length > 0 ? `
+PROFISSIONAIS:
+${contextData.profissionais.map((prof: any) => 
+  `- Dr(a). ${prof.nome_exibicao} - CRM: ${prof.crm}
+  Especialidades: ${prof.especialidades.join(', ')}`
+).join('\n')}
+` : ''}
+
+${contextData.servicos ? `
+SERVIÇOS DISPONÍVEIS:
+${contextData.servicos.consultas ? contextData.servicos.consultas.map((consulta: any) => 
+  `- ${consulta.nome}: ${consulta.descricao} (R$ ${consulta.preco_particular})`
+).join('\n') : ''}
+${contextData.servicos.exames ? contextData.servicos.exames.map((exame: any) => 
+  `- ${exame.nome}: ${exame.descricao} (R$ ${exame.preco_particular})`
+).join('\n') : ''}
+` : ''}
+
+PERSONALIDADE: ${agentConfig.personalidade || agent.personality || 'profissional e acolhedor'}
+TOM DE COMUNICAÇÃO: ${agentConfig.tom_comunicacao || 'formal mas acessível'}
+
+${agentConfig.saudacao_inicial ? `SAUDAÇÃO PADRÃO: ${agentConfig.saudacao_inicial}` : ''}
+${agentConfig.mensagem_despedida ? `DESPEDIDA PADRÃO: ${agentConfig.mensagem_despedida}` : ''}
+
+Sempre responda de forma profissional e acolhedora. Use as informações acima para fornecer respostas precisas sobre a clínica, serviços e agendamentos.`
+}
+
+// Função para construir contexto padrão
+function buildDefaultContext(agent: any): string {
+  const clinic = agent.clinics || {}
+  
+  return `Você é ${agent.name}, assistente virtual${clinic.name ? ` da ${clinic.name}` : ''}.
+
+${agent.description ? `DESCRIÇÃO: ${agent.description}` : ''}
+
+${clinic.name ? `
+INFORMAÇÕES DA CLÍNICA:
+- Nome: ${clinic.name}
+${clinic.address ? `- Endereço: ${clinic.address}` : ''}
+${clinic.phone ? `- Telefone: ${clinic.phone}` : ''}
+${clinic.email ? `- Email: ${clinic.email}` : ''}
+` : ''}
+
+PERSONALIDADE: ${agent.personality || 'profissional e acolhedor'}
+
+Sempre responda de forma profissional e acolhedora. Use as informações disponíveis para ajudar o paciente.`
+}
+
+// Função para processar com contexto padrão (fallback)
+async function processWithDefaultContext(supabase: any, conversationId: string, message: string, phoneNumber: string) {
+  console.log('Using default context for number:', phoneNumber)
+  
+  const defaultContext = `Você é um assistente virtual profissional e acolhedor. 
+Sempre responda de forma educada e prestativa, ajudando o usuário com suas dúvidas e solicitações.`
+
+  const { data, error } = await supabase.functions.invoke('ai-chat-gpt4', {
+    body: {
+      messages: [
+        {
+          role: 'system',
+          content: defaultContext
+        },
+        {
+          role: 'user',
+          content: message
+        }
+      ],
+      phoneNumber: phoneNumber
+    }
+  })
+
+  if (error) {
+    console.error('Error calling AI service with default context:', error)
+    return
+  }
+
+  if (data?.response) {
+    // Save AI response
+    const { error: saveError } = await supabase
+      .from('whatsapp_messages')
+      .insert({
+        conversation_id: conversationId,
+        content: data.response,
+        message_type: 'sent',
+        timestamp: new Date().toISOString(),
+        metadata: {
+          ai_generated: true,
+          default_context: true,
+          intent: data.intent,
+          confidence: data.confidence
+        }
+      })
+
+    if (saveError) {
+      console.error('Error saving AI response:', saveError)
+    }
+
+    // Send response via WhatsApp
+    const whatsappServerUrl = Deno.env.get('WHATSAPP_SERVER_URL') || 'http://31.97.241.19:3001'
+    
+    try {
+      await fetch(`${whatsappServerUrl}/api/whatsapp/send-message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: phoneNumber,
+          message: data.response
+        })
+      })
+    } catch (sendError) {
+      console.error('Error sending AI response via WhatsApp:', sendError)
+    }
   }
 } 

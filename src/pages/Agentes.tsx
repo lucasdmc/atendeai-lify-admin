@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Plus, Bot, Settings, Building2, QrCode, Phone, PhoneOff } from 'lucide-react';
+import { Plus, Bot, Settings, Building2, QrCode, Phone, PhoneOff, Trash2 } from 'lucide-react';
 import AgentWhatsAppManager from '@/components/agentes/AgentWhatsAppManager';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
@@ -423,6 +423,94 @@ const Agentes = () => {
     }
   };
 
+  // Função para excluir agente
+  const deleteAgent = async (agentId: string, agentName: string) => {
+    try {
+      // Verificar se o agente tem conexões WhatsApp ativas
+      const { data: connections, error: connectionsError } = await supabase
+        .from('agent_whatsapp_connections')
+        .select('*')
+        .eq('agent_id', agentId)
+        .eq('connection_status', 'connected');
+
+      if (connectionsError) {
+        console.error('Erro ao verificar conexões:', connectionsError);
+      }
+
+      if (connections && connections.length > 0) {
+        toast({
+          title: "Atenção",
+          description: "Este agente possui conexões WhatsApp ativas. Desconecte-as antes de excluir.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Confirmar exclusão
+      if (!confirm(`Tem certeza que deseja excluir o agente "${agentName}"? Esta ação não pode ser desfeita.`)) {
+        return;
+      }
+
+      // Excluir agente
+      const { error } = await supabase
+        .from('agents')
+        .delete()
+        .eq('id', agentId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso",
+        description: "Agente excluído com sucesso",
+      });
+
+      loadAgents();
+    } catch (error) {
+      console.error('Erro ao excluir agente:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir o agente",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Função para duplicar agente
+  const duplicateAgent = async (agent: Agent) => {
+    try {
+      const newAgentData = {
+        name: `${agent.name} (Cópia)`,
+        description: agent.description,
+        personality: agent.personality,
+        temperature: agent.temperature,
+        clinic_id: agent.clinic_id,
+        context_json: agent.context_json,
+        is_active: false // Nova cópia começa inativa
+      };
+
+      const { data, error } = await supabase
+        .from('agents')
+        .insert([newAgentData])
+        .select();
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso",
+        description: "Agente duplicado com sucesso",
+      });
+
+      loadAgents();
+    } catch (error) {
+      console.error('Erro ao duplicar agente:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível duplicar o agente",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Função para obter a conexão ativa de um agente
   const getActiveConnection = (agentId: string): AgentWhatsAppConnection | null => {
     const connections = agentConnections[agentId] || [];
@@ -744,24 +832,48 @@ const Agentes = () => {
                 >
                   {agent.is_active ? "Desativar" : "Ativar"}
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => {
-                  setEditingAgent(agent);
-                  setEditAgentData({
-                    name: agent.name,
-                    description: agent.description || '',
-                    personality: agent.personality || 'profissional e acolhedor',
-                    temperature: agent.temperature || 0.7,
-                    clinic_id: agent.clinic_id || '',
-                    context_json: agent.context_json || ''
-                  });
-                  setShowEditDialog(true);
-                }}>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    setEditingAgent(agent);
+                    setEditAgentData({
+                      name: agent.name,
+                      description: agent.description || '',
+                      personality: agent.personality || 'profissional e acolhedor',
+                      temperature: agent.temperature || 0.7,
+                      clinic_id: agent.clinic_id || '',
+                      context_json: agent.context_json || ''
+                    });
+                    setShowEditDialog(true);
+                  }}
+                >
                   <Settings className="h-4 w-4" />
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => {
-                  setQrAgent(agent);
-                  setShowQRDialog(true);
-                }}>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => duplicateAgent(agent)}
+                  title="Duplicar agente"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={() => deleteAgent(agent.id, agent.name)}
+                  title="Excluir agente"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    setQrAgent(agent);
+                    setShowQRDialog(true);
+                  }}
+                >
                   <QrCode className="h-4 w-4" />
                 </Button>
               </div>
