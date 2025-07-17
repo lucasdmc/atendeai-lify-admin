@@ -81,6 +81,11 @@ const Agentes = () => {
   const { userRole, userPermissions } = useAuth();
   const { selectedClinicId, selectedClinic } = useClinic();
 
+  // Debug imediato ao montar componente
+  console.log('🚀 [Agentes] Componente montado');
+  console.log('🔍 [Agentes] Auth state:', { userRole, userPermissions });
+  console.log('🔍 [Agentes] Clinic state:', { selectedClinicId, selectedClinic });
+
   // Verificar se o usuário pode criar agentes
   const canCreateAgents = userRole === 'admin_lify' || 
                          userRole === 'suporte_lify' || 
@@ -443,21 +448,33 @@ const Agentes = () => {
 
   return (
     <div className="space-y-6">
+      {/* Debug visual */}
+      <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
+        <h3 className="font-medium text-blue-800 mb-2">Debug - Agentes</h3>
+        <div className="text-sm text-blue-700 space-y-1">
+          <p>userRole: {userRole || 'null'}</p>
+          <p>userPermissions: {JSON.stringify(userPermissions)}</p>
+          <p>canCreateAgents: {canCreateAgents ? 'true' : 'false'}</p>
+          <p>selectedClinicId: {selectedClinicId || 'null'}</p>
+          <p>selectedClinic: {selectedClinic?.name || 'null'}</p>
+        </div>
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Agentes de IA</h1>
           <p className="text-gray-600 mt-2">Gerencie os agentes de atendimento da sua clínica</p>
         </div>
         
-        {canCreateAgents && (
-          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600">
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Agente
-              </Button>
-            </DialogTrigger>
-          <DialogContent className="max-w-md">
+        {/* Botão sempre visível para debug */}
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <DialogTrigger asChild>
+            <Button className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600">
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Agente
+            </Button>
+          </DialogTrigger>
+        <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Criar Novo Agente</DialogTitle>
             </DialogHeader>
@@ -574,7 +591,6 @@ const Agentes = () => {
             </div>
           </DialogContent>
         </Dialog>
-        )}
 
         {/* Fallback: mostrar botão mesmo se canCreateAgents for false */}
         {!canCreateAgents && (
