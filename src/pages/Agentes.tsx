@@ -82,7 +82,19 @@ const Agentes = () => {
   const { selectedClinicId, selectedClinic } = useClinic();
 
   // Verificar se o usuário pode criar agentes
-  const canCreateAgents = userRole === 'admin_lify' || userRole === 'suporte_lify' || userPermissions?.includes('agentes');
+  const canCreateAgents = userRole === 'admin_lify' || 
+                         userRole === 'suporte_lify' || 
+                         userRole === 'admin' || 
+                         userRole === 'gestor' || 
+                         userPermissions?.includes('agentes');
+
+  // Debug: log das permissões
+  console.log('🔍 [Agentes] Debug permissões:', {
+    userRole,
+    userPermissions,
+    canCreateAgents,
+    selectedClinicId
+  });
 
   useEffect(() => {
     loadAgents();
@@ -607,18 +619,21 @@ const Agentes = () => {
               {(() => {
                 const activeConnection = getActiveConnection(agent.id);
                 return activeConnection ? (
-                  <div className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded-md mb-3">
+                  <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-md mb-3">
                     <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-green-600" />
+                      <div className="p-1 bg-green-100 rounded-full">
+                        <Phone className="h-4 w-4 text-green-600" />
+                      </div>
                       <div>
                         <span className="text-sm font-medium text-green-800">
-                          Conectado: {activeConnection.whatsapp_number}
+                          WhatsApp Conectado
                         </span>
-                        {activeConnection.whatsapp_name && (
-                          <div className="text-xs text-green-600">
-                            {activeConnection.whatsapp_name}
-                          </div>
-                        )}
+                        <div className="text-xs text-green-600">
+                          {activeConnection.whatsapp_number}
+                          {activeConnection.whatsapp_name && (
+                            <span> • {activeConnection.whatsapp_name}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <Button
@@ -627,10 +642,27 @@ const Agentes = () => {
                       onClick={() => disconnectWhatsApp(agent.id, activeConnection.id)}
                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
                     >
-                      <PhoneOff className="h-4 w-4" />
+                      <PhoneOff className="h-3 w-3 mr-1" />
+                      Desconectar
                     </Button>
                   </div>
-                ) : null;
+                ) : (
+                  <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-md mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1 bg-gray-100 rounded-full">
+                        <PhoneOff className="h-4 w-4 text-gray-500" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-600">
+                          WhatsApp Desconectado
+                        </span>
+                        <div className="text-xs text-gray-500">
+                          Clique em QR Code para conectar
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
               })()}
 
               <div className="flex gap-2">

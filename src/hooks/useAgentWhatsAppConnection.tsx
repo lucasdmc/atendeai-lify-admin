@@ -22,6 +22,7 @@ interface AgentWhatsAppConnectionHook {
   disconnect: (agentId: string, connectionId: string) => Promise<void>;
   checkStatus: (agentId: string, connectionId: string) => Promise<void>;
   loadConnections: (agentId: string) => Promise<void>;
+  checkRealTimeStatus: (agentId: string) => Promise<{ status: string }>;
 }
 
 export const useAgentWhatsAppConnection = (): AgentWhatsAppConnectionHook => {
@@ -153,6 +154,40 @@ export const useAgentWhatsAppConnection = (): AgentWhatsAppConnectionHook => {
     }
   };
 
+  // Nova função para verificar status em tempo real
+  const checkRealTimeStatus = async (agentId: string) => {
+    try {
+      // Verificar status no backend
+      const response = await fetch(`http://31.97.241.19:3001/api/whatsapp/status/${agentId}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const backendStatus = await response.json();
+      
+      // Se backend está conectado mas banco não mostra, atualizar
+      if (backendStatus.status === 'connected') {
+        const currentConnections = connections.filter(conn => conn.agent_id === agentId);
+        const hasConnectedInDB = currentConnections.some(conn => conn.connection_status === 'connected');
+        
+        if (!hasConnectedInDB) {
+          console.log('🔄 [useAgentWhatsAppConnection] Backend conectado, atualizando banco...');
+          await loadConnections(agentId);
+          
+          toast({
+            title: "Conectado!",
+            description: "WhatsApp conectado com sucesso!",
+          });
+        }
+      }
+      
+      return backendStatus;
+    } catch (error) {
+      console.error('Erro ao verificar status em tempo real:', error);
+      return { status: 'disconnected' };
+    }
+  };
+
   return {
     connections,
     isLoading,
@@ -160,5 +195,6 @@ export const useAgentWhatsAppConnection = (): AgentWhatsAppConnectionHook => {
     disconnect,
     checkStatus,
     loadConnections,
+    checkRealTimeStatus,
   };
 }; 

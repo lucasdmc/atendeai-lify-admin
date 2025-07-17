@@ -39,6 +39,7 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
     isLoading,
     disconnect,
     loadConnections,
+    checkRealTimeStatus,
   } = useAgentWhatsAppConnection();
 
   // Configurações de timeout
@@ -206,6 +207,30 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
       return () => clearInterval(interval);
     }
   }, [connections, syncStatusWithBackend]);
+
+  // Polling mais frequente quando QR Code está ativo para detectar conexão
+  useEffect(() => {
+    if (qrStatus === 'ready' && qrCode) {
+      const interval = setInterval(async () => {
+        try {
+          // Verificar se houve mudança no status do backend usando a nova função
+          const backendStatus = await checkRealTimeStatus(agentId);
+          
+          if (backendStatus.status === 'connected') {
+            // QR Code foi escaneado! Atualizar interface
+            console.log('🎉 QR Code escaneado! Agente conectado!');
+            
+            // Limpar QR Code pois já foi conectado
+            clearQRCode();
+          }
+        } catch (error) {
+          console.error('Erro no polling de status:', error);
+        }
+      }, 2000); // Verificar a cada 2 segundos quando QR está ativo
+      
+      return () => clearInterval(interval);
+    }
+  }, [qrStatus, qrCode, agentId, checkRealTimeStatus, clearQRCode]);
 
   // Carregar conexões ao montar componente
   useEffect(() => {
