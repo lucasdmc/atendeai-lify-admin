@@ -10,7 +10,20 @@ import qrcode from 'qrcode';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+// Configuração de CORS mais permissiva para produção
+app.use(cors({
+  origin: [
+    'https://preview--atendeai-lify-admin.lovable.app',
+    'https://atendeai.lify.com.br',
+    'https://atendeai-lify-admin.lovable.app',
+    'http://localhost:5173',
+    'http://localhost:3000'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-path']
+}));
+
 app.use(express.json());
 
 // Armazenar clientes WhatsApp com timeout e limpeza automática

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { config } from '@/config/environment';
@@ -30,8 +30,16 @@ export const useAgentWhatsAppConnection = (): AgentWhatsAppConnectionHook => {
   const [connections, setConnections] = useState<AgentWhatsAppConnection[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const loadingRef = useRef<Set<string>>(new Set());
 
-  const loadConnections = async (agentId: string) => {
+  const loadConnections = useCallback(async (agentId: string) => {
+    // Evitar múltiplas requisições simultâneas para o mesmo agente
+    if (loadingRef.current.has(agentId)) {
+      return;
+    }
+
+    loadingRef.current.add(agentId);
+    
     try {
       console.log('🔄 [useAgentWhatsAppConnection] Carregando conexões para agente:', agentId);
       
@@ -53,10 +61,12 @@ export const useAgentWhatsAppConnection = (): AgentWhatsAppConnectionHook => {
         description: "Não foi possível carregar as conexões de WhatsApp",
         variant: "destructive",
       });
+    } finally {
+      loadingRef.current.delete(agentId);
     }
-  };
+  }, [toast]);
 
-  const generateQRCode = async (agentId: string, whatsappNumber: string) => {
+  const generateQRCode = useCallback(async (agentId: string, whatsappNumber: string) => {
     setIsLoading(true);
     try {
       console.log('🔄 [useAgentWhatsAppConnection] Gerando QR Code para:', agentId);
@@ -88,9 +98,9 @@ export const useAgentWhatsAppConnection = (): AgentWhatsAppConnectionHook => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [loadConnections, toast]);
 
-  const disconnect = async (agentId: string, connectionId: string) => {
+  const disconnect = useCallback(async (agentId: string, connectionId: string) => {
     setIsLoading(true);
     try {
       console.log('🔄 [useAgentWhatsAppConnection] Desconectando agente:', agentId);
@@ -122,9 +132,9 @@ export const useAgentWhatsAppConnection = (): AgentWhatsAppConnectionHook => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [loadConnections, toast]);
 
-  const checkStatus = async (agentId: string, connectionId: string) => {
+  const checkStatus = useCallback(async (agentId: string, connectionId: string) => {
     try {
       console.log('🔄 [useAgentWhatsAppConnection] Verificando status para:', agentId);
       
@@ -148,10 +158,10 @@ export const useAgentWhatsAppConnection = (): AgentWhatsAppConnectionHook => {
     } catch (error) {
       console.error('❌ Erro ao verificar status:', error);
     }
-  };
+  }, [loadConnections, toast]);
 
   // Função melhorada para verificar status em tempo real
-  const checkRealTimeStatus = async (agentId: string) => {
+  const checkRealTimeStatus = useCallback(async (agentId: string) => {
     try {
       console.log('🔄 [useAgentWhatsAppConnection] Verificando status em tempo real para:', agentId);
       
@@ -207,7 +217,7 @@ export const useAgentWhatsAppConnection = (): AgentWhatsAppConnectionHook => {
       console.error('❌ Erro ao verificar status em tempo real:', error);
       return { status: 'disconnected' };
     }
-  };
+  }, [connections, loadConnections, disconnect, toast]);
 
   return {
     connections,
