@@ -446,7 +446,7 @@ async function getOrCreateConversation(supabase: any, phoneNumber: string): Prom
 
 async function processMessageWithAI(supabase: any, conversationId: string, message: string, phoneNumber: string) {
   try {
-    console.log(`Processing message with AI: ${message}`)
+    console.log(`Processing message with Advanced AI: ${message}`)
     
     // 1. Identificar qual agente está conectado ao número
     const { data: agentConnection, error: connectionError } = await supabase
@@ -472,25 +472,27 @@ async function processMessageWithAI(supabase: any, conversationId: string, messa
       .eq('connection_status', 'connected')
       .single()
 
+    let agentId = null;
+    let agentContext = null;
+
     if (connectionError || !agentConnection) {
       console.log('No connected agent found for number:', phoneNumber)
       // Usar contexto padrão se não houver agente conectado
-      return await processWithDefaultContext(supabase, conversationId, message, phoneNumber)
+      agentContext = await generateDefaultContext(supabase);
+    } else {
+      const agent = agentConnection.agents;
+      agentId = agent.id;
+      console.log('Processing with agent:', agent.name)
+      agentContext = await generateAgentContext(agent);
     }
 
-    const agent = agentConnection.agents
-    console.log('Processing with agent:', agent.name)
-
-    // 2. Gerar contexto baseado no agente
-    const context = await generateAgentContext(agent)
-    
-    // 3. Processar mensagem com contexto do agente
+    // 2. Processar mensagem com sistema avançado de IA
     const { data, error } = await supabase.functions.invoke('ai-chat-gpt4', {
       body: {
         messages: [
           {
             role: 'system',
-            content: context
+            content: agentContext
           },
           {
             role: 'user',
@@ -498,13 +500,19 @@ async function processMessageWithAI(supabase: any, conversationId: string, messa
           }
         ],
         phoneNumber: phoneNumber,
-        agentId: agent.id,
-        temperature: agent.temperature || 0.7
+        agentId: agentId,
+        temperature: agentConnection?.agents?.temperature || 0.7,
+        // Flags para ativar recursos avançados
+        enableAdvancedAI: true,
+        enableIntentRecognition: true,
+        enableRAG: true,
+        enablePersonalization: true,
+        enableMemory: true
       }
     })
 
     if (error) {
-      console.error('Error calling AI service:', error)
+      console.error('Error calling Advanced AI service:', error)
       return
     }
 
@@ -519,10 +527,12 @@ async function processMessageWithAI(supabase: any, conversationId: string, messa
           timestamp: new Date().toISOString(),
           metadata: {
             ai_generated: true,
-            agent_id: agent.id,
-            agent_name: agent.name,
             intent: data.intent,
-            confidence: data.confidence
+            confidence: data.confidence,
+            agent_id: agentId,
+            advanced_ai: true,
+            rag_sources: data.metadata?.ragSources,
+            personalization: data.metadata?.personalization
           }
         })
 
@@ -534,7 +544,7 @@ async function processMessageWithAI(supabase: any, conversationId: string, messa
       const whatsappServerUrl = Deno.env.get('WHATSAPP_SERVER_URL') || 'http://31.97.241.19:3001'
       
       try {
-        await fetch(`${whatsappServerUrl}/api/whatsapp/send-message`, {
+        const sendResponse = await fetch(`${whatsappServerUrl}/api/whatsapp/send-message`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -542,12 +552,18 @@ async function processMessageWithAI(supabase: any, conversationId: string, messa
             message: data.response
           })
         })
+
+        if (sendResponse.ok) {
+          console.log('✅ Advanced AI response sent via WhatsApp')
+        } else {
+          console.error('❌ Error sending AI response via WhatsApp:', sendResponse.status)
+        }
       } catch (sendError) {
         console.error('Error sending AI response via WhatsApp:', sendError)
       }
     }
   } catch (error) {
-    console.error('Error processing message with AI:', error)
+    console.error('Error processing message with Advanced AI:', error)
   }
 }
 
