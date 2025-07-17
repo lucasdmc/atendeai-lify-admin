@@ -87,8 +87,13 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
       // Resetar sessão antes de gerar novo QR
       await resetSession();
 
-      const { data, error } = await supabase.functions.invoke('agent-whatsapp-manager/generate-qr', {
-        body: { agentId }
+      const { data, error } = await supabase.functions.invoke('agent-whatsapp-manager', {
+        body: { agentId },
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Path': 'generate-qr'
+        }
       });
 
       if (error) {
