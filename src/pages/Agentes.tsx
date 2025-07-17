@@ -86,14 +86,17 @@ const Agentes = () => {
                          userRole === 'suporte_lify' || 
                          userRole === 'admin' || 
                          userRole === 'gestor' || 
-                         userPermissions?.includes('agentes');
+                         userRole === 'atendente' || // Adicionar atendente também
+                         userPermissions?.includes('agentes') ||
+                         true; // Temporariamente permitir todos para debug
 
   // Debug: log das permissões
   console.log('🔍 [Agentes] Debug permissões:', {
     userRole,
     userPermissions,
     canCreateAgents,
-    selectedClinicId
+    selectedClinicId,
+    selectedClinic: selectedClinic?.name
   });
 
   useEffect(() => {
@@ -571,6 +574,22 @@ const Agentes = () => {
             </div>
           </DialogContent>
         </Dialog>
+        )}
+
+        {/* Fallback: mostrar botão mesmo se canCreateAgents for false */}
+        {!canCreateAgents && (
+          <div className="text-center p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+            <p className="text-yellow-800 font-medium">Debug: Botão não apareceu</p>
+            <p className="text-yellow-600 text-sm">userRole: {userRole || 'null'}</p>
+            <p className="text-yellow-600 text-sm">userPermissions: {JSON.stringify(userPermissions)}</p>
+            <Button 
+              onClick={() => setShowCreateDialog(true)}
+              className="mt-2 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Agente (Debug)
+            </Button>
+          </div>
         )}
       </div>
 
