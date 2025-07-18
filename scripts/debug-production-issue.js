@@ -83,7 +83,7 @@ function checkServer(url) {
 async function checkServers() {
     const servers = [
         'https://localhost:3001/health',
-        'https://31.97.241.19:3001/health'
+        'http://31.97.241.19:3001/health'
     ];
     
     for (const server of servers) {
@@ -113,8 +113,8 @@ checkServers().then(() => {
     console.log('');
     console.log('4. 🔧 Configuração manual:');
     console.log('   - No dashboard do Lify, adicione:');
-    console.log('     VITE_WHATSAPP_SERVER_URL=https://31.97.241.19:3001');
-    console.log('     VITE_BACKEND_URL=https://31.97.241.19:3001');
+    console.log('     VITE_WHATSAPP_SERVER_URL=http://31.97.241.19:3001');
+console.log('     VITE_BACKEND_URL=http://31.97.241.19:3001');
     console.log('');
     console.log('5. 🧪 Teste local:');
     console.log('   - npm run dev');

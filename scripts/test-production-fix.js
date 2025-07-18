@@ -60,7 +60,7 @@ async function testQRCodeGeneration() {
 async function testExternalConnectivity() {
   console.log('\n🌐 Testando conectividade externa...');
   try {
-    const response = await fetch('https://31.97.241.19:3001/health', {
+    const response = await fetch('http://31.97.241.19:3001/health', {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' }
     });
