@@ -5,7 +5,7 @@ import { QrCode, PhoneOff, RefreshCw, AlertCircle, CheckCircle } from 'lucide-re
 import { useToast } from '@/hooks/use-toast';
 import { useAgentWhatsAppConnection } from '@/hooks/useAgentWhatsAppConnection';
 import { supabase } from '@/integrations/supabase/client';
-import { config } from '@/config/environment';
+
 
 interface AgentWhatsAppConnection {
   id: string;
@@ -62,63 +62,21 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
     setLastGeneratedAt(null);
   }, []);
 
-  // Resetar sessão no backend
-  const resetSession = useCallback(async () => {
-    try {
-      const response = await fetch(`${config.whatsapp.serverUrl}/api/whatsapp/disconnect`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentId })
-      });
+  // Função de reset removida - a Edge Function já gerencia isso automaticamente
 
-      if (!response.ok) {
-        throw new Error('Falha ao resetar sessão');
-      }
+  // Função de verificação de status removida - usar apenas Edge Functions
 
-      console.log('Sessão resetada com sucesso');
-    } catch (error) {
-      console.error('Erro ao resetar sessão:', error);
-    }
-  }, [agentId]);
-
-  // Verificar status real da conexão no backend
-  const checkBackendStatus = useCallback(async () => {
-    try {
-      const response = await fetch(`${config.whatsapp.serverUrl}/api/whatsapp/status/${agentId}`);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Erro ao verificar status do backend:', error);
-      return { status: 'disconnected' };
-    }
-  }, [agentId]);
-
-  // Sincronizar status com backend
+  // Sincronizar status usando apenas Edge Functions
   const syncStatusWithBackend = useCallback(async () => {
     setIsCheckingStatus(true);
     try {
-      const backendStatus = await checkBackendStatus();
-      const activeConnection = connections.find(conn => conn.connection_status === 'connected');
-      
-      if (backendStatus.status === 'disconnected' && activeConnection) {
-        // Backend desconectado mas banco mostra conectado - corrigir
-        console.log('Sincronizando: backend desconectado, marcando como desconectado no banco');
-        await disconnect(agentId, activeConnection.id);
-        await loadConnections(agentId);
-        clearQRCode();
-      } else if (backendStatus.status === 'connected' && !activeConnection) {
-        // Backend conectado mas banco não mostra - recarregar conexões
-        console.log('Sincronizando: backend conectado, recarregando conexões');
-        await loadConnections(agentId);
-      }
+      await loadConnections(agentId);
     } catch (error) {
       console.error('Erro ao sincronizar status:', error);
     } finally {
       setIsCheckingStatus(false);
     }
-  }, [agentId, connections, disconnect, loadConnections, checkBackendStatus, clearQRCode]);
+  }, [agentId, loadConnections]);
 
   // Gera e exibe o QR Code com retry e timeout
   const generateQRCodeForAgent = useCallback(async (retryCount = 0) => {
@@ -127,8 +85,7 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
     setQrStatus('generating');
     
     try {
-      // Resetar sessão antes de gerar novo QR
-      await resetSession();
+      // Usar apenas Edge Function para gerar QR Code
 
       const { data, error } = await supabase.functions.invoke('agent-whatsapp-manager', {
         body: { agentId },
@@ -178,7 +135,7 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
     } finally {
       setIsGeneratingQR(false);
     }
-  }, [agentId, resetSession, toast]);
+  }, [agentId, toast]);
 
   // Verificar expiração do QR Code
   useEffect(() => {
