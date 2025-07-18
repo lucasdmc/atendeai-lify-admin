@@ -15,7 +15,7 @@ export const config = {
 
   // WhatsApp
   whatsapp: {
-    serverUrl: import.meta.env.VITE_WHATSAPP_SERVER_URL || 'https://31.97.241.19',
+    serverUrl: import.meta.env.VITE_WHATSAPP_SERVER_URL || 'https://31.97.241.19:3001',
   },
 
   // Environment

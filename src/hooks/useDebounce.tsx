@@ -1,9 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 
-/**
- * Hook para debounce de valores
- * Útil para otimizar pesquisas e chamadas de API
- */
 export function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
@@ -20,25 +16,32 @@ export function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-/**
- * Hook para debounce de funções
- * Útil para otimizar callbacks e event handlers
- */
-export function useDebouncedCallback<T extends (...args: any[]) => any>(
+// Hook para debounce de função
+export function useDebouncedCallback<T extends (...args: unknown[]) => unknown>(
   callback: T,
   delay: number
 ): T {
-  const [debouncedCallback, setDebouncedCallback] = useState<T>(callback);
+  const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedCallback(callback);
+  return ((...args: Parameters<T>) => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+
+    const newTimeoutId = setTimeout(() => {
+      callback(...args);
     }, delay);
 
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [callback, delay]);
+    setTimeoutId(newTimeoutId);
+  }) as T;
+}
 
-  return debouncedCallback;
+// Hook para debounce de busca
+export function useSearchDebounce(searchTerm: string, delay: number = 300) {
+  return useDebounce(searchTerm, delay);
+}
+
+// Hook para debounce de filtros
+export function useFilterDebounce<T>(filters: T, delay: number = 500) {
+  return useDebounce(filters, delay);
 }
