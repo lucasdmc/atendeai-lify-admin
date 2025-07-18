@@ -87,13 +87,8 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
     try {
       // Usar apenas Edge Function para gerar QR Code
 
-      const { data, error } = await supabase.functions.invoke('agent-whatsapp-manager', {
-        body: { agentId },
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Path': 'generate-qr'
-        }
+      const { data, error } = await supabase.functions.invoke('agent-whatsapp-manager/generate-qr', {
+        body: { agentId }
       });
 
       if (error) {

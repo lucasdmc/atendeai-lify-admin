@@ -43,6 +43,9 @@ serve(async (req) => {
       case 'generate-qr':
         return await handleGenerateQR(req, supabase, whatsappServerUrl)
       
+      case 'refresh-qr':
+        return await handleRefreshQR(req, supabase, whatsappServerUrl)
+      
       case 'webhook':
         return await handleAgentWebhook(req, supabase)
       
@@ -978,6 +981,105 @@ async function handleDisconnectAll(req: Request, supabase: any, whatsappServerUr
     )
   } catch (error) {
     console.error('Error in handleDisconnectAll:', error)
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error.message
+      }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    )
+  }
+} 
+
+async function handleRefreshQR(req: Request, supabase: any, whatsappServerUrl: string) {
+  try {
+    const { agentId } = await req.json()
+    
+    if (!agentId) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'agentId is required'
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    console.log(`Refreshing QR Code for agent ${agentId}`)
+
+    // Verificar se o agente existe
+    const { data: agent, error: agentError } = await supabase
+      .from('agents')
+      .select('*')
+      .eq('id', agentId)
+      .single()
+
+    if (agentError || !agent) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Agent not found'
+        }),
+        { 
+          status: 404, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Limpar QR Code existente no banco
+    await supabase
+      .from('agent_whatsapp_connections')
+      .update({ 
+        qr_code: null,
+        connection_status: 'connecting',
+        updated_at: new Date().toISOString()
+      })
+      .eq('agent_id', agentId)
+
+    // Gerar novo QR Code
+    const response = await fetch(`${whatsappServerUrl}/api/whatsapp/generate-qr`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agentId })
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: Failed to generate new QR Code`)
+    }
+
+    const data = await response.json()
+
+    // Atualizar banco com novo QR Code
+    if (data.qrCode) {
+      await supabase
+        .from('agent_whatsapp_connections')
+        .update({ 
+          qr_code: data.qrCode,
+          updated_at: new Date().toISOString()
+        })
+        .eq('agent_id', agentId)
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        qrCode: data.qrCode,
+        message: 'QR Code refreshed successfully'
+      }),
+      { 
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    )
+  } catch (error) {
+    console.error('Error in handleRefreshQR:', error)
     return new Response(
       JSON.stringify({
         success: false,
