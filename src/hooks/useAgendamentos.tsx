@@ -133,7 +133,7 @@ export const useAgendamentos = () => {
         description: 'Evento criado com sucesso!',
       });
     },
-    onError: (error) => {
+    onError: (_error) => {
       toast({
         title: 'Erro',
         description: 'Não foi possível criar o evento',
@@ -169,7 +169,7 @@ export const useAgendamentos = () => {
         description: 'Evento atualizado com sucesso!',
       });
     },
-    onError: (error) => {
+    onError: (_error) => {
       toast({
         title: 'Erro',
         description: 'Não foi possível atualizar o evento',
@@ -204,7 +204,7 @@ export const useAgendamentos = () => {
         description: 'Evento deletado com sucesso!',
       });
     },
-    onError: (error) => {
+    onError: (_error) => {
       toast({
         title: 'Erro',
         description: 'Não foi possível deletar o evento',

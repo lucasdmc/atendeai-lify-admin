@@ -5,8 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Plus, Bot, Settings, Building2, QrCode, Phone, PhoneOff, Trash2 } from 'lucide-react';
+import { Plus, Bot, Settings, QrCode, Trash2 } from 'lucide-react';
 import AgentWhatsAppManager from '@/components/agentes/AgentWhatsAppManager';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
@@ -34,18 +33,6 @@ interface Agent {
   } | null;
 }
 
-interface AgentWhatsAppConnection {
-  id: string;
-  agent_id: string;
-  whatsapp_number: string;
-  whatsapp_name: string;
-  connection_status: 'disconnected' | 'connecting' | 'connected' | 'error';
-  qr_code: string | null;
-  client_info: Record<string, unknown>;
-  last_connection_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
 
 interface Clinic {
   id: string;
@@ -73,9 +60,6 @@ const Agentes = () => {
     clinic_id: '',
     context_json: ''
   });
-  const [showQRDialog, setShowQRDialog] = useState(false);
-  const [qrAgent, setQrAgent] = useState<Agent | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
   const { toast } = useToast();
   const { userRole, userPermissions } = useAuth();
   const { selectedClinicId, selectedClinic } = useClinic();
@@ -83,23 +67,15 @@ const Agentes = () => {
   // Usar o hook otimizado
   const {
     agents,
-    agentConnections,
     isLoading,
-    agentsLoading,
-    connectionsLoading,
     agentsError,
-    connectionsError,
     createAgent,
     updateAgent,
     deleteAgent,
     toggleAgentStatus,
     isCreating,
     isUpdating,
-    isDeleting,
-    isTogglingStatus,
     canCreateAgents,
-    getAgentConnections,
-    getActiveConnection,
   } = useAgents();
 
   // Debug imediato ao montar componente
@@ -334,32 +310,6 @@ const Agentes = () => {
     }
   };
 
-  const disconnectWhatsApp = async (agentId: string, connectionId: string) => {
-    try {
-      const { data, error } = await supabase.functions.invoke('agent-whatsapp-manager/disconnect', {
-        body: {
-          agentId,
-          connectionId
-        }
-      });
-
-      if (error) throw error;
-
-      if (data.success) {
-        toast({
-          title: "Sucesso",
-          description: "WhatsApp desconectado com sucesso",
-        });
-      }
-    } catch (error) {
-      console.error('Erro ao desconectar WhatsApp:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível desconectar o WhatsApp",
-        variant: "destructive",
-      });
-    }
-  };
 
   // Loading state otimizado
   if (isLoading) {
@@ -530,9 +480,6 @@ const Agentes = () => {
       {/* Lista de Agentes */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {agents.map((agent) => {
-          const agentConnectionsList = getAgentConnections(agent.id);
-          const activeConnection = getActiveConnection(agent.id);
-
           return (
             <Card key={agent.id} className="relative">
               <CardHeader>
@@ -568,8 +515,7 @@ const Agentes = () => {
                     <span className="text-sm font-medium">WhatsApp:</span>
                     <AgentConnectionStatus
                       agentId={agent.id}
-                      connections={agentConnectionsList}
-                      activeConnection={activeConnection}
+                      agentName={agent.name}
                     />
                   </div>
 

@@ -1,10 +1,10 @@
 import { Card, CardContent } from '@/components/ui/card';
-import { LucideIcon } from 'lucide-react';
+import { type ComponentType } from 'react';
 
 interface StatsCardProps {
   title: string;
   value: string | number;
-  icon: LucideIcon;
+  icon: ComponentType<any>;
   color: string;
   bgColor: string;
   borderColor: string;

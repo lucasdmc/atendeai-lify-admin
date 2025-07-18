@@ -138,7 +138,7 @@ export const useAgents = () => {
         description: "Agente criado com sucesso!",
       });
     },
-    onError: (error) => {
+    onError: (_error) => {
       toast({
         title: "Erro",
         description: "Não foi possível criar o agente",
@@ -167,7 +167,7 @@ export const useAgents = () => {
         description: "Agente atualizado com sucesso!",
       });
     },
-    onError: (error) => {
+    onError: (_error) => {
       toast({
         title: "Erro",
         description: "Não foi possível atualizar o agente",
@@ -194,7 +194,7 @@ export const useAgents = () => {
         description: "Agente deletado com sucesso!",
       });
     },
-    onError: (error) => {
+    onError: (_error) => {
       toast({
         title: "Erro",
         description: "Não foi possível deletar o agente",
@@ -219,7 +219,7 @@ export const useAgents = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agents'] });
     },
-    onError: (error) => {
+    onError: (_error) => {
       toast({
         title: "Erro",
         description: "Não foi possível alterar o status do agente",

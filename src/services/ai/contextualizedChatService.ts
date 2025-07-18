@@ -187,7 +187,7 @@ DESPEDIDA PADRÃO: ${agente.mensagem_despedida}
    */
   private static buildContextualizedPrompt(
     userMessage: string,
-    clinicContext: string,
+    _clinicContext: string,
     memory: any,
     isNewConversation: boolean
   ): string {

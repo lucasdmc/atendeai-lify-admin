@@ -197,6 +197,8 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
       const interval = setInterval(checkExpiry, 10000); // Verificar a cada 10 segundos
       return () => clearInterval(interval);
     }
+    
+    return undefined; // Retorno explícito
   }, [qrStatus, lastGeneratedAt, isQRExpired, toast]);
 
   // Verificar status periodicamente quando há conexão ativa
@@ -207,6 +209,8 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
       const interval = setInterval(syncStatusWithBackend, STATUS_CHECK_INTERVAL);
       return () => clearInterval(interval);
     }
+    
+    return undefined; // Retorno explícito
   }, [connections, syncStatusWithBackend]);
 
   // Polling mais frequente quando QR Code está ativo para detectar conexão
@@ -231,6 +235,8 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
       
       return () => clearInterval(interval);
     }
+    
+    return undefined; // Retorno explícito
   }, [qrStatus, qrCode, agentId, checkRealTimeStatus, clearQRCode]);
 
   // Carregar conexões ao montar componente

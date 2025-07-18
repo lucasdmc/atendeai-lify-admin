@@ -13,7 +13,6 @@ interface AgentConnectionStatusProps {
 
 export const AgentConnectionStatus: React.FC<AgentConnectionStatusProps> = ({
   agentId,
-  agentName,
   className = ''
 }) => {
   const { connections, isLoading, loadConnections, checkRealTimeStatus } = useAgentWhatsAppConnection();

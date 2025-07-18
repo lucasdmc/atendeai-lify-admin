@@ -51,6 +51,8 @@ const LoadingOptimized = memo(({
       setProgress(100);
       setTimeout(() => setProgress(0), 500);
     }
+    
+    return undefined; // Retorno explícito
   }, [isLoading, timeout, showProgress]);
 
   if (!isLoading) {
