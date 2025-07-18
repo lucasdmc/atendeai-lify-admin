@@ -27,7 +27,8 @@ async function testEdgeFunctionCalls() {
     console.log('\n2. Testando chamada INCORRETA sem endpoint:');
     console.log('   agent-whatsapp-manager');
     
-    const { data: data2, error: error2 } = await supabase.functions.invoke('agent-whatsapp-manager', {
+    // CORRIGIDO: usar endpoint específico
+    const { data: data2, error: error2 } = await supabase.functions.invoke('agent-whatsapp-manager/generate-qr', {
       body: { agentId: 'test-agent' }
     });
     
