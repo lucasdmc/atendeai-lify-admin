@@ -1,0 +1,7 @@
+{
+  "version": "v1.0.1752873497081",
+  "timestamp": "2025-07-18T21:18:17.081Z",
+  "build": "force-deploy",
+  "cacheBust": true,
+  "description": "Force deploy to fix 404 errors"
+}
