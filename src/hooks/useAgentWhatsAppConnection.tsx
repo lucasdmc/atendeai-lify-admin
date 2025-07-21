@@ -165,6 +165,7 @@ export const useAgentWhatsAppConnection = (): AgentWhatsAppConnectionHook => {
     try {
       console.log('🔄 [useAgentWhatsAppConnection] Verificando status em tempo real para:', agentId);
       console.log('✅ [CACHE-FIX] Versão corrigida - usando apenas Supabase Function');
+      console.log('🕐 [TIMESTAMP]', new Date().toISOString());
       
       // Usar apenas Supabase Function para evitar problemas de CORS/SSL
       const { data, error } = await supabase.functions.invoke('agent-whatsapp-manager/status', {
