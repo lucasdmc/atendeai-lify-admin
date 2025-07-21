@@ -70,6 +70,12 @@ function createSessionDirectory(agentId, whatsappNumber) {
 // Função para atualizar QR Code no Supabase
 async function updateQRCodeInSupabase(connectionId, qrCode) {
   try {
+    // Não tentar atualizar se connectionId é temporário
+    if (!connectionId || connectionId.startsWith('temp-')) {
+      console.log(`Skipping Supabase update for temporary connectionId: ${connectionId}`);
+      return true;
+    }
+
     const { data, error } = await supabase
       .from('agent_whatsapp_connections')
       .update({ 
@@ -95,6 +101,12 @@ async function updateQRCodeInSupabase(connectionId, qrCode) {
 // Função para atualizar status da conexão no Supabase
 async function updateConnectionStatusInSupabase(connectionId, status, additionalData = {}) {
   try {
+    // Não tentar atualizar se connectionId é temporário
+    if (!connectionId || connectionId.startsWith('temp-')) {
+      console.log(`Skipping Supabase status update for temporary connectionId: ${connectionId}`);
+      return true;
+    }
+
     const updateData = {
       connection_status: status,
       updated_at: new Date().toISOString(),
@@ -399,18 +411,24 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
     
     try {
       // Tentar criar conexão Baileys
+      logWithTimestamp(`Creating Baileys connection for ${agentId}`);
       await createWhatsAppConnection(agentId, whatsappNumber || 'temp', finalConnectionId);
       
-      // Aguardar QR Code por até 15 segundos
+      // Aguardar QR Code por até 30 segundos (aumentado)
       let qrCode = null;
       let attempts = 0;
-      const maxAttempts = 15;
+      const maxAttempts = 30;
+      
+      logWithTimestamp(`Waiting for QR Code (max ${maxAttempts} seconds)...`);
       
       while (!qrCode && attempts < maxAttempts) {
         qrCode = qrCodes.get(sessionKey);
         if (!qrCode) {
           await new Promise(resolve => setTimeout(resolve, 1000));
           attempts++;
+          if (attempts % 5 === 0) {
+            logWithTimestamp(`Still waiting for QR Code... (${attempts}/${maxAttempts})`);
+          }
         }
       }
       
@@ -422,21 +440,22 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
           agentId,
           whatsappNumber: whatsappNumber || 'temp',
           connectionId: finalConnectionId,
-          qrCode: qrCode
+          qrCode: qrCode,
+          mode: 'baileys'
         });
       } else {
         // Se Baileys falhou, gerar QR Code simples
-        logWithTimestamp(`Baileys failed, generating simple QR Code for ${agentId}`);
+        logWithTimestamp(`Baileys failed to generate QR Code, using simple fallback for ${agentId}`);
         const simpleQRCode = await generateSimpleQRCode(agentId, whatsappNumber || 'temp');
         
         res.json({ 
           success: true, 
-          message: 'QR Code gerado (modo simples)',
+          message: 'QR Code gerado (modo simples - Baileys falhou)',
           agentId,
           whatsappNumber: whatsappNumber || 'temp',
           connectionId: finalConnectionId,
           qrCode: simpleQRCode,
-          mode: 'simple'
+          mode: 'simple-fallback'
         });
       }
     } catch (connectionError) {
@@ -448,12 +467,12 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
         
         res.json({ 
           success: true, 
-          message: 'QR Code gerado (modo simples - fallback)',
+          message: 'QR Code gerado (modo simples - erro Baileys)',
           agentId,
           whatsappNumber: whatsappNumber || 'temp',
           connectionId: finalConnectionId,
           qrCode: simpleQRCode,
-          mode: 'simple-fallback'
+          mode: 'simple-error'
         });
       } catch (qrError) {
         logWithTimestamp(`Error generating simple QR Code: ${qrError.message}`);
