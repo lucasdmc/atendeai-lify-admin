@@ -56,12 +56,24 @@ serve(async (req) => {
     const data = await response.json();
     console.log(`Backend response data: ${JSON.stringify(data).substring(0, 200)}...`);
     
+    if (!data.success) {
+      console.error('Backend returned error:', data.error);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: data.error || 'Erro ao gerar QR Code no backend', 
+          status: 'error' 
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     if (!data.qrCode) {
       console.error('QR Code not returned by backend');
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: 'QR Code não retornado pelo backend', 
+          error: 'QR Code não foi retornado pelo servidor', 
           status: 'error' 
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -72,7 +84,11 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true,
-        qrCode: data.qrCode 
+        qrCode: data.qrCode,
+        message: data.message,
+        agentId: data.agentId,
+        whatsappNumber: data.whatsappNumber,
+        connectionId: data.connectionId
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
