@@ -414,10 +414,10 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
       logWithTimestamp(`Creating Baileys connection for ${agentId}`);
       await createWhatsAppConnection(agentId, whatsappNumber || 'temp', finalConnectionId);
       
-      // Aguardar QR Code por até 30 segundos (aumentado)
+      // Aguardar QR Code por até 45 segundos (aumentado)
       let qrCode = null;
       let attempts = 0;
-      const maxAttempts = 30;
+      const maxAttempts = 45;
       
       logWithTimestamp(`Waiting for QR Code (max ${maxAttempts} seconds)...`);
       
