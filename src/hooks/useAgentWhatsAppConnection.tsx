@@ -165,59 +165,28 @@ export const useAgentWhatsAppConnection = (): AgentWhatsAppConnectionHook => {
     try {
       console.log('🔄 [useAgentWhatsAppConnection] Verificando status em tempo real para:', agentId);
       
-      // 1. Verificar status no backend usando URL correta para produção
-      const backendUrl = config.whatsapp.serverUrl;
-      const response = await fetch(`${backendUrl}/api/whatsapp/status/${agentId}`);
-      
-      if (!response.ok) {
-        console.warn('⚠️ Backend não respondeu, usando status do banco');
+      // Usar apenas Supabase Function para evitar problemas de CORS/SSL
+      const { data, error } = await supabase.functions.invoke('agent-whatsapp-manager/status', {
+        body: { agentId }
+      });
+
+      if (error) {
+        console.warn('⚠️ Supabase Function não respondeu:', error);
         await loadConnections(agentId);
         return { status: 'disconnected' };
       }
       
-      const backendStatus = await response.json();
-      console.log('✅ [useAgentWhatsAppConnection] Status do backend:', backendStatus);
+      console.log('✅ [useAgentWhatsAppConnection] Status via Supabase Function:', data);
       
-      // 2. Se backend está conectado mas banco não mostra, atualizar
-      if (backendStatus.status === 'connected') {
-        const currentConnections = connections.filter(conn => conn.agent_id === agentId);
-        const hasConnectedInDB = currentConnections.some(conn => conn.connection_status === 'connected');
-        
-        if (!hasConnectedInDB) {
-          console.log('🔄 [useAgentWhatsAppConnection] Backend conectado, atualizando banco...');
-          
-          // Forçar sincronização com o banco
-          await loadConnections(agentId);
-          
-          toast({
-            title: "Conectado!",
-            description: "WhatsApp conectado com sucesso!",
-          });
-        }
-      }
+      // Atualizar conexões locais
+      await loadConnections(agentId);
       
-      // 3. Se backend está desconectado mas banco mostra conectado, corrigir
-      if (backendStatus.status === 'disconnected') {
-        const currentConnections = connections.filter(conn => conn.agent_id === agentId);
-        const hasConnectedInDB = currentConnections.some(conn => conn.connection_status === 'connected');
-        
-        if (hasConnectedInDB) {
-          console.log('🔄 [useAgentWhatsAppConnection] Backend desconectado, corrigindo banco...');
-          
-          // Marcar como desconectado no banco
-          const connectedConnection = currentConnections.find(conn => conn.connection_status === 'connected');
-          if (connectedConnection) {
-            await disconnect(agentId, connectedConnection.id);
-          }
-        }
-      }
-      
-      return backendStatus;
+      return { status: data.status || 'disconnected' };
     } catch (error) {
       console.error('❌ Erro ao verificar status em tempo real:', error);
       return { status: 'disconnected' };
     }
-  }, [connections, loadConnections, disconnect, toast]);
+  }, [loadConnections]);
 
   return {
     connections,
