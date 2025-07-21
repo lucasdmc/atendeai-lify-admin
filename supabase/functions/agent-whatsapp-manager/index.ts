@@ -769,7 +769,7 @@ async function handleGenerateQR(req: Request, supabase: any, whatsappServerUrl: 
 
     // CORREÇÃO 1: Adicionar timeout e melhorar headers
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 segundos de timeout
+    const timeoutId = setTimeout(() => controller.abort(), 60000) // 60 segundos de timeout
 
     try {
       console.log(`Making request to: ${whatsappServerUrl}/api/whatsapp/generate-qr`)
