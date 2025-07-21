@@ -869,7 +869,11 @@ async function handleGenerateQR(req: Request, supabase: any, whatsappServerUrl: 
           success: true,
           qrCode: data.qrCode,
           status: data.qrCode ? 'qr_ready' : 'initializing',
-          message: data.message || 'QR Code generation initiated'
+          message: data.message || 'QR Code generation initiated',
+          mode: data.mode || 'unknown',
+          agentId: data.agentId,
+          whatsappNumber: data.whatsappNumber,
+          connectionId: data.connectionId
         }),
         { 
           status: 200, 
