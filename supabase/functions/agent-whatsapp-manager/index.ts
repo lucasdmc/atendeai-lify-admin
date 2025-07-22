@@ -2,10 +2,11 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-path, x-requested-with',
+  'Access-Control-Allow-Origin': 'https://atendeai.lify.com.br',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-path, x-requested-with, user-agent, accept, connection, x-agent-id, x-request-id',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Max-Age': '86400',
+  'Access-Control-Allow-Credentials': 'true',
 }
 
 serve(async (req) => {
@@ -702,231 +703,6 @@ async function handleGetConnections(req: Request, supabase: any) {
   }
 }
 
-async function handleGenerateQR(req: Request, supabase: any, whatsappServerUrl: string) {
-  try {
-    const { agentId } = await req.json()
-    
-    if (!agentId) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'agentId is required'
-        }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    console.log(`Generating QR Code for agent ${agentId}`)
-    console.log(`WhatsApp server URL: ${whatsappServerUrl}`)
-
-    // Verificar se o agente existe
-    const { data: agent, error: agentError } = await supabase
-      .from('agents')
-      .select('*')
-      .eq('id', agentId)
-      .single()
-
-    if (agentError || !agent) {
-      console.error('Agent not found:', agentError)
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Agent not found'
-        }),
-        { 
-          status: 404, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    console.log(`Agent found: ${agent.name}`)
-
-    // NOVO: Limpar sessão antes de gerar QR Code
-    try {
-      console.log(`Tentando desconectar sessão antiga para agentId: ${agentId}`)
-      const disconnectResponse = await fetch(`${whatsappServerUrl}/api/whatsapp/disconnect`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Supabase-Edge-Function/1.0',
-          'Accept': 'application/json',
-          'X-Agent-ID': agentId,
-          'X-Request-ID': crypto.randomUUID()
-        },
-        body: JSON.stringify({ agentId })
-      })
-      if (disconnectResponse.ok) {
-        console.log('Sessão antiga desconectada com sucesso.')
-      } else {
-        const errText = await disconnectResponse.text()
-        console.warn(`Não foi possível desconectar sessão antiga: ${disconnectResponse.status} - ${errText}`)
-      }
-    } catch (disconnectError) {
-      console.warn('Erro ao tentar desconectar sessão antiga:', disconnectError)
-    }
-
-    // CORREÇÃO 1: Adicionar timeout e melhorar headers
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 60000) // 60 segundos de timeout
-
-    try {
-      console.log(`Making request to: ${whatsappServerUrl}/api/whatsapp/generate-qr`)
-      
-      const response = await fetch(`${whatsappServerUrl}/api/whatsapp/generate-qr`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'User-Agent': 'Supabase-Edge-Function/1.0',
-          'Accept': 'application/json',
-          'Connection': 'keep-alive',
-          'X-Agent-ID': agentId,
-          'X-Request-ID': crypto.randomUUID()
-        },
-        body: JSON.stringify({ agentId }),
-        signal: controller.signal
-      })
-
-      clearTimeout(timeoutId)
-
-      console.log(`Backend response status: ${response.status}`)
-      console.log(`Backend response headers:`, Object.fromEntries(response.headers.entries()))
-      
-      // CORREÇÃO 2: Melhor tratamento de erros HTTP
-      if (!response.ok) {
-        let errorMessage = `HTTP ${response.status}`
-        let errorDetails = ''
-        
-        try {
-          const contentType = response.headers.get('content-type')
-          if (contentType && contentType.includes('application/json')) {
-            const errorData = await response.json()
-            errorDetails = errorData.error || errorData.message || JSON.stringify(errorData)
-          } else {
-            errorDetails = await response.text()
-          }
-          errorMessage = `${errorMessage}: ${errorDetails}`
-        } catch (e) {
-          console.error('Error parsing error response:', e)
-        }
-        
-        console.error(`Backend error: ${errorMessage}`)
-        
-        // CORREÇÃO 3: Retornar informações mais úteis no erro
-        return new Response(
-          JSON.stringify({ 
-            success: false,
-            error: errorMessage,
-            status: 'error',
-            details: {
-              httpStatus: response.status,
-              serverUrl: whatsappServerUrl,
-              timestamp: new Date().toISOString()
-            }
-          }),
-          { 
-            status: response.status >= 500 ? 502 : response.status, // 502 Bad Gateway para erros do servidor upstream
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        )
-      }
-
-      const data = await response.json()
-      console.log(`Backend response data received, has QR: ${!!data.qrCode}`)
-      
-      // CORREÇÃO 4: Validar resposta antes de retornar
-      if (!data || typeof data !== 'object') {
-        throw new Error('Invalid response format from backend')
-      }
-
-      // Se backend retornou sucesso mas sem QR Code, aguardar um pouco
-      if (data.success && !data.qrCode) {
-        console.log('Success but no QR Code yet, waiting for status...')
-        
-        // Aguardar 2 segundos e verificar status
-        await new Promise(resolve => setTimeout(resolve, 2000))
-        
-        // Verificar status no backend
-        const statusResponse = await fetch(`${whatsappServerUrl}/api/whatsapp/status/${agentId}`, {
-          headers: { 
-            'Accept': 'application/json',
-            'X-Agent-ID': agentId
-          }
-        })
-        
-        if (statusResponse.ok) {
-          const statusData = await statusResponse.json()
-          if (statusData.qrCode) {
-            data.qrCode = statusData.qrCode
-          }
-        }
-      }
-
-      console.log('Returning success response')
-      return new Response(
-        JSON.stringify({ 
-          success: true,
-          qrCode: data.qrCode,
-          status: data.qrCode ? 'qr_ready' : 'initializing',
-          message: data.message || 'QR Code generation initiated',
-          mode: data.mode || 'unknown',
-          agentId: data.agentId,
-          whatsappNumber: data.whatsappNumber,
-          connectionId: data.connectionId
-        }),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-      
-    } catch (fetchError) {
-      clearTimeout(timeoutId)
-      
-      // CORREÇÃO 5: Tratamento específico para timeout
-      if (fetchError.name === 'AbortError') {
-        console.error('Request timeout after 30 seconds')
-        return new Response(
-          JSON.stringify({ 
-            success: false,
-            error: 'Request timeout - servidor não respondeu em 30 segundos',
-            status: 'timeout'
-          }),
-          { 
-            status: 504, // Gateway Timeout
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        )
-      }
-      
-      throw fetchError
-    }
-    
-  } catch (error) {
-    console.error('Error in handleGenerateQR:', error)
-    console.error('Error stack:', error.stack)
-    
-    return new Response(
-      JSON.stringify({ 
-        success: false,
-        error: error.message || 'Unknown error',
-        status: 'error',
-        details: {
-          type: error.name,
-          timestamp: new Date().toISOString()
-        }
-      }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    )
-  }
-} 
-
 async function handleDisconnectAll(req: Request, supabase: any, whatsappServerUrl: string) {
   try {
     console.log('Disconnecting all WhatsApp connections...')
@@ -998,7 +774,7 @@ async function handleDisconnectAll(req: Request, supabase: any, whatsappServerUr
       }
     )
   }
-} 
+}
 
 async function handleRefreshQR(req: Request, supabase: any, whatsappServerUrl: string) {
   try {
@@ -1087,9 +863,119 @@ async function handleRefreshQR(req: Request, supabase: any, whatsappServerUrl: s
   } catch (error) {
     console.error('Error in handleRefreshQR:', error)
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message
+      JSON.stringify({ 
+        success: false, 
+        error: error.message 
+      }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    )
+  }
+}
+
+async function handleGenerateQR(req: Request, supabase: any, whatsappServerUrl: string) {
+  try {
+    const { agentId } = await req.json()
+    
+    if (!agentId) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'agentId is required'
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    console.log(`Generating QR Code for agent ${agentId}`)
+
+    // Verificar se o agente existe
+    const { data: agent, error: agentError } = await supabase
+      .from('agents')
+      .select('*')
+      .eq('id', agentId)
+      .single()
+
+    if (agentError || !agent) {
+      console.error('Agent not found:', agentError)
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Agent not found'
+        }),
+        { 
+          status: 404, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    console.log(`Agent found: ${agent.name}`)
+
+    // Chamar servidor WhatsApp para gerar QR Code real
+    try {
+      console.log('Calling WhatsApp server for QR Code...')
+      
+      const response = await fetch(`${whatsappServerUrl}/api/whatsapp/generate-qr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          agentId,
+          whatsappNumber: agent.whatsapp_number || '5511999999999'
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: WhatsApp server error`)
+      }
+
+      const data = await response.json()
+      
+      console.log('WhatsApp server response:', data)
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          qrCode: data.qrCode,
+          message: 'QR Code generated successfully',
+          mode: 'baileys',
+          agentId: agentId,
+          agentName: agent.name,
+          whatsappNumber: agent.whatsapp_number || '5511999999999'
+        }),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+      
+    } catch (error) {
+      console.error('Error calling WhatsApp server:', error)
+      
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Failed to generate QR Code',
+          details: error.message
+        }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+  } catch (error) {
+    console.error('Error in handleGenerateQR:', error)
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: error.message 
       }),
       { 
         status: 500, 

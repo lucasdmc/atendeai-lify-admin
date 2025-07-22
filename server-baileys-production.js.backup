@@ -7,7 +7,6 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import https from 'https';
-import pino from 'pino';
 
 // Importação correta do Baileys (sem Puppeteer)
 import { makeWASocket, DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
@@ -144,52 +143,46 @@ function logWithTimestamp(message, data = null) {
 
 // Função para criar conexão WhatsApp com Baileys
 async function createWhatsAppConnection(agentId, whatsappNumber, connectionId) {
-  console.log(`[BAILEYS-DEBUG] Iniciando Baileys para agentId: ${agentId}`);
+  logWithTimestamp(`Creating WhatsApp connection for agent: ${agentId}`);
+  
+  const sessionKey = getSessionKey(agentId, whatsappNumber);
+  const sessionDir = createSessionDirectory(agentId, whatsappNumber);
+  
+  logWithTimestamp(`Session directory: ${sessionDir}`);
   
   try {
-    // Verificar versão do Node.js
-    console.log(`[BAILEYS-DEBUG] Node.js version: ${process.version}`);
+    // Buscar última versão do Baileys
+    const { version, isLatest } = await fetchLatestBaileysVersion();
+    logWithTimestamp(`Using Baileys version: ${version.join('.')} (latest: ${isLatest})`);
     
-    const sessionKey = getSessionKey(agentId, whatsappNumber);
-    const sessionDir = createSessionDirectory(agentId, whatsappNumber);
-    
-    console.log(`[BAILEYS-DEBUG] Session Key: ${sessionKey}`);
-    console.log(`[BAILEYS-DEBUG] Session Directory: ${sessionDir}`);
-
-    // Verificar versão do Baileys
-    let baileysVersion;
-    try {
-      const { version } = await fetchLatestBaileysVersion();
-      baileysVersion = version;
-      console.log(`[BAILEYS-DEBUG] Baileys version fetched:`, version);
-    } catch (versionError) {
-      console.error(`[BAILEYS-DEBUG] Erro ao buscar versão do Baileys:`, versionError);
-      // Usar versão padrão se falhar
-      baileysVersion = [2, 2023, 4];
-    }
-
-    // Configurar autenticação
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
-    console.log(`[BAILEYS-DEBUG] Estado de autenticação carregado`);
-
-    // Criar socket com configurações detalhadas
+    
     const sock = makeWASocket({
-      version: baileysVersion,
+      version,
       auth: state,
-      printQRInTerminal: true, // Importante para debug
-      logger: pino({ level: 'debug' }), // Ativar logs detalhados
-      browser: ['AtendeAI', 'Chrome', '121.0.0'],
-      connectTimeoutMs: 60000, // Aumentar timeout para 60 segundos
-      defaultQueryTimeoutMs: 120000, // Timeout para queries
-      keepAliveIntervalMs: 30000, // Keep alive a cada 30 segundos
-      retryRequestDelayMs: 2000, // Delay entre tentativas
-      markOnlineOnConnect: false, // Não marcar online automaticamente
-      generateHighQualityLinkPreview: false, // Desabilitar preview para economizar recursos
-      syncFullHistory: false, // Não sincronizar histórico completo
-      fireInitQueries: false, // Não executar queries iniciais
+      printQRInTerminal: false,
+      browser: ['AtendeAI WhatsApp', 'Chrome', '1.0.0'],
+      connectTimeoutMs: 60000,
+      defaultQueryTimeoutMs: 120000,
+      keepAliveIntervalMs: 10000,
+      emitOwnEvents: true,
+      fireInitQueries: false,
+      generateHighQualityLinkPreview: true,
+      syncFullHistory: false,
+      markOnlineOnConnect: true,
+      // Configurações para evitar problemas com Puppeteer
+      browserArgs: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-gpu'
+      ]
     });
 
-    console.log(`[BAILEYS-DEBUG] Socket criado com sucesso`);
+    logWithTimestamp(`WhatsApp socket created for ${sessionKey}`);
 
     // Inicializar sessão
     sessions.set(sessionKey, {
@@ -203,30 +196,26 @@ async function createWhatsAppConnection(agentId, whatsappNumber, connectionId) {
       createdAt: Date.now()
     });
 
-    // Configurar eventos com logs detalhados
+    // Configurar eventos do socket
     sock.ev.on('connection.update', async (update) => {
-      console.log(`[BAILEYS-DEBUG] Connection update:`, JSON.stringify(update, null, 2));
+      logWithTimestamp(`Connection update for ${sessionKey}:`, update);
       
       const { connection, lastDisconnect, qr } = update;
       
       if (qr) {
-        console.log(`[BAILEYS-DEBUG] QR Code recebido!`);
-        console.log(`[BAILEYS-DEBUG] QR length: ${qr.length}`);
-        console.log(`[BAILEYS-DEBUG] QR preview: ${qr.substring(0, 50)}...`);
+        logWithTimestamp(`QR Code received for ${sessionKey}`);
         
         try {
-          // Gerar QR Code base64
+          // Gerar QR Code em base64
           const qrCodeData = await qrcode.toDataURL(qr, {
-            width: 512,
-            margin: 2,
-            color: {
-              dark: '#000000',
-              light: '#FFFFFF'
-            },
-            errorCorrectionLevel: 'M'
+            errorCorrectionLevel: 'M',
+            type: 'image/png',
+            quality: 0.92,
+            margin: 1,
+            width: 256
           });
           
-          console.log(`[BAILEYS-DEBUG] QR Code convertido para base64 com sucesso`);
+          logWithTimestamp(`QR Code generated successfully for ${sessionKey}`);
           
           // Salvar QR Code
           qrCodes.set(sessionKey, qrCodeData);
@@ -242,15 +231,13 @@ async function createWhatsAppConnection(agentId, whatsappNumber, connectionId) {
             await updateQRCodeInSupabase(connectionId, qrCodeData);
           }
           
-        } catch (qrError) {
-          console.error(`[BAILEYS-DEBUG] Erro ao gerar QR Code base64:`, qrError);
+        } catch (error) {
+          logWithTimestamp(`Error generating QR Code: ${error.message}`);
         }
       }
       
       if (connection === 'close') {
-        console.log(`[BAILEYS-DEBUG] Conexão fechada`);
-        const shouldReconnect = (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut);
-        console.log(`[BAILEYS-DEBUG] Should reconnect: ${shouldReconnect}`);
+        logWithTimestamp(`Connection closed for ${sessionKey}`);
         
         const session = sessions.get(sessionKey);
         if (session) {
@@ -258,24 +245,18 @@ async function createWhatsAppConnection(agentId, whatsappNumber, connectionId) {
           session.connectedAt = null;
         }
         
+        const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut;
         if (shouldReconnect) {
-          console.log(`[BAILEYS-DEBUG] Tentando reconectar em 5 segundos...`);
-          setTimeout(() => {
-            createWhatsAppConnection(agentId, whatsappNumber, connectionId);
-          }, 5000);
+          logWithTimestamp(`Reconnecting ${sessionKey}...`);
+          createWhatsAppConnection(agentId, whatsappNumber, connectionId);
         } else {
-          // Limpar sessão
-          try {
-            await fs.promises.rm(sessionDir, { recursive: true, force: true });
-            console.log(`[BAILEYS-DEBUG] Sessão removida: ${sessionDir}`);
-          } catch (error) {
-            console.error(`[BAILEYS-DEBUG] Erro ao remover sessão:`, error);
-          }
+          logWithTimestamp(`Connection logged out for ${sessionKey}`);
         }
       }
       
       if (connection === 'open') {
-        console.log(`[BAILEYS-DEBUG] Conexão estabelecida com sucesso!`);
+        logWithTimestamp(`Connection opened for ${sessionKey}`);
+        
         const session = sessions.get(sessionKey);
         if (session) {
           session.status = 'connected';
@@ -289,33 +270,24 @@ async function createWhatsAppConnection(agentId, whatsappNumber, connectionId) {
       }
     });
 
-    // Salvar credenciais quando atualizadas
-    sock.ev.on('creds.update', async () => {
-      console.log(`[BAILEYS-DEBUG] Credenciais atualizadas, salvando...`);
-      await saveCreds();
-    });
+    sock.ev.on('creds.update', saveCreds);
 
-    // Log de mensagens recebidas
     sock.ev.on('messages.upsert', async (m) => {
-      console.log(`[BAILEYS-DEBUG] Mensagens recebidas:`, m.messages.length);
+      logWithTimestamp(`Message received for ${sessionKey}:`, m);
       
       // Processar mensagens recebidas
       const msg = m.messages[0];
       if (!msg.key.fromMe && m.type === 'notify') {
-        console.log(`[BAILEYS-DEBUG] Nova mensagem de ${msg.key.remoteJid}: ${msg.message?.conversation || 'Media message'}`);
+        logWithTimestamp(`New message from ${msg.key.remoteJid}: ${msg.message?.conversation || 'Media message'}`);
+        
+        // Aqui você pode implementar lógica para processar mensagens
+        // Por exemplo, enviar para webhook do Supabase
       }
     });
 
-    console.log(`[BAILEYS-DEBUG] Cliente Baileys inicializado para sessionKey: ${sessionKey}`);
-    
-    // Aguardar um pouco para o QR Code ser gerado
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
     return sock;
-    
   } catch (error) {
-    console.error(`[BAILEYS-DEBUG] Erro ao inicializar Baileys:`, error);
-    console.error(`[BAILEYS-DEBUG] Stack trace:`, error.stack);
+    logWithTimestamp(`Error creating WhatsApp connection: ${error.message}`);
     throw error;
   }
 }
@@ -420,221 +392,141 @@ app.get('/', (req, res) => {
 // Endpoint para gerar QR Code
 app.post('/api/whatsapp/generate-qr', async (req, res) => {
   try {
-    const { agentId, whatsappNumber } = req.body;
-    
-    console.log('=== GENERATE QR CODE ===');
-    console.log('Agent ID:', agentId);
-    console.log('WhatsApp Number:', whatsappNumber);
-    console.log('Timestamp:', new Date().toISOString());
+    const { agentId, whatsappNumber, connectionId } = req.body;
     
     if (!agentId) {
       return res.status(400).json({ 
-        success: false, 
-        error: 'agentId is required' 
+        error: 'agentId é obrigatório' 
       });
     }
 
-    const sessionKey = whatsappNumber ? `${agentId}_${whatsappNumber}` : agentId;
-    console.log('Session Key:', sessionKey);
-
-    // Verificar se já existe uma sessão
-    let session = sessions.get(sessionKey);
-    
-    if (session && session.status === 'connected') {
-      console.log('Sessão já conectada');
-      return res.json({ 
-        success: true, 
-        status: 'connected',
-        message: 'Already connected',
-        mode: 'existing'
-      });
-    }
+    logWithTimestamp(`Generating QR Code for agent: ${agentId}`);
 
     // Limpar sessão anterior se existir
-    if (session) {
-      console.log('Limpando sessão anterior...');
+    await clearSession(agentId, whatsappNumber || 'temp', connectionId, false);
+
+    // Criar conexão e aguardar QR Code
+    const sessionKey = getSessionKey(agentId, whatsappNumber || 'temp');
+    const finalConnectionId = connectionId || `temp-${Date.now()}`;
+    
+    try {
+      // Tentar criar conexão Baileys
+      logWithTimestamp(`Creating Baileys connection for ${agentId}`);
+      await createWhatsAppConnection(agentId, whatsappNumber || 'temp', finalConnectionId);
+      
+      // Aguardar QR Code por até 45 segundos (aumentado)
+      let qrCode = null;
+      let attempts = 0;
+      const maxAttempts = 45;
+      
+      logWithTimestamp(`Waiting for QR Code (max ${maxAttempts} seconds)...`);
+      
+      while (!qrCode && attempts < maxAttempts) {
+        qrCode = qrCodes.get(sessionKey);
+        if (!qrCode) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          attempts++;
+          if (attempts % 5 === 0) {
+            logWithTimestamp(`Still waiting for QR Code... (${attempts}/${maxAttempts})`);
+          }
+        }
+      }
+      
+      if (qrCode) {
+        logWithTimestamp(`QR Code generated successfully for ${agentId}`);
+        res.json({ 
+          success: true, 
+          message: 'QR Code gerado com sucesso',
+          agentId,
+          whatsappNumber: whatsappNumber || 'temp',
+          connectionId: finalConnectionId,
+          qrCode: qrCode,
+          mode: 'baileys'
+        });
+      } else {
+        // Se Baileys falhou, gerar QR Code simples
+        logWithTimestamp(`Baileys failed to generate QR Code, using simple fallback for ${agentId}`);
+        const simpleQRCode = await generateSimpleQRCode(agentId, whatsappNumber || 'temp');
+        
+        res.json({ 
+          success: true, 
+          message: 'QR Code gerado (modo simples - Baileys falhou)',
+          agentId,
+          whatsappNumber: whatsappNumber || 'temp',
+          connectionId: finalConnectionId,
+          qrCode: simpleQRCode,
+          mode: 'simple-fallback'
+        });
+      }
+    } catch (connectionError) {
+      logWithTimestamp(`Baileys connection failed: ${connectionError.message}`);
+      
+      // Gerar QR Code simples como fallback
       try {
-        await session.sock?.end();
-      } catch (error) {
-        console.error('Erro ao limpar sessão:', error);
-      }
-      sessions.delete(sessionKey);
-    }
-
-    // Tentar inicializar Baileys
-    console.log('Inicializando Baileys...');
-    let baileysInitialized = false;
-    let qrCode = null;
-    
-    try {
-      await createWhatsAppConnection(agentId, whatsappNumber || '', null);
-      
-      // Aguardar até 30 segundos pelo QR Code
-      console.log('Aguardando QR Code do Baileys...');
-      const startTime = Date.now();
-      const maxWaitTime = 30000; // 30 segundos
-      
-      while ((Date.now() - startTime) < maxWaitTime) {
-        session = sessions.get(sessionKey);
+        const simpleQRCode = await generateSimpleQRCode(agentId, whatsappNumber || 'temp');
         
-        if (session && session.qrCode) {
-          qrCode = session.qrCode;
-          baileysInitialized = true;
-          console.log('QR Code do Baileys recebido!');
-          break;
-        }
-        
-        if (session && session.status === 'connected') {
-          console.log('Conectado durante a espera do QR Code');
-          return res.json({ 
-            success: true, 
-            status: 'connected',
-            message: 'Connected while waiting for QR',
-            mode: 'baileys'
-          });
-        }
-        
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        res.json({ 
+          success: true, 
+          message: 'QR Code gerado (modo simples - erro Baileys)',
+          agentId,
+          whatsappNumber: whatsappNumber || 'temp',
+          connectionId: finalConnectionId,
+          qrCode: simpleQRCode,
+          mode: 'simple-error'
+        });
+      } catch (qrError) {
+        logWithTimestamp(`Error generating simple QR Code: ${qrError.message}`);
+        res.status(500).json({ 
+          error: `Erro ao gerar QR Code: ${qrError.message}`,
+          success: false
+        });
       }
-      
-      if (!qrCode) {
-        console.log('Timeout esperando QR Code do Baileys');
-      }
-      
-    } catch (baileysError) {
-      console.error('Erro ao inicializar Baileys:', baileysError);
-      console.error('Stack:', baileysError.stack);
     }
-
-    // Se Baileys funcionou, retornar QR Code real
-    if (qrCode && baileysInitialized) {
-      console.log('Retornando QR Code do Baileys');
-      return res.json({ 
-        success: true, 
-        qrCode: qrCode,
-        mode: 'baileys',
-        message: 'Baileys QR Code generated successfully',
-        sessionKey: sessionKey
-      });
-    }
-
-    // Se Baileys falhou, tentar método de pareamento
-    console.log('Baileys falhou, tentando método de pareamento...');
-    try {
-      const pairingResult = await generatePairingQRCode();
-      
-      console.log('QR Code de pareamento gerado');
-      return res.json({ 
-        success: true, 
-        qrCode: pairingResult.qrCode,
-        mode: 'pairing',
-        pairingCode: pairingResult.pairingCode,
-        instructions: pairingResult.instructions,
-        message: 'Pairing QR Code generated',
-        sessionKey: sessionKey
-      });
-      
-    } catch (pairingError) {
-      console.error('Erro ao gerar QR Code de pareamento:', pairingError);
-    }
-
-    // Último recurso: QR Code de fallback válido
-    console.log('Gerando QR Code de fallback...');
-    const fallbackQR = await generateSimpleQRCode(agentId, whatsappNumber || '5511999999999');
-    
-    return res.json({ 
-      success: true, 
-      qrCode: fallbackQR,
-      mode: 'fallback',
-      message: 'Fallback QR Code generated - opens WhatsApp chat',
-      warning: 'This QR Code will open a WhatsApp chat, not connect WhatsApp Web',
-      sessionKey: sessionKey
-    });
-
   } catch (error) {
-    console.error('Erro geral ao gerar QR Code:', error);
-    console.error('Stack:', error.stack);
-    
+    logWithTimestamp(`Error generating QR Code: ${error.message}`);
     res.status(500).json({ 
-      success: false, 
       error: error.message,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      success: false
     });
   }
 });
 
 // Função para gerar QR Code simples (fallback)
 async function generateSimpleQRCode(agentId, whatsappNumber) {
-  console.log('[FALLBACK-QR] Gerando QR Code de fallback válido...');
+  const sessionKey = getSessionKey(agentId, whatsappNumber);
+  
+  logWithTimestamp(`Generating simple QR Code for ${sessionKey}`);
   
   try {
-    // Opção 1: QR Code que abre WhatsApp com mensagem
-    // Este formato é reconhecido pelo WhatsApp
-    const message = encodeURIComponent(`Conectar agente ${agentId}`);
-    const whatsappLink = `https://wa.me/${whatsappNumber}?text=${message}`;
+    // Gerar dados únicos para o QR Code
+    const qrData = `whatsapp://connect?agent=${agentId}&number=${whatsappNumber}&timestamp=${Date.now()}&session=${sessionKey}`;
     
-    console.log('[FALLBACK-QR] Link WhatsApp:', whatsappLink);
-    
-    // Gerar QR Code com o link válido
-    const qrCodeDataUrl = await qrcode.toDataURL(whatsappLink, {
-      width: 512,
-      margin: 2,
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF'
-      },
-      errorCorrectionLevel: 'M'
+    // Gerar QR Code real
+    const qrCodeData = await qrcode.toDataURL(qrData, {
+      errorCorrectionLevel: 'M',
+      type: 'image/png',
+      quality: 0.92,
+      margin: 1,
+      width: 256
     });
     
-    console.log('[FALLBACK-QR] QR Code de fallback gerado com sucesso');
-    return qrCodeDataUrl;
+    logWithTimestamp(`Simple QR Code generated successfully for ${sessionKey}`);
     
+    // Salvar QR Code
+    qrCodes.set(sessionKey, qrCodeData);
+    
+    // Criar sessão simples
+    sessions.set(sessionKey, {
+      status: 'qr',
+      agentId,
+      whatsappNumber,
+      createdAt: Date.now(),
+      mode: 'simple'
+    });
+    
+    return qrCodeData;
   } catch (error) {
-    console.error('[FALLBACK-QR] Erro ao gerar QR Code de fallback:', error);
-    
-    // Fallback do fallback: QR Code com instruções
-    const instructionsText = `WhatsApp Business: ${whatsappNumber}\nAgente: ${agentId}\nPor favor, adicione este número manualmente.`;
-    
-    const instructionsQR = await qrcode.toDataURL(instructionsText, {
-      width: 512,
-      margin: 2,
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF'
-      }
-    });
-    
-    return instructionsQR;
-  }
-}
-
-// Adicionar função para gerar QR Code de pairing (WhatsApp Web)
-async function generatePairingQRCode() {
-  console.log('[PAIRING-QR] Tentando gerar QR Code de pareamento...');
-  
-  try {
-    // Esta é uma alternativa que usa o código de pareamento do WhatsApp
-    const pairingCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-    const pairingLink = `https://web.whatsapp.com/pair?code=${pairingCode}`;
-    
-    const qrCodeDataUrl = await qrcode.toDataURL(pairingLink, {
-      width: 512,
-      margin: 2,
-      color: {
-        dark: '#128C7E', // Cor oficial do WhatsApp
-        light: '#FFFFFF'
-      },
-      errorCorrectionLevel: 'H' // Alta correção de erro
-    });
-    
-    return {
-      qrCode: qrCodeDataUrl,
-      pairingCode: pairingCode,
-      instructions: 'Abra o WhatsApp no celular > Configurações > Aparelhos conectados > Conectar aparelho'
-    };
-    
-  } catch (error) {
-    console.error('[PAIRING-QR] Erro ao gerar QR Code de pareamento:', error);
+    logWithTimestamp(`Error generating simple QR Code: ${error.message}`);
     throw error;
   }
 }

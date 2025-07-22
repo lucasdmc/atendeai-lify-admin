@@ -80,13 +80,65 @@ export const useAgentWhatsAppConnection = (): AgentWhatsAppConnectionHook => {
 
       if (error) throw error;
 
+      console.log('📡 [useAgentWhatsAppConnection] Resposta da Edge Function:', data);
+
       if (data.success) {
-        toast({
-          title: "QR Code Gerado",
-          description: "QR Code gerado com sucesso. Escaneie para conectar.",
-        });
+        console.log('✅ [useAgentWhatsAppConnection] QR Code link gerado:', data.whatsappLink);
+        
+        // Se temos um link WhatsApp, gerar QR Code no frontend
+        if (data.whatsappLink) {
+          try {
+            console.log('🔄 [useAgentWhatsAppConnection] Gerando QR Code no frontend...');
+            
+            // Importar QR Code dinamicamente
+            const QRCode = (await import('qrcode')).default;
+            console.log('📦 [useAgentWhatsAppConnection] QRCode importado:', typeof QRCode);
+            
+            const qrCodeDataUrl = await QRCode.toDataURL(data.whatsappLink, {
+              width: 512,
+              margin: 2,
+              color: {
+                dark: '#128C7E', // Cor oficial do WhatsApp
+                light: '#FFFFFF'
+              },
+              errorCorrectionLevel: 'H'
+            });
+            
+            console.log('✅ [useAgentWhatsAppConnection] QR Code gerado no frontend:', qrCodeDataUrl.substring(0, 100) + '...');
+            
+            // Atualizar conexões com o QR Code gerado
+            setConnections(prev => {
+              console.log('🔄 [useAgentWhatsAppConnection] Atualizando conexões:', prev.length);
+              return prev.map(conn => 
+                conn.agent_id === agentId 
+                  ? { ...conn, qr_code: qrCodeDataUrl }
+                  : conn
+              );
+            });
+            
+            toast({
+              title: "QR Code Gerado",
+              description: "QR Code gerado com sucesso. Escaneie para conectar.",
+            });
+          } catch (qrError) {
+            console.error('❌ Erro ao gerar QR Code no frontend:', qrError);
+            toast({
+              title: "QR Code Gerado",
+              description: `Link WhatsApp: ${data.whatsappLink}`,
+            });
+          }
+        } else {
+          console.warn('⚠️ [useAgentWhatsAppConnection] Nenhum link WhatsApp retornado');
+          toast({
+            title: "QR Code Gerado",
+            description: "QR Code gerado com sucesso. Escaneie para conectar.",
+          });
+        }
         
         await loadConnections(agentId);
+      } else {
+        console.error('❌ [useAgentWhatsAppConnection] Resposta não foi bem-sucedida:', data);
+        throw new Error('QR Code não foi retornado pelo servidor');
       }
     } catch (error) {
       console.error('❌ Erro ao gerar QR Code:', error);
@@ -98,7 +150,7 @@ export const useAgentWhatsAppConnection = (): AgentWhatsAppConnectionHook => {
     } finally {
       setIsLoading(false);
     }
-  }, [loadConnections, toast]);
+  }, [toast, loadConnections]);
 
   const disconnect = useCallback(async (agentId: string, connectionId: string) => {
     setIsLoading(true);
