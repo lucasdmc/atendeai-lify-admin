@@ -57,7 +57,7 @@ const App = () => {
         console.warn('⚠️ App loading timeout - forcing render');
         setAppTimeout(true);
       }
-    }, 8000); // Reduzido para 8 segundos
+    }, 5000); // Reduzido para 5 segundos
 
     return () => clearTimeout(timer);
   }, [loading]);

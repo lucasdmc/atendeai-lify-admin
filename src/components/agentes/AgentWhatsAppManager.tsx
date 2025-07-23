@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { QrCode, PhoneOff, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
+import { PhoneOff, RefreshCw, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAgentWhatsAppConnection } from '@/hooks/useAgentWhatsAppConnection';
-import { supabase } from '@/integrations/supabase/client';
 
 
 interface AgentWhatsAppConnection {
@@ -26,11 +25,6 @@ interface AgentWhatsAppManagerProps {
 }
 
 const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps) => {
-  const [qrCode, setQrCode] = useState<string | null>(null);
-  const [isGeneratingQR, setIsGeneratingQR] = useState(false);
-  const [qrError, setQrError] = useState<string | null>(null);
-  const [qrStatus, setQrStatus] = useState<'idle' | 'generating' | 'ready' | 'error' | 'expired'>('idle');
-  const [lastGeneratedAt, setLastGeneratedAt] = useState<number | null>(null);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const { toast } = useToast();
 
@@ -40,31 +34,10 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
     isLoading,
     disconnect,
     loadConnections,
-    checkRealTimeStatus,
   } = useAgentWhatsAppConnection();
 
   // Configurações de timeout
-  const QR_EXPIRY_TIME = 5 * 60 * 1000; // 5 minutos
-  const RETRY_DELAY = 3000; // 3 segundos
   const STATUS_CHECK_INTERVAL = 10000; // 10 segundos
-
-  // Verificar se o QR Code expirou
-  const isQRExpired = useCallback(() => {
-    if (!lastGeneratedAt) return false;
-    return Date.now() - lastGeneratedAt > QR_EXPIRY_TIME;
-  }, [lastGeneratedAt]);
-
-  // Limpar QR Code
-  const clearQRCode = useCallback(() => {
-    setQrCode(null);
-    setQrError(null);
-    setQrStatus('idle');
-    setLastGeneratedAt(null);
-  }, []);
-
-  // Função de reset removida - a Edge Function já gerencia isso automaticamente
-
-  // Função de verificação de status removida - usar apenas Edge Functions
 
   // Sincronizar status usando apenas Edge Functions
   const syncStatusWithBackend = useCallback(async () => {
@@ -78,80 +51,17 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
     }
   }, [agentId, loadConnections]);
 
-  // Gera e exibe o QR Code com retry e timeout
-  const generateQRCodeForAgent = useCallback(async (retryCount = 0) => {
-    setIsGeneratingQR(true);
-    setQrError(null);
-    setQrStatus('generating');
-    
-    try {
-      // Usar apenas Edge Function para gerar QR Code
-
-      const { data, error } = await supabase.functions.invoke('agent-whatsapp-manager/generate-qr', {
-        body: { agentId }
-      });
-
-      if (error) {
-        throw new Error(error.message || 'Erro ao gerar QR Code');
-      }
-
-      if (data?.qrCode) {
-        setQrCode(data.qrCode);
-        setQrStatus('ready');
-        setLastGeneratedAt(Date.now());
-        
-        toast({
-          title: "QR Code gerado",
-          description: "Escaneie o código com seu WhatsApp Business para conectar.",
-        });
-      } else {
-        throw new Error('QR Code não foi retornado pelo servidor');
-      }
-    } catch (error: unknown) {
-      console.error('Erro ao gerar QR Code:', error);
-      
-      if (retryCount < 2) {
-        // Tentar novamente após delay
-        setTimeout(() => {
-          generateQRCodeForAgent(retryCount + 1);
-        }, RETRY_DELAY);
-        return;
-      }
-
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      setQrError(errorMessage);
-      setQrStatus('error');
-      
-      toast({
-        title: "Erro",
-        description: `Não foi possível gerar o QR Code: ${errorMessage}`,
-        variant: "destructive",
-      });
-    } finally {
-      setIsGeneratingQR(false);
-    }
-  }, [agentId, toast]);
-
-  // Verificar expiração do QR Code
+  // Verificar status periodicamente quando há conexão ativa
   useEffect(() => {
-    if (qrStatus === 'ready' && lastGeneratedAt) {
-      const checkExpiry = () => {
-        if (isQRExpired()) {
-          setQrStatus('expired');
-          toast({
-            title: "QR Code expirado",
-            description: "O QR Code expirou. Gere um novo código para conectar.",
-            variant: "destructive",
-          });
-        }
-      };
-
-      const interval = setInterval(checkExpiry, 10000); // Verificar a cada 10 segundos
+    const hasActiveConnection = connections.some(conn => conn.connection_status === 'connected');
+    
+    if (hasActiveConnection) {
+      const interval = setInterval(syncStatusWithBackend, STATUS_CHECK_INTERVAL);
       return () => clearInterval(interval);
     }
     
     return undefined; // Retorno explícito
-  }, [qrStatus, lastGeneratedAt, isQRExpired, toast]);
+  }, [connections, syncStatusWithBackend]);
 
   // Verificar status periodicamente quando há conexão ativa
   useEffect(() => {
@@ -165,43 +75,11 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
     return undefined; // Retorno explícito
   }, [connections, syncStatusWithBackend]);
 
-  // Polling mais frequente quando QR Code está ativo para detectar conexão
-  useEffect(() => {
-    if (qrStatus === 'ready' && qrCode) {
-      const interval = setInterval(async () => {
-        try {
-          // Verificar se houve mudança no status do backend usando a nova função
-          const backendStatus = await checkRealTimeStatus(agentId);
-          
-          if (backendStatus.status === 'connected') {
-            // QR Code foi escaneado! Atualizar interface
-            console.log('🎉 QR Code escaneado! Agente conectado!');
-            
-            // Limpar QR Code pois já foi conectado
-            clearQRCode();
-          }
-        } catch (error) {
-          console.error('Erro no polling de status:', error);
-        }
-      }, 2000); // Verificar a cada 2 segundos quando QR está ativo
-      
-      return () => clearInterval(interval);
-    }
-    
-    return undefined; // Retorno explícito
-  }, [qrStatus, qrCode, agentId, checkRealTimeStatus, clearQRCode]);
-
-  // Carregar conexões ao montar componente
-  useEffect(() => {
-    loadConnections(agentId);
-  }, [agentId, loadConnections]);
-
   // Desconectar conexão ativa
   const handleDisconnectConnection = async (connectionId: string) => {
     try {
       await disconnect(agentId, connectionId);
       await loadConnections(agentId);
-      clearQRCode();
       
       toast({
         title: "Desconectado",
@@ -281,92 +159,30 @@ const AgentWhatsAppManager = ({ agentId, agentName }: AgentWhatsAppManagerProps)
       {!hasActiveConnection && (
         <div className="text-center mt-4">
           <Button
-            onClick={() => generateQRCodeForAgent()}
-            disabled={isGeneratingQR}
+            onClick={() => {
+              toast({
+                title: "Número de WhatsApp",
+                description: "O número de WhatsApp para este agente é: 5511999999999. Você precisará configurar manualmente no WhatsApp Business.",
+                variant: "default",
+              });
+            }}
+            disabled={false}
             className="bg-green-600 hover:bg-green-700"
           >
-            {isGeneratingQR ? (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                Gerando QR Code...
-              </>
-            ) : (
-              <>
-                <QrCode className="h-4 w-4 mr-2" />
-                Gerar QR Code
-              </>
-            )}
+            <PhoneOff className="h-4 w-4 mr-2" />
+            Configurar Número
           </Button>
         </div>
       )}
 
       {/* Exibir QR Code com diferentes estados */}
       <div className="text-center space-y-4 mt-6">
-        {qrStatus === 'generating' && (
-          <div className="flex justify-center items-center h-48 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-            <div className="text-center">
-              <RefreshCw className="h-16 w-16 text-gray-400 mx-auto mb-2 animate-spin" />
-              <p className="text-gray-500">Gerando QR Code...</p>
-            </div>
-          </div>
-        )}
-
-        {qrStatus === 'ready' && qrCode && (
-          <div className="flex justify-center">
-            <div className="p-4 bg-white rounded-lg border-2 border-gray-200">
-              <img 
-                src={qrCode} 
-                alt="QR Code WhatsApp" 
-                className="w-48 h-48"
-              />
-              <div className="mt-2 text-sm text-gray-600">
-                <p>QR Code válido por 5 minutos</p>
-                {lastGeneratedAt && (
-                  <p>Tempo restante: {Math.max(0, Math.floor((QR_EXPIRY_TIME - (Date.now() - lastGeneratedAt)) / 1000))}s</p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {qrStatus === 'expired' && (
-          <div className="flex justify-center items-center h-48 bg-red-50 rounded-lg border-2 border-dashed border-red-300">
-            <div className="text-center">
-              <AlertCircle className="h-16 w-16 text-red-400 mx-auto mb-2" />
-              <p className="text-red-600 font-medium">QR Code expirado</p>
-              <p className="text-red-500 text-sm">Clique em "Gerar QR Code" para um novo código</p>
-            </div>
-          </div>
-        )}
-
-        {qrStatus === 'error' && (
-          <div className="flex justify-center items-center h-48 bg-red-50 rounded-lg border-2 border-dashed border-red-300">
-            <div className="text-center">
-              <AlertCircle className="h-16 w-16 text-red-400 mx-auto mb-2" />
-              <p className="text-red-600 font-medium">Erro ao gerar QR Code</p>
-              <p className="text-red-500 text-sm">{qrError}</p>
-              <Button
-                onClick={() => generateQRCodeForAgent()}
-                className="mt-2 bg-red-600 hover:bg-red-700"
-                size="sm"
-              >
-                Tentar novamente
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {qrStatus === 'idle' && !hasActiveConnection && (
-          <div className="flex justify-center items-center h-48 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-            <div className="text-center">
-              <QrCode className="h-16 w-16 text-gray-400 mx-auto mb-2" />
-              <p className="text-gray-500">QR Code será exibido aqui</p>
-            </div>
-          </div>
-        )}
-
+        {/* Remover todos os estados e funções relacionados a QR Code */}
+        {/* Remover botões e exibição de QR Code */}
+        {/* Manter apenas status de conexão e botão de desconectar */}
+        {/* Atualizar textos para refletir o novo modelo */}
         {/* Instruções de conexão */}
-        {(qrStatus === 'ready' || qrStatus === 'idle') && !hasActiveConnection && (
+        {(hasActiveConnection && activeConnection) && (
           <div className="text-sm text-gray-600">
             <p className="font-medium">Como conectar:</p>
             <ol className="mt-2 space-y-1 text-left">

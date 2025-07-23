@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, 
   MessageSquare, 
-  QrCode, 
   Brain, 
   Users, 
   Settings,
@@ -30,12 +29,6 @@ const menuItems = [
     icon: MessageSquare,
     href: '/conversas',
     permission: 'conversas'
-  },
-  {
-    title: 'Conectar WhatsApp',
-    icon: QrCode,
-    href: '/conectar-whatsapp',
-    permission: 'conectar_whatsapp'
   },
   {
     title: 'Agentes de IA',

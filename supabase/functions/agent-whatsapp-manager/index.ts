@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -481,75 +482,41 @@ async function handleAgentDisconnect(req: Request, supabase: any, whatsappServer
 
 async function handleAgentSendMessage(req: Request, supabase: any, whatsappServerUrl: string) {
   try {
-    const { agentId, connectionId, to, message } = await req.json()
+    const { agentId, connectionId, to, message, accessToken, phoneNumberId } = await req.json()
     
-    if (!agentId || !connectionId || !to || !message) {
+    if (!agentId || !connectionId || !to || !message || !accessToken || !phoneNumberId) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'agentId, connectionId, to, and message are required'
+          error: 'agentId, connectionId, to, message, accessToken e phoneNumberId são obrigatórios'
         }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log(`Sending message from agent ${agentId} to ${to}: ${message}`)
-
-    // Buscar conexão
-    const { data: connection, error: connectionError } = await supabase
-      .from('agent_whatsapp_connections')
-      .select('*')
-      .eq('id', connectionId)
-      .eq('agent_id', agentId)
-      .single()
-
-    if (connectionError || !connection) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Connection not found'
-        }),
-        { 
-          status: 404, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    if (connection.connection_status !== 'connected') {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'WhatsApp not connected'
-        }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    // Enviar mensagem via servidor WhatsApp
-    const response = await fetch(`${whatsappServerUrl}/api/whatsapp/send-message`, {
+    // Enviar mensagem via API oficial da Meta
+    const url = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
+    const payload = {
+      messaging_product: 'whatsapp',
+      to,
+      type: 'text',
+      text: { body: message }
+    };
+    const headers = {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    };
+    const sendResponse = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        agentId,
-        connectionId,
-        to, 
-        message 
-      })
-    })
+      headers,
+      body: JSON.stringify(payload)
+    });
 
-    if (!response.ok) {
-      throw new Error('Failed to send message')
+    const sendData = await sendResponse.json();
+    if (!sendResponse.ok) {
+      throw new Error(sendData.error?.message || 'Failed to send message via Meta API');
     }
 
-    const sendData = await response.json()
-    
     // Salvar mensagem no banco
     const { error: dbError } = await supabase.rpc('save_agent_message', {
       p_agent_id: agentId,
@@ -558,7 +525,7 @@ async function handleAgentSendMessage(req: Request, supabase: any, whatsappServe
       p_contact_name: null,
       p_message_content: message,
       p_message_type: 'sent',
-      p_whatsapp_message_id: sendData.messageId,
+      p_whatsapp_message_id: sendData.messages?.[0]?.id || null,
       p_metadata: JSON.stringify({ agentId, connectionId })
     })
 
@@ -572,10 +539,7 @@ async function handleAgentSendMessage(req: Request, supabase: any, whatsappServe
         message: 'Message sent successfully',
         data: sendData
       }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
     console.error('Error in handleAgentSendMessage:', error)
@@ -584,10 +548,7 @@ async function handleAgentSendMessage(req: Request, supabase: any, whatsappServe
         success: false,
         error: error.message
       }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 }

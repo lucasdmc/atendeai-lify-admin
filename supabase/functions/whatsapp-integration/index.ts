@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -218,47 +219,47 @@ async function handleStatus(supabase: any, whatsappServerUrl: string) {
 
 async function handleSendMessage(req: Request, supabase: any, whatsappServerUrl: string) {
   try {
-    const { to, message } = await req.json()
+    const { to, message, accessToken, phoneNumberId } = await req.json()
     
-    console.log(`Sending message to ${to}: ${message}`)
-    
-    // Check if WhatsApp server is available
-    const statusResponse = await fetch(`${whatsappServerUrl}/api/whatsapp/status`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
-    })
-
-    if (!statusResponse.ok) {
-      throw new Error('WhatsApp not connected')
+    if (!to || !message || !accessToken || !phoneNumberId) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'to, message, accessToken e phoneNumberId são obrigatórios' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    const status = await statusResponse.json()
-    
-    if (!status.connected) {
-      throw new Error('WhatsApp not connected')
-    }
-
-    // Send message
-    const sendResponse = await fetch(`${whatsappServerUrl}/api/whatsapp/send-message`, {
+    // Enviar mensagem via API oficial da Meta
+    const url = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
+    const payload = {
+      messaging_product: 'whatsapp',
+      to,
+      type: 'text',
+      text: { body: message }
+    };
+    const headers = {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    };
+    const sendResponse = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to, message })
-    })
+      headers,
+      body: JSON.stringify(payload)
+    });
 
+    const sendData = await sendResponse.json();
     if (!sendResponse.ok) {
-      throw new Error('Failed to send message')
+      throw new Error(sendData.error?.message || 'Failed to send message via Meta API');
     }
 
-    const sendData = await sendResponse.json()
-    
-    // Save message to database
+    // Salvar mensagem no banco
     const { error: dbError } = await supabase
       .from('whatsapp_messages')
       .insert({
         conversation_id: await getOrCreateConversation(supabase, to),
         content: message,
         message_type: 'sent',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        whatsapp_message_id: sendData.messages?.[0]?.id || null
       })
 
     if (dbError) {
@@ -271,22 +272,13 @@ async function handleSendMessage(req: Request, supabase: any, whatsappServerUrl:
         message: 'Message sent successfully',
         data: sendData
       }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
     console.error('Error in send-message:', error)
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message
-      }),
-      { 
-        status: 400, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      JSON.stringify({ success: false, error: error.message }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 }
@@ -346,67 +338,59 @@ async function handleDisconnect(supabase: any, whatsappServerUrl: string) {
 async function handleWebhook(req: Request, supabase: any) {
   try {
     const body = await req.json()
-    console.log('Webhook received:', JSON.stringify(body, null, 2))
-    
-    // Handle different types of webhook events
-    if (body.event === 'message' || body.event === 'message.received') {
-      // Extract message data - handle different payload structures
-      const messageData = body.data || body;
-      const from = messageData.from || messageData.sender || body.from;
-      const messageText = messageData.body || messageData.message || messageData.text || body.message;
-      const timestamp = messageData.timestamp || body.timestamp || Date.now();
-      const messageId = messageData.id || body.id;
-      
-      console.log('Processing message:', { from, messageText, timestamp, messageId });
-      
-      if (!from || !messageText) {
-        console.error('Missing required message data:', { from, messageText });
-        return new Response(
-          JSON.stringify({ error: 'Missing required message data' }),
-          { 
-            status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    console.log('Webhook recebido da Meta:', JSON.stringify(body, null, 2))
+
+    // Payload da Meta: body.entry[].changes[].value.messages[]
+    const entries = body.entry || [];
+    for (const entry of entries) {
+      const changes = entry.changes || [];
+      for (const change of changes) {
+        const value = change.value || {};
+        const messages = value.messages || [];
+        for (const msg of messages) {
+          const from = msg.from;
+          const messageText = msg.text?.body || msg.button?.text || msg.interactive?.button_reply?.title || msg.interactive?.list_reply?.title || '';
+          const timestamp = msg.timestamp ? parseInt(msg.timestamp) * 1000 : Date.now();
+          const messageId = msg.id;
+
+          if (!from || !messageText) {
+            console.error('Dados obrigatórios ausentes:', { from, messageText });
+            continue;
           }
-        );
-      }
-      
-      // Get or create conversation
-      const conversationId = await getOrCreateConversation(supabase, from)
-      
-      // Save received message
-      const { error: messageError } = await supabase
-        .from('whatsapp_messages')
-        .insert({
-          conversation_id: conversationId,
-          content: messageText,
-          message_type: 'received',
-          timestamp: new Date(timestamp * 1000).toISOString(),
-          whatsapp_message_id: messageId
-        })
 
-      if (messageError) {
-        console.error('Error saving received message:', messageError)
-      }
+          // Get or create conversation
+          const conversationId = await getOrCreateConversation(supabase, from)
 
-      // Process message with AI
-      await processMessageWithAI(supabase, conversationId, messageText, from)
+          // Save received message
+          const { error: messageError } = await supabase
+            .from('whatsapp_messages')
+            .insert({
+              conversation_id: conversationId,
+              content: messageText,
+              message_type: 'received',
+              timestamp: new Date(timestamp).toISOString(),
+              whatsapp_message_id: messageId
+            })
+
+          if (messageError) {
+            console.error('Erro ao salvar mensagem recebida:', messageError)
+          }
+
+          // Process message with AI
+          await processMessageWithAI(supabase, conversationId, messageText, from)
+        }
+      }
     }
-    
+
     return new Response(
       JSON.stringify({ success: true }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
-    console.error('Error in webhook:', error)
+    console.error('Erro no webhook da Meta:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 }

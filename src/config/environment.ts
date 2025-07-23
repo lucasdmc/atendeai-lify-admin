@@ -13,7 +13,81 @@ export const config = {
     anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxODI1NTksImV4cCI6MjA2NTc1ODU1OX0.90ihAk2geP1JoHIvMj_pxeoMe6dwRwH-rBbJwbFeomw',
   },
 
-  // WhatsApp
+  // Backend API (NOVO - Configuração principal)
+  backend: {
+    url: import.meta.env.VITE_BACKEND_URL || 'http://31.97.241.19:3001',
+    timeout: 30000,
+    retryAttempts: 3,
+    healthCheck: '/health',
+    endpoints: {
+      auth: {
+        login: '/api/auth/login',
+        register: '/api/auth/register',
+        logout: '/api/auth/logout',
+        refresh: '/api/auth/refresh',
+        me: '/api/auth/me',
+        resetPassword: '/api/auth/reset-password',
+        changePassword: '/api/auth/change-password',
+        verifyEmail: '/api/auth/verify-email',
+      },
+      users: {
+        create: '/api/users/create',
+        list: '/api/users',
+        update: '/api/users/:id',
+        delete: '/api/users/:id',
+      },
+      clinics: {
+        list: '/api/clinics',
+        create: '/api/clinics',
+        update: '/api/clinics/:id',
+        delete: '/api/clinics/:id',
+      },
+      whatsapp: {
+        sendMessage: '/api/whatsapp-integration/send-message',
+        status: '/api/whatsapp-integration/status',
+        initialize: '/api/whatsapp-integration/initialize',
+        disconnect: '/api/whatsapp-integration/disconnect',
+      },
+      agents: {
+        connections: '/api/agents/connections',
+        generateQr: '/api/agents/generate-qr',
+        status: '/api/agents/status',
+        disconnect: '/api/agents/disconnect',
+        refreshQr: '/api/agents/refresh-qr',
+      },
+      calendar: {
+        events: '/api/calendar/events',
+        calendars: '/api/calendar/calendars',
+        sync: '/api/calendar/sync',
+      },
+      ai: {
+        chat: '/api/ai/chat',
+        intentRecognition: '/api/ai/intent-recognition',
+        conversations: '/api/ai/conversations',
+      },
+      rag: {
+        search: '/api/rag/search',
+        knowledgeBase: '/api/rag/knowledge-base',
+        documents: '/api/rag/documents',
+        stats: '/api/rag/stats',
+      },
+      setup: {
+        status: '/api/setup/status',
+        testData: '/api/setup/test-data',
+        calendarFix: '/api/setup/calendar-fix',
+        disconnectFix: '/api/setup/disconnect-fix',
+        userCalendarsTable: '/api/setup/user-calendars-table',
+        fixUserProfiles: '/api/setup/fix-user-profiles',
+        googleServiceAuth: '/api/setup/google-service-auth',
+        googleUserAuth: '/api/setup/google-user-auth',
+        removeConstraint: '/api/setup/remove-constraint',
+        deployWhatsApp: '/api/setup/deploy-whatsapp',
+        allRemainingFixes: '/api/setup/all-remaining-fixes',
+      },
+    },
+  },
+
+  // WhatsApp (legacy - mantido para compatibilidade)
   whatsapp: {
     serverUrl: import.meta.env.VITE_WHATSAPP_SERVER_URL || 'http://31.97.241.19:3001',
   },
@@ -61,6 +135,9 @@ export const validateConfig = () => {
   console.log('🔧 Google Client ID:', config.google.clientId);
   console.log('🔧 Supabase URL:', config.supabase.url);
   console.log('🔧 Supabase Anon Key:', config.supabase.anonKey ? 'Configurada' : 'Usando valor padrão');
+  console.log('🔧 Backend URL:', config.backend.url);
+  console.log('🔧 Backend Timeout:', config.backend.timeout);
+  console.log('🔧 Backend Retry Attempts:', config.backend.retryAttempts);
   return true;
 };
 

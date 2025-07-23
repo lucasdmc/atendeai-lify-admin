@@ -1,49 +1,53 @@
 import { supabase } from '@/integrations/supabase/client';
-import { CalendarToken } from './types';
-import { googleAuthManager } from './auth';
+import { config } from '@/config/environment';
+
+export interface CalendarToken {
+  access_token: string;
+  refresh_token?: string;
+  expires_at: string;
+  scope?: string;
+}
 
 export class GoogleTokenManager {
   async exchangeCodeForTokens(code: string): Promise<CalendarToken> {
     console.log('=== TOKEN EXCHANGE PROCESS ===');
-    console.log('Exchanging authorization code for tokens via Edge Function...');
+    console.log('Exchanging authorization code for tokens via Backend...');
     
-    const config = googleAuthManager.getOAuthConfig();
-    console.log('Using redirect URI for token exchange:', config.redirectUri);
+    const redirectUri = config.urls.redirectUri;
+    console.log('Using redirect URI for token exchange:', redirectUri);
     
     try {
-      // Usa a Edge Function para trocar o código por tokens
-      // Isso mantém o client_secret seguro no servidor
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      const response = await supabase.functions.invoke('google-user-auth', {
-        body: {
-          code,
-          redirectUri: config.redirectUri,
-        },
+      // Usar o novo backend para trocar o código por tokens
+      const response = await fetch(`${config.backend.url}/api/auth/google/exchange-code`, {
+        method: 'POST',
         headers: {
-          Authorization: `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json'
         },
+        body: JSON.stringify({
+          code,
+          redirectUri
+        })
       });
 
-      console.log('Edge function response:', response);
+      const data = await response.json();
 
-      if (response.error) {
-        console.error('Edge function error:', response.error);
-        throw new Error(response.error.message || 'Failed to exchange code for tokens');
+      if (!response.ok) {
+        console.error('Backend error:', data);
+        throw new Error(data.error || 'Failed to exchange code for tokens');
       }
 
-      if (!response.data) {
-        throw new Error('No data received from edge function');
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to exchange code for tokens');
       }
 
       console.log('Token exchange successful');
-      console.log('User profile:', response.data.user_profile);
+      console.log('User profile:', data.user_profile);
       
       const tokens = {
-        access_token: response.data.access_token,
-        refresh_token: response.data.refresh_token,
-        expires_at: response.data.expires_at,
-        scope: response.data.scope,
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+        expires_at: data.expires_at,
+        scope: data.scope,
       };
       
       console.log('=== END TOKEN EXCHANGE ===');
@@ -67,7 +71,7 @@ export class GoogleTokenManager {
   }
 
   async saveTokens(tokens: CalendarToken): Promise<void> {
-    console.log('Saving tokens to database...');
+    console.log('Saving tokens to database via Backend...');
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       console.error('No authenticated user found when saving tokens');
@@ -76,22 +80,29 @@ export class GoogleTokenManager {
 
     console.log('Saving tokens for user:', user.id);
 
-    const { error } = await supabase
-      .from('google_calendar_tokens')
-      .upsert({
-        user_id: user.id,
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token ?? null,
-        expires_at: tokens.expires_at,
-        scope: tokens.scope,
-      });
+    // Usar o novo backend para salvar tokens
+    const response = await fetch(`${config.backend.url}/api/auth/google/save-tokens`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        userId: user.id,
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        expiresAt: tokens.expires_at,
+        scope: tokens.scope
+      })
+    });
 
-    if (error) {
-      console.error('Error saving tokens to database:', error);
-      throw error;
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('Error saving tokens to backend:', data);
+      throw new Error(data.error || 'Failed to save tokens');
     }
 
-    console.log('Tokens saved successfully');
+    console.log('Tokens saved successfully via Backend');
   }
 
   async getStoredTokens(): Promise<CalendarToken | null> {
@@ -104,30 +115,32 @@ export class GoogleTokenManager {
     console.log('Fetching stored tokens for user:', user.id);
 
     try {
-      const { data, error } = await supabase
-        .from('google_calendar_tokens')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+      // Usar o novo backend para obter tokens
+      const response = await fetch(`${config.backend.url}/api/auth/google/tokens/${user.id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
 
-      if (error) {
-        console.log('Error fetching stored tokens:', error);
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.log('Error fetching stored tokens:', data);
         return null;
       }
 
-      if (!data) {
+      if (!data.success || !data.tokens) {
         console.log('No stored tokens found');
         return null;
       }
 
       console.log('Stored tokens found successfully');
       return {
-        access_token: data.access_token,
-        refresh_token: data.refresh_token || '',
-        expires_at: data.expires_at,
-        scope: data.scope || '',
+        access_token: data.tokens.access_token,
+        refresh_token: data.tokens.refresh_token || '',
+        expires_at: data.tokens.expires_at,
+        scope: data.tokens.scope || '',
       };
     } catch (error) {
       console.error('Unexpected error getting stored tokens:', error);
@@ -136,43 +149,40 @@ export class GoogleTokenManager {
   }
 
   async refreshTokens(refreshToken: string): Promise<CalendarToken> {
-    console.log('Refreshing access token...');
+    console.log('Refreshing access token via Backend...');
     
-    const config = googleAuthManager.getOAuthConfig();
-    
-    const response = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        client_id: config.clientId,
-        client_secret: config.clientSecret,
-        refresh_token: refreshToken || '',
-        grant_type: 'refresh_token',
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Token refresh failed:', errorData);
-      throw new Error('Failed to refresh tokens');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error('User not authenticated');
     }
 
+    // Usar o novo backend para renovar tokens
+    const response = await fetch(`${config.backend.url}/api/auth/google/refresh-tokens`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        userId: user.id,
+        refreshToken
+      })
+    });
+
     const data = await response.json();
+
+    if (!response.ok) {
+      console.error('Token refresh failed:', data);
+      throw new Error(data.error || 'Failed to refresh tokens');
+    }
+
     console.log('Token refresh successful');
     
-    const expiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString();
-
-    const newTokens = {
+    return {
       access_token: data.access_token,
-      refresh_token: data.refresh_token || refreshToken, // Google nem sempre retorna um novo refresh_token
-      expires_at: expiresAt,
+      refresh_token: data.refresh_token,
+      expires_at: data.expires_at,
       scope: data.scope,
     };
-
-    await this.saveTokens(newTokens);
-    return newTokens;
   }
 
   async getValidAccessToken(): Promise<string | null> {

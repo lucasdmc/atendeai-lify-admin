@@ -1,4 +1,3 @@
-import { supabase } from '@/integrations/supabase/client';
 import { config } from '@/config/environment';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || config.whatsapp.serverUrl;
@@ -31,30 +30,60 @@ export interface Clinic {
 
 class UserService {
   /**
-   * Obter token de autenticação do Supabase
+   * Listar usuários via backend (sem autenticação para teste)
    */
-  private async getAuthToken(): Promise<string | null> {
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.access_token || null;
+  async listUsers(): Promise<{ success: boolean; users?: User[]; error?: string }> {
+    try {
+      console.log('🔄 Listando usuários via backend...');
+      
+      const response = await fetch(`${BACKEND_URL}/api/users`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('❌ Erro do backend:', data);
+        throw new Error(data.error || 'Erro ao listar usuários');
+      }
+
+      console.log('✅ Usuários carregados do backend:', data.users);
+      
+      // Mapear para o formato esperado
+      const mappedUsers: User[] = data.users.map((user: any) => ({
+        id: user.user_id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+        created_at: user.created_at,
+        clinicId: user.clinic_id
+      }));
+
+      return { success: true, users: mappedUsers };
+    } catch (error) {
+      console.error('❌ Erro ao listar usuários:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Erro desconhecido' 
+      };
+    }
   }
 
   /**
-   * Criar usuário via backend
+   * Criar usuário via backend (sem autenticação para teste)
    */
   async createUser(userData: CreateUserData): Promise<{ success: boolean; user?: User; error?: string }> {
     try {
-      const token = await this.getAuthToken();
-      if (!token) {
-        throw new Error('Usuário não autenticado');
-      }
-
       console.log('🔄 Criando usuário via backend...');
       
       const response = await fetch(`${BACKEND_URL}/api/users/create`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(userData)
       });
@@ -66,8 +95,19 @@ class UserService {
         throw new Error(data.error || 'Erro ao criar usuário');
       }
 
-      console.log('✅ Usuário criado com sucesso:', data.user);
-      return { success: true, user: data.user };
+      console.log('✅ Usuário criado no backend:', data.user);
+      
+      const mappedUser: User = {
+        id: data.user.user_id,
+        name: data.user.name,
+        email: data.user.email,
+        role: data.user.role,
+        status: data.user.status,
+        created_at: data.user.created_at,
+        clinicId: data.user.clinic_id
+      };
+
+      return { success: true, user: mappedUser };
     } catch (error) {
       console.error('❌ Erro ao criar usuário:', error);
       return { 
@@ -78,81 +118,40 @@ class UserService {
   }
 
   /**
-   * Listar usuários via backend
-   */
-  async listUsers(): Promise<{ success: boolean; users?: User[]; error?: string }> {
-    try {
-      const token = await this.getAuthToken();
-      if (!token) {
-        throw new Error('Usuário não autenticado');
-      }
-
-      const response = await fetch(`${BACKEND_URL}/api/users`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Erro ao listar usuários');
-      }
-
-      return { success: true, users: data.users };
-    } catch (error) {
-      console.error('❌ Erro ao listar usuários:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Erro desconhecido' 
-      };
-    }
-  }
-
-  /**
-   * Listar clínicas via backend
+   * Listar clínicas via backend (sem autenticação para teste)
    */
   async listClinics(): Promise<{ success: boolean; clinics?: Clinic[]; error?: string }> {
     try {
-      const token = await this.getAuthToken();
-      if (!token) {
-        throw new Error('Usuário não autenticado');
-      }
-
+      console.log('🔄 Listando clínicas via backend...');
+      
       const response = await fetch(`${BACKEND_URL}/api/clinics`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         }
       });
 
       const data = await response.json();
 
       if (!response.ok) {
+        console.error('❌ Erro do backend:', data);
         throw new Error(data.error || 'Erro ao listar clínicas');
       }
 
-      return { success: true, clinics: data.clinics };
+      console.log('✅ Clínicas carregadas do backend:', data.clinics);
+      
+      const mappedClinics: Clinic[] = data.clinics.map((clinic: any) => ({
+        id: clinic.id,
+        name: clinic.name
+      }));
+
+      return { success: true, clinics: mappedClinics };
     } catch (error) {
       console.error('❌ Erro ao listar clínicas:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Erro desconhecido' 
       };
-    }
-  }
-
-  /**
-   * Verificar se o backend está funcionando
-   */
-  async checkBackendHealth(): Promise<boolean> {
-    try {
-      const response = await fetch(`${BACKEND_URL}/health`);
-      return response.ok;
-    } catch (error) {
-      console.error('❌ Backend não está disponível:', error);
-      return false;
     }
   }
 }

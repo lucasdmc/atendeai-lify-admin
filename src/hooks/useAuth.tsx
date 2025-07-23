@@ -31,21 +31,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('🔄 [useAuth] Fetching user data for ID:', userId);
       
-      // Buscar perfil do usuário com cache
+      // Definir valores padrão imediatamente para evitar timeout
+      setUserRole('admin_lify');
+      setUserPermissions(rolePermissions['admin_lify'] || []);
+      
+      // Buscar perfil do usuário em background (não bloqueante)
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
         .select('role, name')
         .eq('user_id', userId)
         .maybeSingle();
       
+      console.log('🔄 [useAuth] Profile query result:', { profile, profileError });
+      
       if (profileError) {
         console.error('❌ [useAuth] Error fetching profile:', profileError);
-        setUserRole('admin_lify');
-        setUserPermissions(rolePermissions['admin_lify'] || []);
+        // Manter valores padrão já definidos
         return;
       }
 
-      // Se o perfil não existe, criar automaticamente
+      // Se o perfil não existe, criar automaticamente em background
       if (!profile) {
         console.log('🔄 [useAuth] Profile not found, creating new profile...');
         
@@ -61,25 +66,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .select('role, name')
           .single();
 
+        console.log('🔄 [useAuth] Create profile result:', { newProfile, createError });
+
         if (createError) {
           console.error('❌ [useAuth] Error creating profile:', createError);
+          // Manter valores padrão já definidos
+          return;
         }
 
         const role = newProfile?.role || 'admin_lify';
+        console.log('✅ [useAuth] Setting role from new profile:', role);
         setUserRole(role);
         setUserPermissions(rolePermissions[role as keyof typeof rolePermissions] || []);
         return;
       }
 
+      // Atualizar com dados reais do perfil
+      console.log('✅ [useAuth] Setting role from existing profile:', profile.role);
       setUserRole(profile.role);
       setUserPermissions(rolePermissions[profile.role as keyof typeof rolePermissions] || []);
       
     } catch (error) {
       console.error('❌ [useAuth] Error fetching user data:', error);
-      setUserRole('admin_lify');
-      setUserPermissions(rolePermissions['admin_lify'] || []);
-    } finally {
-      setLoading(false);
+      // Manter os valores padrão já definidos
     }
   }, [user?.email]);
 
@@ -96,7 +105,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUserId(session?.user?.id || null);
         
         if (session?.user) {
-          await fetchUserData(session.user.id);
+          // Definir valores padrão imediatamente
+          setUserRole('admin_lify');
+          setUserPermissions(rolePermissions['admin_lify'] || []);
+          setLoading(false);
+          
+          // Buscar dados reais em background
+          fetchUserData(session.user.id).catch((error) => {
+            console.error('❌ [useAuth] Error in fetchUserData during auth change:', error);
+          });
         } else {
           setUserRole(null);
           setUserPermissions([]);
@@ -115,7 +132,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserId(session?.user?.id || null);
       
       if (session?.user) {
-        fetchUserData(session.user.id);
+        // Definir valores padrão imediatamente
+        setUserRole('admin_lify');
+        setUserPermissions(rolePermissions['admin_lify'] || []);
+        setLoading(false);
+        
+        // Buscar dados reais em background
+        fetchUserData(session.user.id).catch((error) => {
+          console.error('❌ [useAuth] Error in fetchUserData during initial session:', error);
+        });
       } else {
         setLoading(false);
       }
@@ -131,7 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
         setHasInitialized(true);
       }
-    }, 5000); // Reduzido para 5 segundos
+    }, 10000); // Aumentado para 10 segundos para dar mais tempo
 
     return () => {
       mounted = false;
