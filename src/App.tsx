@@ -19,11 +19,9 @@ const ConectarWhatsApp = lazy(() => import("./pages/ConectarWhatsApp"));
 const Contextualizar = lazy(() => import("./pages/Contextualizar"));
 const GestaoUsuarios = lazy(() => import("./pages/GestaoUsuarios"));
 const Agendamentos = lazy(() => import("./pages/Agendamentos"));
-const Configuracoes = lazy(() => import("./pages/Configuracoes"));
 const Clinicas = lazy(() => import("./pages/Clinicas"));
 const Index = lazy(() => import("./pages/Index"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-const Agentes = lazy(() => import("./pages/Agentes"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -127,14 +125,6 @@ const App = () => {
                       }
                     />
                     <Route
-                      path="/agentes"
-                      element={
-                        <Layout>
-                          <Agentes />
-                        </Layout>
-                      }
-                    />
-                    <Route
                       path="/clinicas"
                       element={
                         <Layout>
@@ -163,14 +153,6 @@ const App = () => {
                       element={
                         <Layout>
                           <Agendamentos />
-                        </Layout>
-                      }
-                    />
-                    <Route
-                      path="/configuracoes"
-                      element={
-                        <Layout>
-                          <Configuracoes />
                         </Layout>
                       }
                     />

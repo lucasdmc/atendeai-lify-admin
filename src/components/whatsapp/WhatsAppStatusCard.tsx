@@ -10,12 +10,14 @@ import {
   Phone, 
   Calendar,
   MessageSquare,
-  Clock
+  Clock,
+  Shield
 } from 'lucide-react';
 
 interface WhatsAppStatusCardProps {
   connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'demo';
-  clientInfo?: any;
+  clientInfo?: Record<string, unknown> | null;
+  isActionsDisabled?: boolean;
   onReconnect?: () => void;
   onDisconnect?: () => void;
 }
@@ -23,6 +25,7 @@ interface WhatsAppStatusCardProps {
 export const WhatsAppStatusCard = ({ 
   connectionStatus, 
   clientInfo, 
+  isActionsDisabled = false,
   onReconnect,
   onDisconnect 
 }: WhatsAppStatusCardProps) => {
@@ -94,7 +97,9 @@ export const WhatsAppStatusCard = ({
                 <Phone className="h-4 w-4 text-gray-500" />
                 <div>
                   <p className="text-xs text-gray-500">Número</p>
-                  <p className="text-sm font-medium">{clientInfo.number || 'Não informado'}</p>
+                  <p className="text-sm font-medium">
+                    {(clientInfo.phoneNumber as string) || (clientInfo.number as string) || 'Não informado'}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -132,8 +137,18 @@ export const WhatsAppStatusCard = ({
           </>
         )}
 
+        {isActionsDisabled && (
+          <div className="text-xs text-orange-600 bg-orange-50 p-3 rounded border border-orange-200">
+            <div className="flex items-center gap-2 mb-1">
+              <Shield className="h-4 w-4" />
+              <span className="font-medium">Integração Meta API</span>
+            </div>
+            <p>Esta clínica utiliza a API oficial da Meta. As ações de conexão manual não estão disponíveis.</p>
+          </div>
+        )}
+
         <div className="flex gap-2">
-          {connectionStatus === 'connected' && onDisconnect && (
+          {connectionStatus === 'connected' && onDisconnect && !isActionsDisabled && (
             <Button 
               variant="outline" 
               onClick={onDisconnect}
@@ -143,13 +158,24 @@ export const WhatsAppStatusCard = ({
             </Button>
           )}
           
-          {(connectionStatus === 'disconnected' || connectionStatus === 'demo') && onReconnect && (
+          {(connectionStatus === 'disconnected' || connectionStatus === 'demo') && onReconnect && !isActionsDisabled && (
             <Button 
               onClick={onReconnect}
               className="flex-1 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600"
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               {connectionStatus === 'demo' ? 'Configurar WhatsApp Real' : 'Conectar WhatsApp'}
+            </Button>
+          )}
+
+          {isActionsDisabled && (
+            <Button 
+              disabled
+              variant="outline" 
+              className="flex-1 opacity-50 cursor-not-allowed"
+            >
+              <Shield className="h-4 w-4 mr-2" />
+              Meta API Ativa
             </Button>
           )}
         </div>

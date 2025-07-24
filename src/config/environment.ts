@@ -15,7 +15,7 @@ export const config = {
 
   // Backend API (NOVO - Configuração principal)
   backend: {
-    url: import.meta.env.VITE_BACKEND_URL || 'http://31.97.241.19:3001',
+    url: import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001',
     timeout: 30000,
     retryAttempts: 3,
     healthCheck: '/health',

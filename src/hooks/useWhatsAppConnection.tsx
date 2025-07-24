@@ -7,7 +7,8 @@ interface WhatsAppConnectionHook {
   connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'demo';
   qrCode: string | null;
   isLoading: boolean;
-  clientInfo: any;
+  clientInfo: Record<string, unknown> | null;
+  isActionsDisabled: boolean;
   generateQRCode: () => Promise<void>;
   disconnect: () => Promise<void>;
 }
@@ -24,6 +25,7 @@ export const useWhatsAppConnection = (): WhatsAppConnectionHook => {
 
   const {
     isLoading,
+    isActionsDisabled,
     generateQRCode: generateQR,
     disconnect: disconnectAction,
   } = useWhatsAppActions();
@@ -39,7 +41,8 @@ export const useWhatsAppConnection = (): WhatsAppConnectionHook => {
   whatsappLogger.info('Hook state:', { 
     connectionStatus, 
     qrCode: qrCode ? `presente (${qrCode.length} chars)` : 'null', 
-    isLoading 
+    isLoading,
+    isActionsDisabled
   });
 
   return {
@@ -47,6 +50,7 @@ export const useWhatsAppConnection = (): WhatsAppConnectionHook => {
     qrCode,
     isLoading,
     clientInfo,
+    isActionsDisabled,
     generateQRCode,
     disconnect,
   };

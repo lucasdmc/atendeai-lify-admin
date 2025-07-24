@@ -10,6 +10,7 @@ const ConectarWhatsApp = () => {
     qrCode,
     isLoading,
     clientInfo,
+    isActionsDisabled,
     generateQRCode,
     disconnect,
   } = useWhatsAppConnection();
@@ -27,6 +28,7 @@ const ConectarWhatsApp = () => {
       <WhatsAppStatusCard
         connectionStatus={connectionStatus}
         clientInfo={clientInfo}
+        isActionsDisabled={isActionsDisabled}
         onReconnect={generateQRCode}
         onDisconnect={disconnect}
       />

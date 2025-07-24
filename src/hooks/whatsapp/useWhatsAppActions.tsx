@@ -1,11 +1,12 @@
-
 import { useState, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { whatsappLogger } from '@/utils/whatsappLogger';
+import { config } from '@/config/environment';
+import { useClinic } from '@/contexts/ClinicContext';
 
 interface WhatsAppActionsHook {
   isLoading: boolean;
+  isActionsDisabled: boolean;
   generateQRCode: (
     setConnectionStatus: (status: 'disconnected' | 'connecting' | 'connected' | 'demo') => void,
     setQrCode: (qrCode: string | null) => void
@@ -13,7 +14,7 @@ interface WhatsAppActionsHook {
   disconnect: (
     setConnectionStatus: (status: 'disconnected' | 'connecting' | 'connected' | 'demo') => void,
     setQrCode: (qrCode: string | null) => void,
-    setClientInfo: (info: any) => void
+    setClientInfo: (info: Record<string, unknown> | null) => void
   ) => Promise<void>;
   refreshQRCode: () => Promise<void>;
 }
@@ -21,18 +22,21 @@ interface WhatsAppActionsHook {
 export const useWhatsAppActions = (): WhatsAppActionsHook => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
+  const { selectedClinic } = useClinic();
   const qrCheckInterval = useRef<NodeJS.Timeout | null>(null);
+  const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
 
-  // Função para limpar intervalos
+  // Verificar se as ações devem ser desabilitadas
+  const isActionsDisabled = !selectedClinic || selectedClinic.whatsapp_integration_type === 'meta_api';
+
   const clearIntervals = () => {
-    if (statusCheckInterval.current) {
-      clearInterval(statusCheckInterval.current);
-      statusCheckInterval.current = null;
-    }
     if (qrCheckInterval.current) {
       clearInterval(qrCheckInterval.current);
       qrCheckInterval.current = null;
+    }
+    if (statusCheckInterval.current) {
+      clearInterval(statusCheckInterval.current);
+      statusCheckInterval.current = null;
     }
   };
 
@@ -40,6 +44,16 @@ export const useWhatsAppActions = (): WhatsAppActionsHook => {
     setConnectionStatus: (status: 'disconnected' | 'connecting' | 'connected' | 'demo') => void,
     setQrCode: (qrCode: string | null) => void
   ) => {
+    // Verificar se as ações estão desabilitadas
+    if (isActionsDisabled) {
+      toast({
+        title: "Ação não disponível",
+        description: "Esta ação não está disponível para clínicas com integração Meta API.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     whatsappLogger.info('Iniciando geração do QR Code...');
     setIsLoading(true);
     setConnectionStatus('connecting');
@@ -47,18 +61,51 @@ export const useWhatsAppActions = (): WhatsAppActionsHook => {
     clearIntervals();
     
     try {
-      // Primeira tentativa - gerar QR Code
-      const { data, error } = await supabase.functions.invoke('agent-whatsapp-manager/generate-qr', {
-        body: { agentId: 'default-agent' } // Usar ID do agente atual
+      // Chamar backend para gerar QR Code
+      const response = await fetch(`${config.backend.url}/api/whatsapp-integration/generate-qr`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          clinicId: selectedClinic.id
+        })
       });
       
-      if (error) {
-        throw new Error(error.message || 'Erro ao chamar função');
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
-      whatsappLogger.info('Resposta da Edge Function:', data);
+      // Log da resposta bruta para debug
+      const responseText = await response.text();
+      whatsappLogger.info('Raw response from generateQRCode:', responseText);
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        whatsappLogger.error('JSON parse error in generateQRCode:', parseError);
+        whatsappLogger.error('Response text:', responseText);
+        throw new Error('Invalid JSON response from server');
+      }
+      
+      whatsappLogger.info('Resposta do Backend:', data);
       
       if (data?.success) {
+        // Se já está conectado
+        if (data.status === 'connected' && data.clientInfo) {
+          whatsappLogger.info('WhatsApp já está conectado, atualizando estado');
+          setConnectionStatus('connected');
+          setQrCode(null); // Limpar QR Code quando conectado
+          
+          toast({
+            title: "WhatsApp Conectado",
+            description: "Seu WhatsApp Business já está conectado e funcionando.",
+          });
+          
+          return; // Sair da função
+        }
+        
         // Se já tem QR Code
         if (data.qrCode) {
           setQrCode(data.qrCode);
@@ -82,9 +129,25 @@ export const useWhatsAppActions = (): WhatsAppActionsHook => {
             attempts++;
             
             try {
-              const { data: statusData } = await supabase.functions.invoke('agent-whatsapp-manager/status', {
-                body: { agentId: 'default-agent' }
+              const statusResponse = await fetch(`${config.backend.url}/api/whatsapp-integration/status?clinicId=${selectedClinic.id}`, {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
               });
+              
+              if (!statusResponse.ok) {
+                throw new Error(`HTTP ${statusResponse.status}: ${statusResponse.statusText}`);
+              }
+              
+              const statusText = await statusResponse.text();
+              let statusData;
+              try {
+                statusData = JSON.parse(statusText);
+              } catch (parseError) {
+                whatsappLogger.error('JSON parse error in status check:', parseError);
+                return;
+              }
               
               if (statusData?.qrCode) {
                 whatsappLogger.info('QR Code recebido após tentativa', attempts);
@@ -117,20 +180,22 @@ export const useWhatsAppActions = (): WhatsAppActionsHook => {
       } else {
         throw new Error(data?.error || 'Falha ao gerar QR Code');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       whatsappLogger.error('Erro ao gerar QR Code:', error);
       
       // Tratamento específico de erros
       let errorMessage = 'Não foi possível gerar o QR Code';
       
-      if (error.message.includes('timeout')) {
-        errorMessage = 'Tempo esgotado ao tentar gerar o QR Code';
-      } else if (error.message.includes('502')) {
-        errorMessage = 'Servidor WhatsApp não está respondendo';
-      } else if (error.message.includes('404')) {
-        errorMessage = 'Agente não encontrado';
-      } else if (error.message) {
-        errorMessage = error.message;
+      if (error instanceof Error) {
+        if (error.message.includes('timeout')) {
+          errorMessage = 'Tempo esgotado ao tentar gerar o QR Code';
+        } else if (error.message.includes('502')) {
+          errorMessage = 'Servidor WhatsApp não está respondendo';
+        } else if (error.message.includes('404')) {
+          errorMessage = 'Agente não encontrado';
+        } else {
+          errorMessage = error.message;
+        }
       }
       
       toast({
@@ -140,7 +205,6 @@ export const useWhatsAppActions = (): WhatsAppActionsHook => {
       });
       
       setConnectionStatus('disconnected');
-      clearIntervals();
     } finally {
       setIsLoading(false);
     }
@@ -149,19 +213,49 @@ export const useWhatsAppActions = (): WhatsAppActionsHook => {
   const disconnect = async (
     setConnectionStatus: (status: 'disconnected' | 'connecting' | 'connected' | 'demo') => void,
     setQrCode: (qrCode: string | null) => void,
-    setClientInfo: (info: any) => void
+    setClientInfo: (info: Record<string, unknown> | null) => void
   ) => {
+    // Verificar se as ações estão desabilitadas
+    if (isActionsDisabled) {
+      toast({
+        title: "Ação não disponível",
+        description: "Esta ação não está disponível para clínicas com integração Meta API.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     whatsappLogger.info('=== INICIANDO DESCONEXÃO ===');
     setIsLoading(true);
     clearIntervals();
     
     try {
-      const { data, error } = await supabase.functions.invoke('agent-whatsapp-manager/disconnect', {
-        body: { agentId: 'default-agent' }
+      const response = await fetch(`${config.backend.url}/api/whatsapp-integration/disconnect`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: JSON.stringify({
+          clinicId: selectedClinic.id
+        })
       });
       
-      if (error) {
-        throw new Error(error.message || 'Erro ao desconectar');
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      // Log da resposta bruta para debug
+      const responseText = await response.text();
+      whatsappLogger.info('Raw response from disconnect:', responseText);
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        whatsappLogger.error('JSON parse error in disconnect:', parseError);
+        whatsappLogger.error('Response text:', responseText);
+        throw new Error('Invalid JSON response from server');
       }
       
       if (data?.success) {
@@ -177,7 +271,7 @@ export const useWhatsAppActions = (): WhatsAppActionsHook => {
       } else {
         throw new Error(data?.error || 'Falha ao desconectar');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       whatsappLogger.error('❌ Erro na desconexão:', error);
       
       // Mesmo com erro, limpar estado local
@@ -206,12 +300,28 @@ export const useWhatsAppActions = (): WhatsAppActionsHook => {
       checkCount++;
       
       try {
-        const { data: statusData } = await supabase.functions.invoke('agent-whatsapp-manager/status', {
-          body: { agentId: 'default-agent' }
+        const response = await fetch(`${config.backend.url}/api/whatsapp-integration/status?clinicId=${selectedClinic?.id || ''}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
         });
         
-        if (statusData?.status === 'connected') {
-          whatsappLogger.info('WhatsApp conectado com sucesso!');
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const responseText = await response.text();
+        let statusData;
+        try {
+          statusData = JSON.parse(responseText);
+        } catch (parseError) {
+          whatsappLogger.error('JSON parse error in status check:', parseError);
+          return;
+        }
+        
+        if (statusData?.status === 'connected' && statusData?.clientInfo?.provider === 'baileys' && statusData?.clientInfo?.connectedAt) {
+          whatsappLogger.info('WhatsApp Baileys conectado com sucesso!');
           setConnectionStatus('connected');
           setQrCode(null);
           clearInterval(statusCheckInterval.current!);
@@ -246,17 +356,42 @@ export const useWhatsAppActions = (): WhatsAppActionsHook => {
 
   // Função para forçar novo QR Code
   const refreshQRCode = async () => {
+    // Verificar se as ações estão desabilitadas
+    if (isActionsDisabled) {
+      toast({
+        title: "Ação não disponível",
+        description: "Esta ação não está disponível para clínicas com integração Meta API.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     whatsappLogger.info('Forçando novo QR Code...');
     setIsLoading(true);
     clearIntervals();
     
     try {
-      const { data, error } = await supabase.functions.invoke('agent-whatsapp-manager/refresh-qr', {
-        body: { agentId: 'default-agent' }
-      });
+              const response = await fetch(`${config.backend.url}/api/whatsapp-integration/refresh-qr`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            clinicId: selectedClinic.id
+          })
+        });
       
-      if (error) {
-        throw new Error(error.message || 'Erro ao atualizar QR Code');
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const responseText = await response.text();
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        whatsappLogger.error('JSON parse error in refreshQRCode:', parseError);
+        throw new Error('Invalid JSON response from server');
       }
       
       if (data?.success) {
@@ -267,11 +402,12 @@ export const useWhatsAppActions = (): WhatsAppActionsHook => {
       } else {
         throw new Error(data?.error || 'Falha ao atualizar QR Code');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       whatsappLogger.error('Erro ao atualizar QR Code:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       toast({
         title: "Erro",
-        description: `Não foi possível atualizar o QR Code: ${error.message}`,
+        description: `Não foi possível atualizar o QR Code: ${errorMessage}`,
         variant: "destructive",
       });
     } finally {
@@ -281,8 +417,9 @@ export const useWhatsAppActions = (): WhatsAppActionsHook => {
 
   return {
     isLoading,
+    isActionsDisabled,
     generateQRCode,
     disconnect,
     refreshQRCode,
   };
-};
+}; 

@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:8080": "vite --port 8080",
+    "start": "./start-frontend.sh",
     "dev:server": "node server-baileys-production.js",
     "dev:server:http": "node server-baileys.js",
     "dev:server:simple": "node server-baileys-simple.js",

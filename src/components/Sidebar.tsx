@@ -5,9 +5,8 @@ import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, 
   MessageSquare, 
-  Brain, 
+  QrCode,
   Users, 
-  Settings,
   Sparkles,
   Menu,
   X,
@@ -16,6 +15,31 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { hasPermission } from '@/components/users/UserRoleUtils';
+import { useClinic } from '@/contexts/ClinicContext';
+
+// Interface estendida para incluir configuração WhatsApp
+interface ClinicWithWhatsApp {
+  id: string;
+  name: string;
+  whatsapp_integration_type?: 'baileys' | 'meta_api';
+  address?: unknown;
+  phone?: unknown;
+  email?: unknown;
+  created_by: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+  working_hours?: unknown;
+  specialties?: unknown;
+  payment_methods?: unknown;
+  insurance_accepted?: unknown;
+  emergency_contact?: unknown;
+  admin_notes?: unknown;
+  logo_url?: unknown;
+  primary_color?: unknown;
+  secondary_color?: unknown;
+  timezone?: string | null;
+  language?: string | null;
+}
 
 const menuItems = [
   {
@@ -31,10 +55,10 @@ const menuItems = [
     permission: 'conversas'
   },
   {
-    title: 'Agentes de IA',
-    icon: Brain,
-    href: '/agentes',
-    permission: 'agentes'
+    title: 'Conectar WhatsApp',
+    icon: QrCode,
+    href: '/conectar-whatsapp',
+    permission: 'conectar_whatsapp'
   },
   {
     title: 'Agendamentos',
@@ -59,26 +83,41 @@ const menuItems = [
     icon: Users,
     href: '/gestao-usuarios',
     permission: 'gestao_usuarios'
-  },
-  {
-    title: 'Configurações',
-    icon: Settings,
-    href: '/configuracoes',
-    permission: 'configuracoes'
   }
 ];
 
 const Sidebar = memo(() => {
   const [isOpen, setIsOpen] = useState(false);
   const { userRole, loading } = useAuth();
+  const { selectedClinic } = useClinic();
   const location = useLocation();
 
-  // Filtrar itens do menu baseado nas permissões do usuário com memoização
+  // Filtrar itens do menu baseado nas permissões do usuário e configuração da clínica
   const filteredMenuItems = useMemo(() => {
     return menuItems.filter(item => {
-      return hasPermission(userRole, item.permission);
+      // Verificar permissão básica
+      if (!hasPermission(userRole, item.permission)) {
+        return false;
+      }
+
+      // Se for o item "Conectar WhatsApp", verificar configuração da clínica
+      if (item.href === '/conectar-whatsapp') {
+        // Se não há clínica selecionada, mostrar (para admin_lify)
+        if (!selectedClinic) {
+          return true;
+        }
+
+        // Se a clínica está configurada para Meta API, não mostrar
+        const clinicWithWhatsApp = selectedClinic as ClinicWithWhatsApp;
+        const integrationType = clinicWithWhatsApp?.whatsapp_integration_type;
+        if (integrationType === 'meta_api') {
+          return false;
+        }
+      }
+
+      return true;
     });
-  }, [userRole]);
+  }, [userRole, selectedClinic]);
 
   // Se ainda está carregando, mostrar loading
   if (loading) {

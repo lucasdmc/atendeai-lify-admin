@@ -24,8 +24,8 @@ export const getRoleColor = (role: string) => {
 
 export const getRolePermissionDescription = (role: UserRole) => {
   const descriptions = {
-    atendente: 'Acesso a: Conectar QR Code, Agendamentos, Conversas, Dashboard (Clínica específica)',
-    gestor: 'Acesso a: Conectar QR Code, Agendamentos, Conversas, Dashboard, Agentes de IA, Contextualização (Clínica específica)',
+    atendente: 'Acesso a: Conectar WhatsApp, Agendamentos, Conversas, Dashboard (Clínica específica)',
+    gestor: 'Acesso a: Conectar WhatsApp, Agendamentos, Conversas, Dashboard, Contextualização (Clínica específica)',
     admin: 'Acesso completo a uma clínica específica (exceto módulo Clínicas)',
     suporte_lify: 'Acesso total exceto módulo Clínicas (Todas as clínicas)',
     admin_lify: 'Acesso total a todos os módulos (Todas as clínicas)'
@@ -36,51 +36,44 @@ export const getRolePermissionDescription = (role: UserRole) => {
 // Definição das permissões por módulo para cada perfil
 export const rolePermissions = {
   atendente: [
-    'conectar_whatsapp',  // Conectar QR Code
+    'conectar_whatsapp',  // Conectar WhatsApp
     'agendamentos',       // Agendamentos
     'conversas',          // Conversas
     'dashboard'           // Dashboard
   ],
   gestor: [
-    'conectar_whatsapp',  // Conectar QR Code
+    'conectar_whatsapp',  // Conectar WhatsApp
     'agendamentos',       // Agendamentos
     'conversas',          // Conversas
     'dashboard',          // Dashboard
-    'agentes',            // Agentes de IA
     'contextualizar'      // Contextualização
   ],
   admin: [
-    'conectar_whatsapp',  // Conectar QR Code
+    'conectar_whatsapp',  // Conectar WhatsApp
     'agendamentos',       // Agendamentos
     'conversas',          // Conversas
     'dashboard',          // Dashboard
-    'agentes',            // Agentes de IA
     'contextualizar',     // Contextualização
-    'gestao_usuarios',    // Gestão de Usuários
-    'configuracoes'       // Configurações
+    'gestao_usuarios'     // Gestão de Usuários
     // NOTA: admin NÃO tem acesso ao módulo 'clinicas'
   ],
   suporte_lify: [
-    'conectar_whatsapp',  // Conectar QR Code
+    'conectar_whatsapp',  // Conectar WhatsApp
     'agendamentos',       // Agendamentos
     'conversas',          // Conversas
     'dashboard',          // Dashboard
-    'agentes',            // Agentes de IA
     'contextualizar',     // Contextualização
-    'gestao_usuarios',    // Gestão de Usuários
-    'configuracoes'       // Configurações
+    'gestao_usuarios'     // Gestão de Usuários
     // NOTA: suporte_lify NÃO tem acesso ao módulo 'clinicas'
   ],
   admin_lify: [
-    'conectar_whatsapp',  // Conectar QR Code
+    'conectar_whatsapp',  // Conectar WhatsApp
     'agendamentos',       // Agendamentos
     'conversas',          // Conversas
     'dashboard',          // Dashboard
-    'agentes',            // Agentes de IA
     'contextualizar',     // Contextualização
     'gestao_usuarios',    // Gestão de Usuários
-    'clinicas',           // Clínicas
-    'configuracoes'       // Configurações
+    'clinicas'            // Clínicas
   ]
 };
 

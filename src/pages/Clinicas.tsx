@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Building2, Search, Edit, Trash2, Plus, MapPin, Phone, Mail } from 'lucide-react';
+import { Building2, Search, Edit, Trash2, Plus, MapPin, Phone, Mail, Brain } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,25 +18,26 @@ import { useClinic } from '@/contexts/ClinicContext';
 import EditClinicModal from '@/components/clinics/EditClinicModal';
 import CreateClinicModal from '@/components/clinics/CreateClinicModal';
 import DeleteClinicModal from '@/components/clinics/DeleteClinicModal';
+import ClinicContextualizationModal from '@/components/clinics/ClinicContextualizationModal';
 
 interface Clinic {
   id: string;
   name: string;
-  address?: any | null;
-  phone?: any | null;
-  email?: any | null;
+  address?: unknown | null;
+  phone?: unknown | null;
+  email?: unknown | null;
   created_by: string;
   created_at: string;
   updated_at: string;
-  working_hours?: any | null;
-  specialties?: any | null;
-  payment_methods?: any | null;
-  insurance_accepted?: any | null;
-  emergency_contact?: any | null;
-  admin_notes?: any | null;
-  logo_url?: any | null;
-  primary_color?: any | null;
-  secondary_color?: any | null;
+  working_hours?: unknown | null;
+  specialties?: unknown | null;
+  payment_methods?: unknown | null;
+  insurance_accepted?: unknown | null;
+  emergency_contact?: unknown | null;
+  admin_notes?: unknown | null;
+  logo_url?: unknown | null;
+  primary_color?: unknown | null;
+  secondary_color?: unknown | null;
   timezone: string;
   language: string;
 }
@@ -50,6 +51,8 @@ const Clinicas = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [deletingClinic, setDeletingClinic] = useState<Clinic | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [contextualizingClinic, setContextualizingClinic] = useState<Clinic | null>(null);
+  const [isContextualizationModalOpen, setIsContextualizationModalOpen] = useState(false);
   const { toast } = useToast();
   const { userRole, userPermissions } = useAuth();
   const { selectedClinicId, userClinicId } = useClinic();
@@ -117,6 +120,16 @@ const Clinicas = () => {
   const handleCloseDeleteModal = () => {
     setDeletingClinic(null);
     setIsDeleteModalOpen(false);
+  };
+
+  const handleContextualizationClinic = (clinic: Clinic) => {
+    setContextualizingClinic(clinic);
+    setIsContextualizationModalOpen(true);
+  };
+
+  const handleCloseContextualizationModal = () => {
+    setContextualizingClinic(null);
+    setIsContextualizationModalOpen(false);
   };
 
   const handleClinicUpdated = () => {
@@ -245,6 +258,14 @@ const Clinicas = () => {
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => handleContextualizationClinic(clinic)}
+                        title="Configurar Contextualização da IA"
+                      >
+                        <Brain className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleEditClinic(clinic)}
                       >
                         <Edit className="h-4 w-4" />
@@ -291,6 +312,15 @@ const Clinicas = () => {
         onClose={handleCloseDeleteModal}
         onClinicDeleted={handleClinicUpdated}
       />
+
+      {contextualizingClinic && (
+        <ClinicContextualizationModal
+          isOpen={isContextualizationModalOpen}
+          onClose={handleCloseContextualizationModal}
+          clinicId={contextualizingClinic.id}
+          clinicName={contextualizingClinic.name}
+        />
+      )}
     </div>
   );
 };

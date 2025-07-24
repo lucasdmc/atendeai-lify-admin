@@ -7,7 +7,9 @@ import {
   DialogHeader, 
   DialogTitle 
 } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
 import { AddressInput } from '@/components/ui/address-input';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -49,7 +51,8 @@ const EditClinicModal = ({ clinic, isOpen, onClose, onClinicUpdated }: EditClini
     state: '',
     phone: '',
     email: '',
-    website: ''
+    website: '',
+    whatsappIntegrationType: 'baileys' as 'baileys' | 'meta_api'
   });
   const { toast } = useToast();
 
@@ -62,12 +65,13 @@ const EditClinicModal = ({ clinic, isOpen, onClose, onClinicUpdated }: EditClini
         state: clinic.address?.state || '',
         phone: clinic.phone?.value || '',
         email: clinic.email?.value || '',
-        website: ''
+        website: '',
+        whatsappIntegrationType: (clinic as any).whatsapp_integration_type || 'baileys'
       });
     }
   }, [clinic, isOpen]);
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | 'baileys' | 'meta_api') => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -91,7 +95,8 @@ const EditClinicModal = ({ clinic, isOpen, onClose, onClinicUpdated }: EditClini
           name: formData.name,
           address: formData.address || null,
           phone: formData.phone || null,
-          email: formData.email || null
+          email: formData.email || null,
+          whatsapp_integration_type: formData.whatsappIntegrationType
         })
         .eq('id', clinic.id);
 
@@ -147,9 +152,9 @@ const EditClinicModal = ({ clinic, isOpen, onClose, onClinicUpdated }: EditClini
             </div>
             <div>
               <label className="text-sm font-medium">Telefone</label>
-              <Input
+              <PhoneInput
                 value={formData.phone}
-                onChange={(e) => handleInputChange('phone', e.target.value)}
+                onChange={(value) => handleInputChange('phone', value)}
                 placeholder="(11) 99999-9999"
               />
             </div>
@@ -186,6 +191,30 @@ const EditClinicModal = ({ clinic, isOpen, onClose, onClinicUpdated }: EditClini
                 placeholder="SP"
                 maxLength={2}
               />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-sm font-medium">Integração WhatsApp</label>
+            <div className="flex items-center space-x-3">
+              <Switch
+                id="whatsapp-integration"
+                checked={formData.whatsappIntegrationType === 'meta_api'}
+                onCheckedChange={(checked) => 
+                  handleInputChange('whatsappIntegrationType', checked ? 'meta_api' : 'baileys')
+                }
+              />
+              <div className="flex-1">
+                <label htmlFor="whatsapp-integration" className="text-sm font-medium">
+                  Usar API oficial da Meta (WhatsApp Business)
+                </label>
+                <p className="text-xs text-gray-600 mt-1">
+                  {formData.whatsappIntegrationType === 'meta_api' 
+                    ? 'Integração empresarial via API oficial da Meta. Sem necessidade de QR Code.'
+                    : 'Conexão via WhatsApp Web com QR Code. Ideal para testes e uso pessoal.'
+                  }
+                </p>
+              </div>
             </div>
           </div>
 

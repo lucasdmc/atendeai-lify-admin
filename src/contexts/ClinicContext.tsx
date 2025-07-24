@@ -5,23 +5,32 @@ import { supabase } from '@/integrations/supabase/client';
 interface Clinic {
   id: string;
   name: string;
-  address?: any | null;
-  phone?: any | null;
-  email?: any | null;
+  address?: unknown | null;
+  phone?: unknown | null;
+  email?: unknown | null;
   created_by: string;
   created_at: string | null;
   updated_at: string | null;
-  working_hours?: any | null;
-  specialties?: any | null;
-  payment_methods?: any | null;
-  insurance_accepted?: any | null;
-  emergency_contact?: any | null;
-  admin_notes?: any | null;
-  logo_url?: any | null;
-  primary_color?: any | null;
-  secondary_color?: any | null;
+  working_hours?: unknown | null;
+  specialties?: unknown | null;
+  payment_methods?: unknown | null;
+  insurance_accepted?: unknown | null;
+  emergency_contact?: unknown | null;
+  admin_notes?: unknown | null;
+  logo_url?: unknown | null;
+  primary_color?: unknown | null;
+  secondary_color?: unknown | null;
   timezone: string | null;
   language: string | null;
+  whatsapp_integration_type?: 'baileys' | 'meta_api';
+  whatsapp_meta_config?: unknown;
+  whatsapp_baileys_config?: unknown;
+  whatsapp_connection_status?: 'disconnected' | 'connecting' | 'connected' | 'error';
+  whatsapp_last_connection?: string | null;
+  whatsapp_phone_number?: string | null;
+  whatsapp_phone_number_verified?: boolean;
+  whatsapp_phone_number_verification_date?: string | null;
+  whatsapp_phone_number_verification_status?: 'pending' | 'verified' | 'failed' | 'unverified';
 }
 
 interface ClinicContextType {

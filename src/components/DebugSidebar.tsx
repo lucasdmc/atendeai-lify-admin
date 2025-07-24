@@ -8,12 +8,10 @@ const DebugSidebar = () => {
     { title: 'Dashboard', permission: 'dashboard' },
     { title: 'Conversas', permission: 'conversas' },
     { title: 'Conectar WhatsApp', permission: 'conectar_whatsapp' },
-    { title: 'Agentes de IA', permission: 'agentes' },
     { title: 'Agendamentos', permission: 'agendamentos' },
     { title: 'Clínicas', permission: 'clinicas' },
     { title: 'Contextualizar', permission: 'contextualizar' },
-    { title: 'Gestão de Usuários', permission: 'gestao_usuarios' },
-    { title: 'Configurações', permission: 'configuracoes' }
+    { title: 'Gestão de Usuários', permission: 'gestao_usuarios' }
   ];
 
   const filteredMenuItems = menuItems.filter(item => {
