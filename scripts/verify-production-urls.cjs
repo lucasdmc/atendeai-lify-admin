@@ -118,7 +118,7 @@ function scanDirectory(dir, extensions = ['.js', '.ts', '.tsx', '.json', '.env']
           
           if (stat.isDirectory()) {
             // Pular node_modules e outros diretórios desnecessários
-            if (!['node_modules', '.git', 'dist', 'build', '.next', '.wwebjs_auth', 'temp', 'tmp'].includes(item)) {
+            if (!['node_modules', '.git', 'dist', 'build', '.next', 'temp', 'tmp'].includes(item)) {
               scan(fullPath);
             }
           } else if (stat.isFile()) {

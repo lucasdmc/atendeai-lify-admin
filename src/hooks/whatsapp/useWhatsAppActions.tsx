@@ -320,7 +320,7 @@ export const useWhatsAppActions = (): WhatsAppActionsHook => {
           return;
         }
         
-        if (statusData?.status === 'connected' && statusData?.clientInfo?.provider === 'baileys' && statusData?.clientInfo?.connectedAt) {
+        if (statusData?.status === 'connected' && statusData?.clientInfo?.provider === 'meta_api' && statusData?.clientInfo?.connectedAt) {
           whatsappLogger.info('WhatsApp Baileys conectado com sucesso!');
           setConnectionStatus('connected');
           setQrCode(null);

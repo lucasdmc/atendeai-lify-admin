@@ -22,9 +22,8 @@ interface Clinic {
   secondary_color?: unknown | null;
   timezone: string | null;
   language: string | null;
-  whatsapp_integration_type?: 'baileys' | 'meta_api';
+  whatsapp_integration_type?: 'meta_api';
   whatsapp_meta_config?: unknown;
-  whatsapp_baileys_config?: unknown;
   whatsapp_connection_status?: 'disconnected' | 'connecting' | 'connected' | 'error';
   whatsapp_last_connection?: string | null;
   whatsapp_phone_number?: string | null;

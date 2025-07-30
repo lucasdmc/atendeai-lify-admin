@@ -68,7 +68,7 @@ export const useWhatsAppStatus = (): WhatsAppStatusHook => {
         }
 
         // Se a clínica usa Baileys, verificar status via backend
-        if (selectedClinic.whatsapp_integration_type === 'baileys') {
+        if (selectedClinic.whatsapp_integration_type === 'meta_api') {
           whatsappLogger.info('Clinic uses Baileys, checking backend status');
           
           const response = await fetch(`${config.backend.url}/api/whatsapp-integration/status?clinicId=${selectedClinic.id}`, {
@@ -134,7 +134,7 @@ export const useWhatsAppStatus = (): WhatsAppStatusHook => {
             if (data.clientInfo) {
               setClientInfo(data.clientInfo);
               // Só limpar QR Code se realmente estiver conectado E tiver clientInfo válido E não estiver no processo de conexão
-              if (data.status === 'connected' && data.clientInfo.provider === 'baileys' && data.clientInfo.connectedAt && connectionStatus !== 'connecting') {
+              if (data.status === 'connected' && data.clientInfo.provider === 'meta_api' && data.clientInfo.connectedAt && connectionStatus !== 'connecting') {
                 whatsappLogger.info('Baileys connected successfully, clearing QR Code');
                 // Aguardar um pouco antes de limpar o QR Code para garantir que a conexão está estável
                 setTimeout(() => {

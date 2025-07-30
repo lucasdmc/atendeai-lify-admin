@@ -10,7 +10,7 @@ export const WhatsAppIntegrationInfo = () => {
     return null;
   }
 
-  const integrationType = selectedClinic.whatsapp_integration_type || 'baileys';
+  const integrationType = selectedClinic.whatsapp_integration_type || 'meta_api';
 
   return (
     <Card className="w-full">

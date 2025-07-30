@@ -904,7 +904,7 @@ async function handleGenerateQR(req: Request, supabase: any, whatsappServerUrl: 
           success: true, 
           qrCode: data.qrCode,
           message: 'QR Code generated successfully',
-          mode: 'baileys',
+          mode: 'meta_api',
           agentId: agentId,
           agentName: agent.name,
           whatsappNumber: agent.whatsapp_number || '5511999999999'

@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 interface WhatsAppPhoneNumberFieldProps {
   value: string;
   onChange: (value: string) => void;
-  integrationType: 'baileys' | 'meta_api';
+  integrationType: 'meta_api';
   isVerified?: boolean;
   verificationStatus?: 'pending' | 'verified' | 'failed' | 'unverified';
   verificationDate?: string | null;
@@ -212,7 +212,7 @@ export const WhatsAppPhoneNumberField = ({
         </Alert>
       )}
 
-      {integrationType === 'baileys' && (
+      {integrationType === 'meta_api' && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>

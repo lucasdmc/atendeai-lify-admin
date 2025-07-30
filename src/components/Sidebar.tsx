@@ -21,7 +21,7 @@ import { useClinic } from '@/contexts/ClinicContext';
 interface ClinicWithWhatsApp {
   id: string;
   name: string;
-  whatsapp_integration_type?: 'baileys' | 'meta_api';
+  whatsapp_integration_type?: 'meta_api';
   address?: unknown;
   phone?: unknown;
   email?: unknown;

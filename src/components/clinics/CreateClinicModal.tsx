@@ -31,13 +31,13 @@ const CreateClinicModal = ({ isOpen, onClose, onClinicCreated }: CreateClinicMod
     phone: '',
     email: '',
     website: '',
-    whatsappIntegrationType: 'baileys' as 'baileys' | 'meta_api',
+    whatsappIntegrationType: 'meta_api' as 'meta_api',
     whatsappPhoneNumber: ''
   });
   const { toast } = useToast();
   const { user, userRole, userPermissions } = useAuth();
 
-  const handleInputChange = (field: string, value: string | 'baileys' | 'meta_api') => {
+  const handleInputChange = (field: string, value: string | 'meta_api') => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -107,7 +107,7 @@ const CreateClinicModal = ({ isOpen, onClose, onClinicCreated }: CreateClinicMod
         phone: '',
         email: '',
         website: '',
-        whatsappIntegrationType: 'baileys',
+        whatsappIntegrationType: 'meta_api',
         whatsappPhoneNumber: ''
       });
 
@@ -222,7 +222,7 @@ const CreateClinicModal = ({ isOpen, onClose, onClinicCreated }: CreateClinicMod
                 id="whatsapp-integration"
                 checked={formData.whatsappIntegrationType === 'meta_api'}
                 onCheckedChange={(checked) => 
-                  handleInputChange('whatsappIntegrationType', checked ? 'meta_api' : 'baileys')
+                  handleInputChange('whatsappIntegrationType', 'meta_api')
                 }
               />
               <div className="flex-1">
