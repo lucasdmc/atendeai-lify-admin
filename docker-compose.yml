@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  # Backend
+  backend:
+    build:
+      context: ./atendeai-lify-backend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - JWT_SECRET=your-development-secret-key
+      - CORS_ORIGIN=http://localhost:3000
+    volumes:
+      - ./atendeai-lify-backend:/app
+      - /app/node_modules
+    depends_on:
+      - postgres
+    networks:
+      - atendeai-network
+
+  # Frontend
+  frontend:
+    build:
+      context: ./atendeai-lify-admin
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:3001
+      - VITE_SUPABASE_URL=your-supabase-url
+      - VITE_SUPABASE_ANON_KEY=your-supabase-key
+    volumes:
+      - ./atendeai-lify-admin:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - atendeai-network
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=atendeai
+      - POSTGRES_USER=atendeai
+      - POSTGRES_PASSWORD=atendeai123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - atendeai-network
+
+  # Redis (para cache e sessões)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - atendeai-network
+
+  # Nginx (proxy reverso)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - atendeai-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  atendeai-network:
+    driver: bridge 

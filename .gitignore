@@ -55,4 +55,3 @@ pids
 *.pid.lock
 
 # WhatsApp Web session data
-.wwebjs_auth/

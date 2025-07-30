@@ -1,183 +1,163 @@
-# Supabase CLI
+# AtendeAI Lify - Workspace
 
-[![Coverage Status](https://coveralls.io/repos/github/supabase/cli/badge.svg?branch=main)](https://coveralls.io/github/supabase/cli?branch=main) [![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/supabase-cli/setup-cli/master?style=flat-square&label=Bitbucket%20Canary)](https://bitbucket.org/supabase-cli/setup-cli/pipelines) [![Gitlab Pipeline Status](https://img.shields.io/gitlab/pipeline-status/sweatybridge%2Fsetup-cli?label=Gitlab%20Canary)
-](https://gitlab.com/sweatybridge/setup-cli/-/pipelines)
+Workspace principal do sistema AtendeAI Lify, contendo os repositórios frontend e backend.
 
-[Supabase](https://supabase.io) is an open source Firebase alternative. We're building the features of Firebase using enterprise-grade open source tools.
+## 📁 Estrutura do Workspace
 
-This repository contains all the functionality for Supabase CLI.
+```
+atendeai-lify-admin/
+├── atendeai-lify-admin/     # Frontend (React + TypeScript)
+└── atendeai-lify-backend/   # Backend (Node.js + Express)
+```
 
-- [x] Running Supabase locally
-- [x] Managing database migrations
-- [x] Creating and deploying Supabase Functions
-- [x] Generating types directly from your database schema
-- [x] Making authenticated HTTP requests to [Management API](https://supabase.com/docs/reference/api/introduction)
+## 🚀 Início Rápido
 
-## Getting started
-
-### Install the CLI
-
-Available via [NPM](https://www.npmjs.com) as dev dependency. To install:
+### 1. Configurar o Backend
 
 ```bash
-npm i supabase --save-dev
+cd atendeai-lify-backend
+npm install
+cp env.example .env
+# Configure as variáveis de ambiente no arquivo .env
+npm run dev
 ```
 
-To install the beta release channel:
+O backend estará rodando em: http://localhost:3001
+
+### 2. Configurar o Frontend
 
 ```bash
-npm i supabase@beta --save-dev
+cd atendeai-lify-admin
+npm install
+cp env.example .env
+# Configure as variáveis de ambiente no arquivo .env
+npm run dev
 ```
 
-When installing with yarn 4, you need to disable experimental fetch with the following nodejs config.
+O frontend estará rodando em: http://localhost:3000
 
+## 📚 Documentação
+
+### Backend (atendeai-lify-backend)
+
+- [README do Backend](./atendeai-lify-backend/README.md)
+- API RESTful para gerenciamento de dados
+- Autenticação JWT
+- Integração com WhatsApp Business API
+- Gerenciamento de agendamentos e clínicas
+
+### Frontend (atendeai-lify-admin)
+
+- [README do Frontend](./atendeai-lify-admin/README.md)
+- Interface administrativa em React + TypeScript
+- Dashboard com métricas e gráficos
+- Gerenciamento de agendamentos
+- Integração com WhatsApp
+- Sistema de usuários e permissões
+
+## 🔧 Configuração do Ambiente
+
+### Pré-requisitos
+
+- Node.js >= 18.0.0
+- npm ou yarn
+- Git
+
+### Variáveis de Ambiente
+
+#### Backend (.env)
+```env
+PORT=3001
+NODE_ENV=development
+JWT_SECRET=your-secret-key
+DATABASE_URL=your-database-url
+CORS_ORIGIN=http://localhost:3000
 ```
-NODE_OPTIONS=--no-experimental-fetch yarn add supabase
+
+#### Frontend (.env)
+```env
+VITE_API_URL=http://localhost:3001
+VITE_SUPABASE_URL=your-supabase-url
+VITE_SUPABASE_ANON_KEY=your-supabase-key
+VITE_WHATSAPP_API_URL=your-whatsapp-api-url
 ```
 
-> **Note**
-For Bun versions below v1.0.17, you must add `supabase` as a [trusted dependency](https://bun.sh/guides/install/trusted) before running `bun add -D supabase`.
+## 🚀 Deploy
 
-<details>
-  <summary><b>macOS</b></summary>
+### Backend
+O backend pode ser deployado em:
+- VPS tradicional
+- Heroku
+- Railway
+- DigitalOcean App Platform
 
-  Available via [Homebrew](https://brew.sh). To install:
+### Frontend
+O frontend pode ser deployado em:
+- Vercel
+- Netlify
+- VPS tradicional
 
-  ```sh
-  brew install supabase/tap/supabase
-  ```
+## 📊 Funcionalidades Principais
 
-  To install the beta release channel:
-  
-  ```sh
-  brew install supabase/tap/supabase-beta
-  brew link --overwrite supabase-beta
-  ```
-  
-  To upgrade:
+### Sistema de Agendamentos
+- Criação e gerenciamento de agendamentos
+- Filtros por clínica, data e status
+- Calendário integrado
+- Notificações automáticas
 
-  ```sh
-  brew upgrade supabase
-  ```
-</details>
+### Gerenciamento de Clínicas
+- Cadastro de clínicas
+- Configurações por clínica
+- Associação de usuários
+- Relatórios específicos
 
-<details>
-  <summary><b>Windows</b></summary>
+### Integração WhatsApp
+- Conexão com WhatsApp Business API
+- Chat em tempo real
+- Histórico de conversas
+- Automação de respostas
 
-  Available via [Scoop](https://scoop.sh). To install:
+### Sistema de Usuários
+- Autenticação JWT
+- Controle de permissões
+- Perfis de acesso
+- Auditoria de ações
 
-  ```powershell
-  scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
-  scoop install supabase
-  ```
+## 🧪 Testes
 
-  To upgrade:
-
-  ```powershell
-  scoop update supabase
-  ```
-</details>
-
-<details>
-  <summary><b>Linux</b></summary>
-
-  Available via [Homebrew](https://brew.sh) and Linux packages.
-
-  #### via Homebrew
-
-  To install:
-
-  ```sh
-  brew install supabase/tap/supabase
-  ```
-
-  To upgrade:
-
-  ```sh
-  brew upgrade supabase
-  ```
-
-  #### via Linux packages
-
-  Linux packages are provided in [Releases](https://github.com/supabase/cli/releases). To install, download the `.apk`/`.deb`/`.rpm`/`.pkg.tar.zst` file depending on your package manager and run the respective commands.
-
-  ```sh
-  sudo apk add --allow-untrusted <...>.apk
-  ```
-
-  ```sh
-  sudo dpkg -i <...>.deb
-  ```
-
-  ```sh
-  sudo rpm -i <...>.rpm
-  ```
-
-  ```sh
-  sudo pacman -U <...>.pkg.tar.zst
-  ```
-</details>
-
-<details>
-  <summary><b>Other Platforms</b></summary>
-
-  You can also install the CLI via [go modules](https://go.dev/ref/mod#go-install) without the help of package managers.
-
-  ```sh
-  go install github.com/supabase/cli@latest
-  ```
-
-  Add a symlink to the binary in `$PATH` for easier access:
-
-  ```sh
-  ln -s "$(go env GOPATH)/bin/cli" /usr/bin/supabase
-  ```
-
-  This works on other non-standard Linux distros.
-</details>
-
-<details>
-  <summary><b>Community Maintained Packages</b></summary>
-
-  Available via [pkgx](https://pkgx.sh/). Package script [here](https://github.com/pkgxdev/pantry/blob/main/projects/supabase.com/cli/package.yml).
-  To install in your working directory:
-
-  ```bash
-  pkgx install supabase
-  ```
-
-  Available via [Nixpkgs](https://nixos.org/). Package script [here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/supabase-cli/default.nix).
-</details>
-
-### Run the CLI
-
+### Backend
 ```bash
-supabase bootstrap
+cd atendeai-lify-backend
+npm test
 ```
 
-Or using npx:
-
+### Frontend
 ```bash
-npx supabase bootstrap
+cd atendeai-lify-admin
+npm test
 ```
 
-The bootstrap command will guide you through the process of setting up a Supabase project using one of the [starter](https://github.com/supabase-community/supabase-samples/blob/main/samples.json) templates.
+## 🤝 Contribuição
 
-## Docs
+1. Fork o projeto
+2. Crie uma branch para sua feature
+3. Commit suas mudanças
+4. Push para a branch
+5. Abra um Pull Request
 
-Command & config reference can be found [here](https://supabase.com/docs/reference/cli/about).
+## 📄 Licença
 
-## Breaking changes
+Este projeto está sob a licença MIT.
 
-We follow semantic versioning for changes that directly impact CLI commands, flags, and configurations.
+## 📞 Suporte
 
-However, due to dependencies on other service images, we cannot guarantee that schema migrations, seed.sql, and generated types will always work for the same CLI major version. If you need such guarantees, we encourage you to pin a specific version of CLI in package.json.
+Para suporte técnico ou dúvidas:
+- Email: suporte@atendeai.com
+- Documentação: [docs.atendeai.com](https://docs.atendeai.com)
 
-## Developing
+## 🔗 Links Úteis
 
-To run from source:
-
-```sh
-# Go >= 1.22
-go run . help
-```
+- [Documentação da API](http://localhost:3001/api/docs)
+- [Supabase Dashboard](https://supabase.com/dashboard)
+- [WhatsApp Business API](https://developers.facebook.com/docs/whatsapp)
+- [Vercel Dashboard](https://vercel.com/dashboard)
