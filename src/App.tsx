@@ -20,6 +20,9 @@ const Contextualizar = lazy(() => import("./pages/Contextualizar"));
 const GestaoUsuarios = lazy(() => import("./pages/GestaoUsuarios"));
 const Agendamentos = lazy(() => import("./pages/Agendamentos"));
 const Clinicas = lazy(() => import("./pages/Clinicas"));
+const AIDashboard = lazy(() => import("./pages/AIDashboard"));
+const AITest = lazy(() => import("./pages/AITest"));
+const WhatsAppAITest = lazy(() => import("./pages/WhatsAppAITest"));
 const Index = lazy(() => import("./pages/Index"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -153,6 +156,22 @@ const App = () => {
                       element={
                         <Layout>
                           <Agendamentos />
+                        </Layout>
+                      }
+                    />
+                    <Route
+                      path="/ai-dashboard"
+                      element={
+                        <Layout>
+                          <AIDashboard />
+                        </Layout>
+                      }
+                    />
+                    <Route
+                      path="/whatsapp-ai-test"
+                      element={
+                        <Layout>
+                          <WhatsAppAITest />
                         </Layout>
                       }
                     />

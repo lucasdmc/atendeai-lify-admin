@@ -1,149 +1,152 @@
+// ========================================
+// WEBHOOK WHATSAPP COM AI INTEGRADA
+// ========================================
+
 const express = require('express');
-const { saveReceivedMessage, getOrCreateConversation } = require('../services/supabaseService');
-const { sendWhatsAppTextMessage } = require('../services/whatsappMetaService');
-const logger = require('../utils/logger');
+const { processWhatsAppWebhook } = require('../services/aiWhatsAppService');
 const router = express.Router();
 
-// Função para enviar resposta automática
-async function sendAutoReply(phoneNumber) {
+// Webhook para receber mensagens do WhatsApp
+router.post('/whatsapp-meta', async (req, res) => {
   try {
-    const accessToken = process.env.WHATSAPP_META_ACCESS_TOKEN;
-    const phoneNumberId = process.env.WHATSAPP_META_PHONE_NUMBER_ID;
+    console.log('[Webhook] Mensagem recebida:', {
+      method: req.method,
+      headers: req.headers,
+      body: req.body
+    });
 
-    if (!accessToken || !phoneNumberId) {
-      logger.warn('Credenciais do WhatsApp Meta não configuradas para resposta automática');
-      return false;
+    // Verificar se é um desafio de verificação
+    if (req.body.mode === 'subscribe' && req.body['hub.challenge']) {
+      console.log('[Webhook] Respondendo ao desafio de verificação');
+      return res.status(200).send(req.body['hub.challenge']);
     }
 
-    const autoReplyMessage = `📩 Mensagem recebida com sucesso no WhatsApp!
-✅ O Atende Ai já está se preparando…
-🤖 Em breve você receberá uma resposta automática!
-⏳ Aguarde só um pouquinho 😉`;
+    // Processar mensagens
+    if (req.body.entry && req.body.entry.length > 0) {
+      const webhookData = req.body;
+      
+      // Configuração do WhatsApp (pode vir do banco de dados)
+      const whatsappConfig = {
+        accessToken: process.env.WHATSAPP_META_ACCESS_TOKEN,
+        phoneNumberId: process.env.WHATSAPP_META_PHONE_NUMBER_ID
+      };
 
-    const result = await sendWhatsAppTextMessage({
-      accessToken,
-      phoneNumberId,
-      to: phoneNumber,
-      text: autoReplyMessage
+      // IDs de exemplo (em produção, viriam do contexto da clínica)
+      const clinicId = process.env.DEFAULT_CLINIC_ID || 'test-clinic';
+      const userId = process.env.DEFAULT_USER_ID || 'system-user';
+
+      // Processar com AI
+      const result = await processWhatsAppWebhook(
+        webhookData,
+        clinicId,
+        userId,
+        whatsappConfig
+      );
+
+      if (result.success) {
+        console.log('[Webhook] Processamento concluído com sucesso');
+        return res.status(200).json({ 
+          success: true, 
+          message: 'Webhook processado com AI',
+          processed: result.processed
+        });
+      } else {
+        console.error('[Webhook] Erro no processamento:', result.error);
+        return res.status(500).json({ 
+          success: false, 
+          error: result.error 
+        });
+      }
+    }
+
+    // Se não há mensagens para processar
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Webhook recebido, mas sem mensagens para processar' 
     });
 
-    logger.webhook('Resposta automática enviada', { 
-      phoneNumber, 
-      messageId: result.messages?.[0]?.id 
-    });
-
-    return true;
   } catch (error) {
-    logger.error('Erro ao enviar resposta automática', { 
-      error: error.message, 
-      phoneNumber 
+    console.error('[Webhook] Erro geral:', error.message);
+    return res.status(500).json({ 
+      success: false, 
+      error: error.message 
     });
-    return false;
-  }
-}
-
-// GET endpoint para verificação do webhook
-router.get('/whatsapp-meta', (req, res) => {
-  const mode = req.query['hub.mode'];
-  const token = req.query['hub.verify_token'];
-  const challenge = req.query['hub.challenge'];
-  
-  logger.webhook('Verificação do webhook solicitada', {
-    mode,
-    hasToken: !!token,
-    hasChallenge: !!challenge
-  });
-
-  const verifyToken = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
-  
-  if (mode === 'subscribe' && token === verifyToken) {
-    logger.webhook('Webhook verificado com sucesso');
-    res.status(200).send(challenge);
-  } else {
-    logger.error('Falha na verificação do webhook', { mode, token });
-    res.status(403).send('Forbidden');
   }
 });
 
-// POST endpoint para receber mensagens
-router.post('/whatsapp-meta', async (req, res) => {
-  const body = req.body;
-  
-  logger.webhook('Webhook recebido da Meta', {
-    entryCount: body.entry?.length || 0
+// Rota de teste para verificar se o webhook está funcionando
+router.get('/whatsapp/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Webhook WhatsApp com AI está funcionando',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    webhookUrl: process.env.WEBHOOK_URL || 'não configurado'
   });
+});
 
-  const entries = body.entry || [];
-  let saved = 0;
-  let processed = 0;
-  let failed = 0;
+// Rota para testar envio de mensagem com AI
+router.post('/whatsapp/test-send', async (req, res) => {
+  try {
+    const { to, message, clinicId, userId } = req.body;
 
-  for (const entry of entries) {
-    const changes = entry.changes || [];
-    for (const change of changes) {
-      const value = change.value || {};
-      const messages = value.messages || [];
-      
-      for (const msg of messages) {
-        processed++;
-        const from = msg.from;
-        const messageText = msg.text?.body || msg.button?.text || msg.interactive?.button_reply?.title || msg.interactive?.list_reply?.title || '';
-        const timestamp = msg.timestamp ? parseInt(msg.timestamp) * 1000 : Date.now();
-        const messageId = msg.id;
-        
-        logger.webhook('Processando mensagem recebida', {
-          from,
-          messageId,
-          textLength: messageText.length,
-          timestamp: new Date(timestamp).toISOString()
-        });
-
-        try {
-          // Buscar ou criar conversationId usando o serviço corrigido
-          const conversationId = await getOrCreateConversation(from);
-          
-          // Salvar mensagem recebida
-          await saveReceivedMessage({ 
-            conversationId, 
-            from, 
-            messageText, 
-            messageId, 
-            timestamp 
-          });
-          
-          saved++;
-
-          // Enviar resposta automática
-          await sendAutoReply(from);
-
-        } catch (error) {
-          failed++;
-          logger.error('Erro ao processar mensagem do webhook', {
-            error: error.message,
-            from,
-            messageId,
-            messageText
-          });
-        }
-      }
+    if (!to || !message) {
+      return res.status(400).json({
+        success: false,
+        error: 'Parâmetros "to" e "message" são obrigatórios'
+      });
     }
+
+    // Simular mensagem recebida
+    const mockMessage = {
+      from: to,
+      text: { body: message },
+      timestamp: Date.now()
+    };
+
+    // Configuração do WhatsApp
+    const whatsappConfig = {
+      accessToken: process.env.WHATSAPP_META_ACCESS_TOKEN,
+      phoneNumberId: process.env.WHATSAPP_META_PHONE_NUMBER_ID
+    };
+
+    // Processar com AI
+    const { processMessageWithAI, sendAIResponseViaWhatsApp } = require('../services/aiWhatsAppService');
+    
+    const aiResponse = await processMessageWithAI(
+      mockMessage,
+      clinicId || 'test-clinic',
+      userId || 'test-user'
+    );
+
+    if (aiResponse) {
+      // Enviar resposta via WhatsApp
+      const sendResult = await sendAIResponseViaWhatsApp(
+        to,
+        aiResponse,
+        whatsappConfig
+      );
+
+      return res.json({
+        success: true,
+        message: 'Mensagem processada e enviada com AI',
+        aiResponse,
+        sendResult
+      });
+    } else {
+      return res.status(500).json({
+        success: false,
+        error: 'Falha ao processar mensagem com AI'
+      });
+    }
+
+  } catch (error) {
+    console.error('[Webhook Test] Erro:', error.message);
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
-
-  logger.webhook('Webhook processado com sucesso', {
-    processed,
-    saved,
-    failed
-  });
-
-  res.status(200).json({ 
-    success: true, 
-    message: `Webhook processado`,
-    stats: {
-      processed,
-      saved,
-      failed
-    }
-  });
 });
 
 module.exports = router; 

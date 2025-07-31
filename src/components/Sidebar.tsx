@@ -11,7 +11,8 @@ import {
   Menu,
   X,
   Calendar,
-  Building2
+  Building2,
+  Bot
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { hasPermission } from '@/components/users/UserRoleUtils';
@@ -83,6 +84,12 @@ const menuItems = [
     icon: Users,
     href: '/gestao-usuarios',
     permission: 'gestao_usuarios'
+  },
+  {
+    title: 'Dashboard AI',
+    icon: Bot,
+    href: '/ai-dashboard',
+    permission: 'dashboard'
   }
 ];
 
