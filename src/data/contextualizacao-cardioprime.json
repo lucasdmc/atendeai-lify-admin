@@ -1,0 +1,263 @@
+{
+  "clinica": {
+    "informacoes_basicas": {
+      "nome": "CardioPrime",
+      "razao_social": "CardioPrime - Centro de Cardiologia",
+      "cnpj": "12.345.678/0001-91",
+      "especialidade_principal": "Cardiologia",
+      "especialidades_secundarias": [
+        "Cardiologia Clínica",
+        "Cardiologia Intervencionista",
+        "Eletrofisiologia",
+        "Ecocardiografia",
+        "Teste Ergométrico",
+        "Holter 24h"
+      ],
+      "descricao": "Centro especializado em cardiologia com tecnologia de ponta para diagnóstico e tratamento de doenças cardiovasculares. Oferecemos consultas, exames e procedimentos cardiológicos em ambiente moderno e acolhedor.",
+      "missao": "Proporcionar excelência no cuidado cardiovascular com tecnologia avançada, equipe especializada e atendimento humanizado.",
+      "valores": [
+        "Excelência em cardiologia",
+        "Tecnologia de ponta",
+        "Atendimento humanizado",
+        "Segurança do paciente",
+        "Prevenção cardiovascular"
+      ],
+      "diferenciais": [
+        "Equipe de cardiologistas especializados",
+        "Equipamentos de última geração",
+        "Atendimento personalizado",
+        "Resultados rápidos e precisos",
+        "Foco em prevenção cardiovascular"
+      ]
+    },
+    "localizacao": {
+      "endereco_principal": {
+        "logradouro": "Rua das Palmeiras",
+        "numero": "123",
+        "complemento": "Sala 301",
+        "bairro": "Centro",
+        "cidade": "Blumenau",
+        "estado": "SC",
+        "cep": "89010-000",
+        "pais": "Brasil",
+        "coordenadas": {
+          "latitude": -26.9194,
+          "longitude": -49.0661
+        }
+      }
+    },
+    "contatos": {
+      "telefone_principal": "(47) 3333-4444",
+      "whatsapp": "(47) 99999-8888",
+      "email_principal": "contato@cardioprime.com.br",
+      "emails_departamentos": {
+        "agendamento": "agendamento@cardioprime.com.br",
+        "resultados": "resultados@cardioprime.com.br"
+      },
+      "website": "https://www.cardioprime.com.br"
+    },
+    "horario_funcionamento": {
+      "segunda": {"abertura": "08:00", "fechamento": "18:00"},
+      "terca": {"abertura": "08:00", "fechamento": "18:00"},
+      "quarta": {"abertura": "08:00", "fechamento": "18:00"},
+      "quinta": {"abertura": "08:00", "fechamento": "18:00"},
+      "sexta": {"abertura": "08:00", "fechamento": "17:00"},
+      "sabado": {"abertura": "08:00", "fechamento": "12:00"},
+      "domingo": {"abertura": null, "fechamento": null}
+    }
+  },
+  "agente_ia": {
+    "configuracao": {
+      "nome": "Dr. Carlos",
+      "personalidade": "Profissional, acolhedor e especializado em cardiologia. Demonstra conhecimento técnico mas comunica de forma acessível e tranquilizadora.",
+      "tom_comunicacao": "Formal mas acessível, com foco na tranquilização do paciente",
+      "nivel_formalidade": "Médio-alto",
+      "idiomas": ["português"],
+      "saudacao_inicial": "Olá! Sou o Dr. Carlos, assistente virtual da CardioPrime. Estou aqui para ajudá-lo com agendamentos e orientações sobre consultas e exames cardiológicos. Como posso ajudá-lo hoje?",
+      "mensagem_despedida": "Obrigado por escolher a CardioPrime para cuidar do seu coração. Até breve!",
+      "mensagem_fora_horario": "No momento estamos fora do horário de atendimento. Para urgências cardiológicas, procure o pronto-socorro mais próximo. Retornaremos seu contato no próximo horário comercial."
+    },
+    "comportamento": {
+      "proativo": true,
+      "oferece_sugestoes": true,
+      "solicita_feedback": true,
+      "escalacao_automatica": true,
+      "limite_tentativas": 3,
+      "contexto_conversa": true
+    }
+  },
+  "profissionais": [
+    {
+      "id": "prof_001",
+      "nome_completo": "Dr. Roberto Silva",
+      "nome_exibicao": "Dr. Roberto",
+      "crm": "CRM-SC 12345",
+      "especialidades": ["Cardiologia Clínica", "Ecocardiografia"],
+      "experiencia": "Mais de 20 anos de experiência em cardiologia clínica e ecocardiografia",
+      "ativo": true,
+      "aceita_novos_pacientes": true,
+      "horarios_disponibilidade": {
+        "segunda": [{"inicio": "08:00", "fim": "12:00"}],
+        "terca": [{"inicio": "14:00", "fim": "18:00"}],
+        "quarta": [{"inicio": "08:00", "fim": "12:00"}],
+        "quinta": [{"inicio": "14:00", "fim": "18:00"}],
+        "sexta": [{"inicio": "08:00", "fim": "12:00"}]
+      },
+      "tempo_consulta_padrao": 30
+    },
+    {
+      "id": "prof_002",
+      "nome_completo": "Dra. Maria Santos",
+      "nome_exibicao": "Dra. Maria",
+      "crm": "CRM-SC 9999",
+      "especialidades": ["Cardiologia Intervencionista", "Eletrofisiologia"],
+      "experiencia": "Mais de 15 anos de experiência em cardiologia intervencionista e eletrofisiologia",
+      "ativo": true,
+      "aceita_novos_pacientes": true,
+      "horarios_disponibilidade": {
+        "segunda": [{"inicio": "08:00", "fim": "12:00"}],
+        "terca": [{"inicio": "14:00", "fim": "18:00"}],
+        "quarta": [{"inicio": "08:00", "fim": "12:00"}],
+        "quinta": [{"inicio": "14:00", "fim": "18:00"}],
+        "sexta": [{"inicio": "08:00", "fim": "12:00"}]
+      },
+      "tempo_consulta_padrao": 30
+    }
+  ],
+  "servicos": {
+    "consultas": [
+      {
+        "id": "cons_001",
+        "nome": "Consulta Cardiológica",
+        "descricao": "Avaliação completa do sistema cardiovascular",
+        "especialidade": "Cardiologia",
+        "duracao_minutos": 30,
+        "preco_particular": 300.00,
+        "aceita_convenio": true,
+        "convenios_aceitos": ["Unimed", "Bradesco Saúde", "SulAmérica"],
+        "ativo": true
+      }
+    ],
+    "exames": [
+      {
+        "id": "exam_001",
+        "nome": "Ecocardiografia",
+        "descricao": "Exame de ultrassom do coração",
+        "categoria": "Imagem",
+        "duracao_minutos": 30,
+        "preco_particular": 400.00,
+        "aceita_convenio": true,
+        "convenios_aceitos": ["Unimed", "Bradesco Saúde", "SulAmérica", "Amil"],
+        "preparacao": {
+          "jejum_horas": 0,
+          "instrucoes_especiais": "Não é necessário jejum. Pode tomar seus medicamentos normalmente."
+        },
+        "resultado_prazo_dias": 1,
+        "ativo": true
+      },
+      {
+        "id": "exam_002",
+        "nome": "Teste Ergométrico",
+        "descricao": "Teste de esforço para avaliação cardiovascular",
+        "categoria": "Teste Funcional",
+        "duracao_minutos": 45,
+        "preco_particular": 350.00,
+        "aceita_convenio": true,
+        "convenios_aceitos": ["Unimed", "Bradesco Saúde", "SulAmérica"],
+        "preparacao": {
+          "jejum_horas": 2,
+          "instrucoes_especiais": "Jejum de 2 horas. Trazer roupas confortáveis e tênis."
+        },
+        "resultado_prazo_dias": 1,
+        "ativo": true
+      },
+      {
+        "id": "exam_003",
+        "nome": "Holter 24h",
+        "descricao": "Monitoramento contínuo do ritmo cardíaco por 24 horas",
+        "categoria": "Monitoramento",
+        "duracao_minutos": 1440,
+        "preco_particular": 500.00,
+        "aceita_convenio": true,
+        "convenios_aceitos": ["Unimed", "Bradesco Saúde", "SulAmérica"],
+        "preparacao": {
+          "jejum_horas": 0,
+          "instrucoes_especiais": "Não é necessário jejum. Evitar banho durante o exame."
+        },
+        "resultado_prazo_dias": 2,
+        "ativo": true
+      }
+    ]
+  },
+  "convenios": [
+    {
+      "id": "conv_001",
+      "nome": "Unimed",
+      "ativo": true,
+      "servicos_cobertos": ["cons_001", "exam_001", "exam_002", "exam_003"],
+      "copagamento": false,
+      "autorizacao_necessaria": true
+    },
+    {
+      "id": "conv_002",
+      "nome": "Bradesco Saúde",
+      "ativo": true,
+      "servicos_cobertos": ["cons_001", "exam_001", "exam_002", "exam_003"],
+      "copagamento": true,
+      "valor_copagamento": 25.00,
+      "autorizacao_necessaria": true
+    },
+    {
+      "id": "conv_003",
+      "nome": "SulAmérica",
+      "ativo": true,
+      "servicos_cobertos": ["cons_001", "exam_001", "exam_002", "exam_003"],
+      "copagamento": true,
+      "valor_copagamento": 30.00,
+      "autorizacao_necessaria": true
+    }
+  ],
+  "formas_pagamento": {
+    "dinheiro": true,
+    "cartao_credito": true,
+    "cartao_debito": true,
+    "pix": true,
+    "parcelamento": {
+      "disponivel": true,
+      "max_parcelas": 6,
+      "valor_minimo_parcela": 100.00
+    },
+    "desconto_a_vista": {
+      "disponivel": true,
+      "percentual": 5.0
+    }
+  },
+  "politicas": {
+    "agendamento": {
+      "antecedencia_minima_horas": 24,
+      "antecedencia_maxima_dias": 90,
+      "reagendamento_permitido": true,
+      "cancelamento_antecedencia_horas": 24,
+      "confirmacao_necessaria": true
+    },
+    "atendimento": {
+      "tolerancia_atraso_minutos": 15,
+      "acompanhante_permitido": true,
+      "documentos_obrigatorios": ["RG ou CNH", "CPF", "Carteirinha do convênio"]
+    }
+  },
+  "informacoes_adicionais": {
+    "parcerias": [
+      {
+        "nome": "Hospital Santa Isabel",
+        "tipo": "Hospital",
+        "descricao": "Parceria para casos de emergência cardiológica"
+      }
+    ]
+  },
+  "metadados": {
+    "versao_schema": "1.0.0",
+    "data_criacao": "2024-06-30T19:00:00Z",
+    "status": "ativo"
+  }
+} 
