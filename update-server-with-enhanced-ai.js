@@ -32,7 +32,7 @@ const { EnhancedAIService } = require('./src/services/ai/enhancedAIService');`;
     const oldProcessCall = `const aiResponse = await AIService.processMessage(
               userMessage,
               userPhone,
-              process.env.DEFAULT_CLINIC_ID || 'default-clinic'
+              'default-clinic'
             );`;
 
     const newProcessCall = `// Usar EnhancedAIService para melhor qualidade
@@ -40,7 +40,7 @@ const { EnhancedAIService } = require('./src/services/ai/enhancedAIService');`;
             const aiResponse = await enhancedAI.processMessage(
               userMessage,
               userPhone,
-              process.env.DEFAULT_CLINIC_ID || 'default-clinic',
+              'default-clinic',
               {
                 systemPrompt: 'Você é o Dr. Carlos, assistente virtual da CardioPrime. Seja acolhedor, profissional e útil.',
                 enableRAG: true,

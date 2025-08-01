@@ -533,7 +533,7 @@ app.post('/webhook/whatsapp-meta', async (req, res) => {
             const aiResponse = await AIService.processMessage(
               userMessage,
               userPhone,
-              process.env.DEFAULT_CLINIC_ID || 'default-clinic'
+              'default-clinic'
             );
             
             console.log(`🤖 [AI] Resposta gerada:`, {

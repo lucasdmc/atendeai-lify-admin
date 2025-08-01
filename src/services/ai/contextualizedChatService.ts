@@ -43,11 +43,12 @@ export class ContextualizedChatService {
       // 5. Processar através do orquestrador com contexto
       const response = await LLMOrchestratorService.processMessage({
         phoneNumber: data.phoneNumber,
-        message: contextualizedPrompt
+        message: contextualizedPrompt,
+        conversationId: `contextualized-${data.phoneNumber}-${Date.now()}`
       });
-      
-      // 6. Salvar na memória
-      await ConversationMemoryService.addInteraction(
+
+      // Salvar interação na memória
+      await ConversationMemoryService.saveInteraction(
         data.phoneNumber,
         data.message,
         response.response

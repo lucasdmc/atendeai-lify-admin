@@ -1,5 +1,6 @@
-const express = require('express');
-const { sendWhatsAppTextMessage } = require('../services/whatsappMetaService');
+import express from 'express';
+import { sendWhatsAppTextMessage } from '../services/whatsappMetaService.js';
+
 const router = express.Router();
 
 // Envio real de mensagem via API oficial da Meta
@@ -20,4 +21,4 @@ router.post('/send-message', async (req, res) => {
   }
 });
 
-module.exports = router; 
+export default router; 

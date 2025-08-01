@@ -48,8 +48,6 @@ echo "WEBHOOK_URL=https://api.atendeai.lify.com.br/webhook/whatsapp-meta"
 echo "WHATSAPP_WEBHOOK_VERIFY_TOKEN=lify-analysa-waba-token"
 echo ""
 echo "# IDs padrão"
-echo "DEFAULT_CLINIC_ID=test-clinic"
-echo "DEFAULT_USER_ID=system-ai-user"
 echo "EOF"
 echo ""
 

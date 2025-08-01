@@ -25,7 +25,6 @@ WHATSAPP_META_BUSINESS_ID=742991528315493
 WHATSAPP_WEBHOOK_VERIFY_TOKEN=your-verify-token
 
 # Clínica padrão
-DEFAULT_CLINIC_ID=default-clinic
 
 # OpenAI (se necessário)
 OPENAI_API_KEY=your-openai-key

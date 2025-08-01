@@ -21,123 +21,146 @@ export interface RAGResponse {
 }
 
 export class RAGEngineService {
-  private static knowledgeBase: Record<string, any> | null = null;
+  private static knowledgeBase: any[] | null = null;
   
   /**
    * Inicializa ou atualiza a base de conhecimento do RAG
    */
   static async initializeKnowledgeBase(): Promise<void> {
     try {
-      // Buscar dados de contextualização (fallback)
-      const { data: contextData } = await supabase
+      // Buscar dados de contextualização da tabela clinics
+      const { data: clinicData, error } = await supabase
         .from('clinics')
         .select('*')
+        .eq('has_contextualization', true)
         .single();
 
-      if (contextData) {
-        this.knowledgeBase = this.buildKnowledgeBaseFromContext([]);
-      } else {
-        throw new Error('No clinic data found');
+      if (error) {
+        console.error('❌ Error fetching clinic data:', error);
+        throw error;
       }
 
-      console.log('✅ Knowledge base initialized');
+      if (clinicData && clinicData.contextualization_json) {
+        this.knowledgeBase = this.parseContextualizationData(clinicData.contextualization_json);
+        console.log(`✅ Knowledge base initialized with ${this.knowledgeBase.length} items from clinic: ${clinicData.name}`);
+      } else {
+        console.warn('⚠️ No contextualization data found, using fallback');
+        this.knowledgeBase = this.getFallbackData();
+      }
     } catch (error) {
       console.error('❌ Error initializing knowledge base:', error);
       // Usar dados padrão se não conseguir carregar
-      this.knowledgeBase = this.buildKnowledgeBaseFromContext([]);
+      this.knowledgeBase = this.getFallbackData();
     }
   }
 
   /**
    * Constrói base de conhecimento a partir de dados de contextualização
    */
-  private static buildKnowledgeBaseFromContext(contextData: any[]): Record<string, any> {
-    const kb: Record<string, any> = {
-      clinica: {
-        informacoes_basicas: {
-          nome: this.findAnswer(contextData, 'nome da clínica') || 'Clínica Médica',
-          especialidade_principal: this.findAnswer(contextData, 'especialidade principal') || 'Medicina Geral',
-          missao: this.findAnswer(contextData, 'missão da clínica') || 'Cuidar da saúde dos pacientes',
-          diferenciais: ['Atendimento personalizado', 'Profissionais qualificados'],
-          valores: ['Ética', 'Compromisso', 'Qualidade']
-        },
-        localizacao: {
-          endereco_principal: {
-            logradouro: this.findAnswer(contextData, 'endereço') || 'Endereço não informado',
-            cidade: this.findAnswer(contextData, 'cidade') || '',
-            estado: this.findAnswer(contextData, 'estado') || ''
-          }
-        },
-        contatos: {
-          telefone_principal: this.findAnswer(contextData, 'telefone') || '',
-          whatsapp: this.findAnswer(contextData, 'whatsapp') || '',
-          email_principal: this.findAnswer(contextData, 'email') || ''
-        },
-        horario_funcionamento: {
-          segunda: { abertura: '08:00', fechamento: '18:00' },
-          terca: { abertura: '08:00', fechamento: '18:00' },
-          quarta: { abertura: '08:00', fechamento: '18:00' },
-          quinta: { abertura: '08:00', fechamento: '18:00' },
-          sexta: { abertura: '08:00', fechamento: '18:00' }
-        }
-      },
-      profissionais: this.parseDoctors(contextData),
-      servicos: {
-        consultas: this.parseServices(contextData),
-        exames: [],
-        procedimentos: [],
-        cirurgias: []
-      },
-      convenios: this.parseInsurance(contextData),
-      formas_pagamento: {
-        dinheiro: true,
-        cartao_credito: true,
-        cartao_debito: true,
-        pix: true
-      },
-      politicas: {
-        agendamento: {
-          cancelamento_antecedencia_horas: 24,
-          reagendamento_antecedencia_horas: 24
-        },
-        atendimento: {
-          tolerancia_atraso_minutos: 15
-        }
-      },
-      regras_agendamento: {
-        horario_inicio: '08:00',
-        horario_fim: '18:00',
-        duracao_padrao_minutos: 60
-      },
-      agente_ia: {
-        configuracao: {
-          nome: 'Assistente Virtual',
-          personalidade: 'profissional e empática',
-          tom_comunicacao: 'cordial',
-          nivel_formalidade: 'formal',
-          idiomas: ['pt-BR'],
-          saudacao_inicial: 'Olá! Como posso ajudá-lo hoje?',
-          mensagem_fora_horario: 'Estamos fora do horário de funcionamento. Deixe sua mensagem que retornaremos em breve.',
-          mensagem_erro: 'Desculpe, estou com dificuldades técnicas. Tente novamente em alguns instantes.',
-          mensagem_despedida: 'Obrigado por escolher nossa clínica. Tenha um ótimo dia!'
-        },
-        comportamento: {
-          proativo: true,
-          oferece_sugestoes: true,
-          solicita_feedback: false,
-          contexto_conversa: true
-        },
-        restricoes: {
-          nao_pode_diagnosticar: true,
-          nao_pode_prescrever: true,
-          nao_pode_cancelar_sem_confirmacao: true,
-          nao_pode_alterar_precos: true,
-          topicos_proibidos: []
-        }
+  private static parseContextualizationData(contextData: any): any[] {
+    const knowledgeBase: any[] = [];
+    
+    // Extrair informações básicas da clínica
+    if (contextData.clinica) {
+      if (contextData.clinica.informacoes_basicas) {
+        knowledgeBase.push({
+          title: 'Informações da Clínica',
+          content: `Nome: ${contextData.clinica.informacoes_basicas.nome}\nEspecialidade: ${contextData.clinica.informacoes_basicas.especialidade_principal}\nMissão: ${contextData.clinica.informacoes_basicas.missao}`,
+          category: 'institucional',
+          tags: ['clínica', 'informações']
+        });
       }
-    };
-
-    return kb;
+      
+      if (contextData.clinica.localizacao) {
+        knowledgeBase.push({
+          title: 'Endereço da Clínica',
+          content: contextData.clinica.localizacao.endereco_principal?.logradouro || 'Endereço não informado',
+          category: 'localizacao',
+          tags: ['endereço', 'localização']
+        });
+      }
+      
+      if (contextData.clinica.contatos) {
+        knowledgeBase.push({
+          title: 'Contatos',
+          content: `Telefone: ${contextData.clinica.contatos.telefone_principal}\nWhatsApp: ${contextData.clinica.contatos.whatsapp}\nEmail: ${contextData.clinica.contatos.email_principal}`,
+          category: 'contatos',
+          tags: ['telefone', 'whatsapp', 'email']
+        });
+      }
+      
+      if (contextData.clinica.horario_funcionamento) {
+        const hours = contextData.clinica.horario_funcionamento;
+        let hoursContent = 'Horários de funcionamento:\n';
+        Object.entries(hours).forEach(([day, schedule]: [string, any]) => {
+          if (schedule && schedule.abertura && schedule.fechamento) {
+            const dayNames: Record<string, string> = {
+              segunda: 'Segunda-feira',
+              terca: 'Terça-feira',
+              quarta: 'Quarta-feira',
+              quinta: 'Quinta-feira',
+              sexta: 'Sexta-feira',
+              sabado: 'Sábado',
+              domingo: 'Domingo'
+            };
+            hoursContent += `${dayNames[day] || day}: ${schedule.abertura} às ${schedule.fechamento}\n`;
+          }
+        });
+        
+        knowledgeBase.push({
+          title: 'Horários de Funcionamento',
+          content: hoursContent.trim(),
+          category: 'horarios',
+          tags: ['horário', 'funcionamento']
+        });
+      }
+    }
+    
+    // Extrair informações de profissionais
+    if (contextData.profissionais && Array.isArray(contextData.profissionais)) {
+      const doctorsContent = contextData.profissionais.map((doctor: any) => 
+        `${doctor.nome} - ${doctor.especialidade}`
+      ).join('\n');
+      
+      knowledgeBase.push({
+        title: 'Profissionais',
+        content: doctorsContent,
+        category: 'profissionais',
+        tags: ['médicos', 'especialistas']
+      });
+    }
+    
+    // Extrair informações de serviços
+    if (contextData.servicos && contextData.servicos.consultas) {
+      knowledgeBase.push({
+        title: 'Serviços Disponíveis',
+        content: contextData.servicos.consultas.join(', '),
+        category: 'servicos',
+        tags: ['serviços', 'atendimento']
+      });
+    }
+    
+    // Extrair informações de convênios
+    if (contextData.convenios && Array.isArray(contextData.convenios)) {
+      knowledgeBase.push({
+        title: 'Convênios Aceitos',
+        content: contextData.convenios.join(', '),
+        category: 'convenios',
+        tags: ['convênios', 'planos']
+      });
+    }
+    
+    // Extrair informações do agente IA
+    if (contextData.agente_ia && contextData.agente_ia.configuracao) {
+      knowledgeBase.push({
+        title: 'Informações do Atendimento',
+        content: `Nome: ${contextData.agente_ia.configuracao.nome}\nPersonalidade: ${contextData.agente_ia.configuracao.personalidade}\nTom: ${contextData.agente_ia.configuracao.tom_comunicacao}`,
+        category: 'atendimento',
+        tags: ['agente', 'atendimento']
+      });
+    }
+    
+    return knowledgeBase;
   }
 
   /**
@@ -155,11 +178,11 @@ export class RAGEngineService {
     // Busca semântica baseada na intenção
     switch (intent) {
       case 'INFO_HOURS':
-        retrievedInfo.push(this.retrieveHoursInfo());
+        retrievedInfo.push(...this.retrieveHoursInfo());
         break;
       
       case 'INFO_LOCATION':
-        retrievedInfo.push(this.retrieveLocationInfo());
+        retrievedInfo.push(...this.retrieveLocationInfo());
         break;
       
       case 'INFO_SERVICES':
@@ -223,61 +246,68 @@ INFORMAÇÕES DA CLÍNICA:
   }
 
   // Métodos de busca específicos
-  private static retrieveHoursInfo(): RetrievedInfo {
-    const hours = this.knowledgeBase?.clinica?.horario_funcionamento;
-    if (!hours) {
-      return {
+  private static retrieveHoursInfo(): RetrievedInfo[] {
+    const hoursData = this.knowledgeBase?.filter(item => 
+      item.category === 'horarios' || 
+      item.title.toLowerCase().includes('horário') ||
+      item.content.toLowerCase().includes('horário')
+    ) || [];
+
+    if (hoursData.length === 0) {
+      return [{
         content: 'Horários de funcionamento não informados.',
         source: 'horarios',
         relevanceScore: 0.5
-      };
+      }];
     }
 
-    let content = 'Nossos horários de funcionamento:\n';
-    Object.entries(hours).forEach(([day, schedule]: [string, any]) => {
-      if (schedule && schedule.abertura && schedule.fechamento) {
-        const dayNames: Record<string, string> = {
-          segunda: 'Segunda-feira',
-          terca: 'Terça-feira',
-          quarta: 'Quarta-feira',
-          quinta: 'Quinta-feira',
-          sexta: 'Sexta-feira',
-          sabado: 'Sábado',
-          domingo: 'Domingo'
-        };
-        content += `- ${dayNames[day] || day}: ${schedule.abertura} às ${schedule.fechamento}\n`;
-      }
-    });
-
-    return {
-      content: content.trim(),
-      source: 'horarios',
-      relevanceScore: 1.0
-    };
+    return hoursData.map(item => ({
+      content: item.content,
+      source: item.title || 'horarios',
+      relevanceScore: 1.0,
+      metadata: { category: item.category }
+    }));
   }
 
-  private static retrieveLocationInfo(): RetrievedInfo {
-    const location = this.knowledgeBase?.clinica?.localizacao?.endereco_principal;
-    if (!location) {
-      return {
+  private static retrieveLocationInfo(): RetrievedInfo[] {
+    const locationData = this.knowledgeBase?.filter(item => 
+      item.category === 'localizacao' || 
+      item.title.toLowerCase().includes('endereço') ||
+      item.content.toLowerCase().includes('endereço')
+    ) || [];
+
+    if (locationData.length === 0) {
+      return [{
         content: 'Endereço não informado.',
         source: 'localizacao',
         relevanceScore: 0.5
-      };
+      }];
     }
 
-    const content = `Nosso endereço: ${location.logradouro || ''}, ${location.numero || ''} - ${location.bairro || ''}, ${location.cidade || ''}/${location.estado || ''}`;
-
-    return {
-      content,
-      source: 'localizacao',
-      relevanceScore: 1.0
-    };
+    return locationData.map(item => ({
+      content: item.content,
+      source: item.title || 'localizacao',
+      relevanceScore: 1.0,
+      metadata: { category: item.category }
+    }));
   }
 
   private static retrieveServicesInfo(serviceQuery?: string): RetrievedInfo[] {
-    const services = this.knowledgeBase?.servicos?.consultas || [];
-    if (services.length === 0) {
+    let servicesData = this.knowledgeBase?.filter(item => 
+      item.category === 'servicos' || 
+      item.title.toLowerCase().includes('serviço') ||
+      item.content.toLowerCase().includes('serviço')
+    ) || [];
+
+    if (serviceQuery) {
+      // Filtrar por serviço específico
+      servicesData = servicesData.filter(item =>
+        item.content.toLowerCase().includes(serviceQuery.toLowerCase()) ||
+        item.title.toLowerCase().includes(serviceQuery.toLowerCase())
+      );
+    }
+
+    if (servicesData.length === 0) {
       return [{
         content: 'Serviços não informados.',
         source: 'servicos',
@@ -285,31 +315,29 @@ INFORMAÇÕES DA CLÍNICA:
       }];
     }
 
-    if (serviceQuery) {
-      // Busca específica por serviço
-      const filtered = services.filter((service: any) => 
-        service.toLowerCase().includes(serviceQuery.toLowerCase())
-      );
-      
-      if (filtered.length > 0) {
-        return [{
-          content: `Serviços relacionados a "${serviceQuery}": ${filtered.join(', ')}`,
-          source: 'servicos',
-          relevanceScore: 0.9
-        }];
-      }
-    }
-
-    return [{
-      content: `Nossos serviços: ${services.join(', ')}`,
-      source: 'servicos',
-      relevanceScore: 0.8
-    }];
+    return servicesData.map(item => ({
+      content: item.content,
+      source: item.title || 'servicos',
+      relevanceScore: serviceQuery ? 0.9 : 0.8,
+      metadata: { category: item.category }
+    }));
   }
 
   private static retrieveDoctorsInfo(specialty?: string): RetrievedInfo[] {
-    const doctors = this.knowledgeBase?.profissionais || [];
-    if (doctors.length === 0) {
+    let doctorsData = this.knowledgeBase?.filter(item => 
+      item.category === 'profissionais' || 
+      item.title.toLowerCase().includes('médico') ||
+      item.content.toLowerCase().includes('médico')
+    ) || [];
+
+    if (specialty) {
+      doctorsData = doctorsData.filter(item =>
+        item.content.toLowerCase().includes(specialty.toLowerCase()) ||
+        item.title.toLowerCase().includes(specialty.toLowerCase())
+      );
+    }
+
+    if (doctorsData.length === 0) {
       return [{
         content: 'Profissionais não informados.',
         source: 'profissionais',
@@ -317,121 +345,104 @@ INFORMAÇÕES DA CLÍNICA:
       }];
     }
 
-    if (specialty) {
-      const filtered = doctors.filter((doctor: any) => 
-        doctor.especialidade?.toLowerCase().includes(specialty.toLowerCase())
-      );
-      
-      if (filtered.length > 0) {
-        return [{
-          content: `Profissionais de ${specialty}: ${filtered.map((d: any) => d.nome).join(', ')}`,
-          source: 'profissionais',
-          relevanceScore: 0.9
-        }];
-      }
-    }
-
-    return [{
-      content: `Nossos profissionais: ${doctors.map((d: any) => `${d.nome} (${d.especialidade})`).join(', ')}`,
-      source: 'profissionais',
-      relevanceScore: 0.8
-    }];
+    return doctorsData.map(item => ({
+      content: item.content,
+      source: item.title || 'profissionais',
+      relevanceScore: specialty ? 0.9 : 0.8,
+      metadata: { category: item.category }
+    }));
   }
 
   private static retrievePricesInfo(_service?: string): RetrievedInfo[] {
-    // Implementação básica - pode ser expandida
-    return [{
-      content: 'Para informações sobre preços, entre em contato conosco pelo telefone ou WhatsApp.',
-      source: 'precos',
-      relevanceScore: 0.7
-    }];
+    const pricesData = this.knowledgeBase?.filter(item => 
+      item.category === 'precos' || 
+      item.title.toLowerCase().includes('preço') ||
+      item.content.toLowerCase().includes('preço')
+    ) || [];
+
+    if (pricesData.length === 0) {
+      return [{
+        content: 'Para informações sobre preços, entre em contato conosco pelo telefone ou WhatsApp.',
+        source: 'precos',
+        relevanceScore: 0.7
+      }];
+    }
+
+    return pricesData.map(item => ({
+      content: item.content,
+      source: item.title || 'precos',
+      relevanceScore: 0.8,
+      metadata: { category: item.category }
+    }));
   }
 
   private static retrieveAppointmentInfo(): RetrievedInfo[] {
-    const policies = this.knowledgeBase?.politicas?.agendamento;
-    const rules = this.knowledgeBase?.regras_agendamento;
-    
-    let content = 'Informações sobre agendamentos:\n';
-    if (policies) {
-      content += `- Cancelamento: ${policies.cancelamento_antecedencia_horas}h de antecedência\n`;
-      content += `- Reagendamento: ${policies.reagendamento_antecedencia_horas}h de antecedência\n`;
-    }
-    if (rules) {
-      content += `- Horário de atendimento: ${rules.horario_inicio} às ${rules.horario_fim}\n`;
-      content += `- Duração padrão: ${rules.duracao_padrao_minutos} minutos\n`;
+    const appointmentData = this.knowledgeBase?.filter(item => 
+      item.category === 'agendamento' || 
+      item.title.toLowerCase().includes('agendamento') ||
+      item.content.toLowerCase().includes('agendamento')
+    ) || [];
+
+    if (appointmentData.length === 0) {
+      return [{
+        content: 'Informações sobre agendamentos não disponíveis.',
+        source: 'agendamento',
+        relevanceScore: 0.5
+      }];
     }
 
-    return [{
-      content: content.trim(),
-      source: 'agendamento',
-      relevanceScore: 0.9
-    }];
+    return appointmentData.map(item => ({
+      content: item.content,
+      source: item.title || 'agendamento',
+      relevanceScore: 0.9,
+      metadata: { category: item.category }
+    }));
   }
 
   private static generalSearch(query: string): RetrievedInfo[] {
     const results: RetrievedInfo[] = [];
     const lowerQuery = query.toLowerCase();
 
-    // Busca simples por palavras-chave
-    if (lowerQuery.includes('horário') || lowerQuery.includes('funciona')) {
-      results.push(this.retrieveHoursInfo());
-    }
-    
-    if (lowerQuery.includes('endereço') || lowerQuery.includes('onde')) {
-      results.push(this.retrieveLocationInfo());
-    }
-    
-    if (lowerQuery.includes('serviço') || lowerQuery.includes('atende')) {
-      results.push(...this.retrieveServicesInfo());
-    }
-    
-    if (lowerQuery.includes('médico') || lowerQuery.includes('doutor')) {
-      results.push(...this.retrieveDoctorsInfo());
-    }
+    // Busca por relevância semântica
+    const relevantItems = this.knowledgeBase?.filter(item => {
+      const titleMatch = item.title.toLowerCase().includes(lowerQuery);
+      const contentMatch = item.content.toLowerCase().includes(lowerQuery);
+      const categoryMatch = item.category.toLowerCase().includes(lowerQuery);
+      
+      return titleMatch || contentMatch || categoryMatch;
+    }) || [];
 
-    return results;
+    return relevantItems.map(item => ({
+      content: item.content,
+      source: item.title || item.category,
+      relevanceScore: 0.7,
+      metadata: { category: item.category }
+    }));
   }
 
-  // Métodos auxiliares
-  private static findAnswer(contextData: any[], question: string): string | null {
-    const item = contextData.find(d => 
-      d.question.toLowerCase().includes(question.toLowerCase())
-    );
-    return item?.answer || null;
-  }
-
-  private static parseServices(contextData: any[]): string[] {
-    const services = contextData
-      .filter(d => d.category === 'procedimentos_especialidades')
-      .map(d => d.answer)
-      .filter(Boolean);
-    
-    return services.length > 0 ? services : ['Consulta Geral'];
-  }
-
-  private static parseDoctors(contextData: any[]): any[] {
-    const doctors = contextData
-      .filter(d => d.category === 'profissionais')
-      .map(d => {
-        const parts = d.answer?.split(' - ') || [];
-        return {
-          nome: parts[0] || d.answer,
-          especialidade: parts[1] || 'Medicina Geral'
-        };
-      })
-      .filter(d => d.nome);
-    
-    return doctors.length > 0 ? doctors : [
-      { nome: 'Dr. João Silva', especialidade: 'Medicina Geral' }
+  /**
+   * Dados de fallback caso não encontre dados na tabela
+   */
+  private static getFallbackData(): any[] {
+    return [
+      {
+        title: 'Horários de Funcionamento',
+        content: 'Segunda a Sexta: 08:00 às 18:00\nSábado: 08:00 às 12:00',
+        category: 'horarios',
+        tags: ['horário', 'funcionamento']
+      },
+      {
+        title: 'Endereço da Clínica',
+        content: 'Rua das Flores, 123 - Centro, São Paulo/SP',
+        category: 'localizacao',
+        tags: ['endereço', 'localização']
+      },
+      {
+        title: 'Serviços Disponíveis',
+        content: 'Consultas médicas, exames laboratoriais, ultrassonografia',
+        category: 'servicos',
+        tags: ['serviços', 'atendimento']
+      }
     ];
-  }
-
-  private static parseInsurance(contextData: any[]): string[] {
-    const insurance = contextData
-      .filter(d => d.question.toLowerCase().includes('convênio'))
-      .map(d => d.answer)
-      .filter(Boolean);
-    
-    return insurance.length > 0 ? insurance : ['Particular'];
   }
 } 

@@ -1,0 +1,347 @@
+// ========================================
+// TESTE DO WEBHOOK NA VPS
+// ========================================
+
+const express = require('express');
+const cors = require('cors');
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+app.use(cors());
+app.use(express.json());
+
+// Simular webhook do WhatsApp
+app.post('/webhook/whatsapp-meta', async (req, res) => {
+  try {
+    console.log('[Webhook] Mensagem recebida:', {
+      method: req.method,
+      headers: req.headers,
+      body: req.body
+    });
+
+    // Verificar se é um desafio de verificação
+    if (req.body.mode === 'subscribe' && req.body['hub.challenge']) {
+      console.log('[Webhook] Respondendo ao desafio de verificação');
+      return res.status(200).send(req.body['hub.challenge']);
+    }
+
+    // Processar mensagens
+    if (req.body.entry && req.body.entry.length > 0) {
+      const webhookData = req.body;
+      
+      // Configuração do WhatsApp
+      const whatsappConfig = {
+        accessToken: process.env.WHATSAPP_META_ACCESS_TOKEN || 'test-token',
+        phoneNumberId: process.env.WHATSAPP_META_PHONE_NUMBER_ID || 'test-phone-id'
+      };
+
+      // IDs de exemplo
+      const clinicId = process.env.DEFAULT_CLINIC_ID || 'test-clinic';
+      const userId = process.env.DEFAULT_USER_ID || 'system-user';
+
+      // Processar com AI
+      const result = await processWhatsAppWebhookRobust(
+        webhookData,
+        clinicId,
+        userId,
+        whatsappConfig
+      );
+
+      if (result.success) {
+        console.log('[Webhook] Processamento concluído com sucesso');
+        return res.status(200).json({ 
+          success: true, 
+          message: 'Webhook processado com AI',
+          processed: result.processed
+        });
+      } else {
+        console.error('[Webhook] Erro no processamento:', result.error);
+        return res.status(500).json({ 
+          success: false, 
+          error: result.error 
+        });
+      }
+    }
+
+    // Se não há mensagens para processar
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Webhook recebido, mas sem mensagens para processar' 
+    });
+
+  } catch (error) {
+    console.error('[Webhook] Erro geral:', error.message);
+    return res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+// Rota de teste para verificar se o webhook está funcionando
+app.get('/webhook/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Webhook WhatsApp está funcionando',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Rota para testar envio de mensagem
+app.post('/webhook/test-send', async (req, res) => {
+  try {
+    const { to, message, clinicId, userId } = req.body;
+
+    if (!to || !message) {
+      return res.status(400).json({
+        success: false,
+        error: 'Parâmetros "to" e "message" são obrigatórios'
+      });
+    }
+
+    // Simular mensagem recebida
+    const simulatedWebhookData = {
+      entry: [{
+        changes: [{
+          value: {
+            messages: [{
+              from: to,
+              text: { body: message },
+              timestamp: Date.now()
+            }]
+          }
+        }]
+      }]
+    };
+
+    // Processar com AI
+    const whatsappConfig = {
+      accessToken: process.env.WHATSAPP_META_ACCESS_TOKEN || 'test-token',
+      phoneNumberId: process.env.WHATSAPP_META_PHONE_NUMBER_ID || 'test-phone-id'
+    };
+
+    const result = await processWhatsAppWebhookRobust(
+      simulatedWebhookData,
+      clinicId || 'test-clinic',
+      userId || 'test-user',
+      whatsappConfig
+    );
+
+    res.json({
+      success: true,
+      message: 'Teste de envio concluído',
+      result: result
+    });
+
+  } catch (error) {
+    console.error('Erro no teste de envio:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Processa mensagem diretamente com AI
+ */
+async function processMessageWithAIDirect(messageText, clinicId, userId) {
+  try {
+    // Simular processamento da AI
+    const responses = [
+      'Olá! Como posso ajudá-lo hoje?',
+      'Obrigado por entrar em contato! Em que posso ser útil?',
+      'Olá! Sou o assistente virtual da clínica. Como posso ajudá-lo?',
+      'Bem-vindo! Estou aqui para ajudá-lo. O que você precisa?',
+      'Olá! Como posso ser útil hoje?'
+    ];
+
+    // Escolher resposta baseada no conteúdo da mensagem
+    let response = responses[Math.floor(Math.random() * responses.length)];
+    
+    // Personalizar baseado no conteúdo
+    if (messageText.toLowerCase().includes('agendar') || messageText.toLowerCase().includes('consulta')) {
+      response = 'Para agendar uma consulta, posso ajudá-lo. Qual especialidade você precisa?';
+    } else if (messageText.toLowerCase().includes('horário') || messageText.toLowerCase().includes('funcionamento')) {
+      response = 'Nosso horário de funcionamento é de segunda a sexta, das 8h às 18h.';
+    } else if (messageText.toLowerCase().includes('endereço') || messageText.toLowerCase().includes('localização')) {
+      response = 'Estamos localizados na Rua das Flores, 123 - Centro.';
+    } else if (messageText.toLowerCase().includes('preço') || messageText.toLowerCase().includes('valor')) {
+      response = 'Os valores variam conforme o tipo de consulta. Posso ajudá-lo com mais detalhes.';
+    }
+
+    return {
+      text: response,
+      confidence: 0.8,
+      modelUsed: 'simplified-ai',
+      medicalContent: false,
+      emotion: 'neutral',
+      processingTime: Date.now()
+    };
+
+  } catch (error) {
+    console.error('[AI-Direct] Erro ao processar:', error.message);
+    return {
+      text: 'Olá! Como posso ajudá-lo hoje?',
+      confidence: 0,
+      modelUsed: 'fallback',
+      medicalContent: false,
+      error: true
+    };
+  }
+}
+
+/**
+ * Processa mensagem recebida do WhatsApp usando AI
+ */
+async function processMessageWithAIRobust(message, clinicId, userId) {
+  try {
+    // Extrair texto da mensagem
+    const messageText = message.text?.body || message.message || '';
+    
+    if (!messageText) {
+      console.log('[AI-Robusta] Mensagem sem texto, ignorando');
+      return null;
+    }
+
+    console.log(`[AI-Robusta] Processando mensagem: "${messageText}"`);
+
+    // Usar AI diretamente
+    const aiResponse = await processMessageWithAIDirect(messageText, clinicId, userId);
+
+    console.log(`[AI-Robusta] Resposta AI gerada:`, {
+      response: aiResponse.text,
+      confidence: aiResponse.confidence,
+      modelUsed: aiResponse.modelUsed
+    });
+
+    return aiResponse;
+
+  } catch (error) {
+    console.error('[AI-Robusta] Erro ao processar com AI:', error.message);
+    
+    // Resposta de fallback
+    return {
+      text: 'Olá! Como posso ajudá-lo hoje?',
+      confidence: 0,
+      modelUsed: 'fallback',
+      medicalContent: false,
+      error: true
+    };
+  }
+}
+
+/**
+ * Envia resposta processada pela AI via WhatsApp
+ */
+async function sendAIResponseViaWhatsApp(to, aiResponse, config) {
+  try {
+    const { accessToken, phoneNumberId } = config;
+    
+    // Preparar mensagem
+    let messageText = aiResponse.text;
+    
+    // Adicionar informações de confiança se baixa
+    if (aiResponse.confidence < 0.7) {
+      messageText += '\n\n💡 Nota: Esta resposta foi gerada com confiança moderada.';
+    }
+
+    console.log(`[WhatsApp] Enviando resposta para ${to}: "${messageText}"`);
+
+    // Simular envio (em produção, seria via API do WhatsApp)
+    return {
+      success: true,
+      messageId: `msg_${Date.now()}`,
+      text: messageText,
+      sentAt: new Date().toISOString()
+    };
+
+  } catch (error) {
+    console.error('[WhatsApp] Erro ao enviar mensagem:', error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Processa webhook do WhatsApp com AI Robusta
+ */
+async function processWhatsAppWebhookRobust(webhookData, clinicId, userId, whatsappConfig) {
+  try {
+    console.log('[Webhook-Robust] Iniciando processamento do webhook');
+    
+    let processedCount = 0;
+    const results = [];
+
+    // Processar cada entrada do webhook
+    for (const entry of webhookData.entry) {
+      for (const change of entry.changes) {
+        if (change.value && change.value.messages) {
+          for (const message of change.value.messages) {
+            console.log(`[Webhook-Robust] Processando mensagem de ${message.from}`);
+            
+            // Processar com AI Robusta
+            const aiResponse = await processMessageWithAIRobust(message, clinicId, userId);
+            
+            if (aiResponse) {
+              // Enviar resposta via WhatsApp
+              const sendResult = await sendAIResponseViaWhatsApp(
+                message.from,
+                aiResponse,
+                whatsappConfig
+              );
+              
+              results.push({
+                from: message.from,
+                originalMessage: message.text?.body || message.message,
+                aiResponse: aiResponse,
+                sendResult: sendResult
+              });
+              
+              processedCount++;
+            }
+          }
+        }
+      }
+    }
+
+    console.log(`[Webhook-Robust] Processamento concluído: ${processedCount} mensagens processadas`);
+    
+    return {
+      success: true,
+      processed: processedCount,
+      results: results
+    };
+
+  } catch (error) {
+    console.error('[Webhook-Robust] Erro no processamento:', error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    message: 'Webhook WhatsApp VPS funcionando', 
+    endpoints: [
+      '/webhook/whatsapp-meta',
+      '/webhook/test',
+      '/webhook/test-send'
+    ] 
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`🚀 Webhook WhatsApp VPS rodando na porta ${PORT}`);
+  console.log(`📡 Endpoints disponíveis:`);
+  console.log(`   - Webhook: http://localhost:${PORT}/webhook/whatsapp-meta`);
+  console.log(`   - Test: http://localhost:${PORT}/webhook/test`);
+  console.log(`   - Test Send: http://localhost:${PORT}/webhook/test-send`);
+}); 

@@ -1,4 +1,4 @@
-const axios = require('axios');
+import axios from 'axios';
 
 /**
  * Envia uma mensagem de texto usando a API oficial do WhatsApp Business (Meta)
@@ -62,7 +62,7 @@ function processReceivedMessage(message) {
   // Exemplo: se quiser responder automaticamente, pode chamar sendWhatsAppTextMessage aqui
 }
 
-module.exports = {
+export {
   sendWhatsAppTextMessage,
   sendWhatsAppMediaMessage,
   processReceivedMessage

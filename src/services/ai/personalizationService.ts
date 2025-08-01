@@ -1,3 +1,5 @@
+// src/services/ai/personalizationService.ts
+
 import { supabase } from '@/integrations/supabase/client';
 import { ConversationMemoryService } from './conversationMemoryService';
 
@@ -47,33 +49,43 @@ export class PersonalizationService {
         .from('appointments')
         .select('*')
         .eq('patient_phone', phoneNumber)
-        .order('appointment_date', { ascending: false })
+        .order('date', { ascending: false })
         .limit(10);
 
+      // Buscar perfil completo do paciente
+      const { data: patientData } = await supabase
+        .from('patients')
+        .select('*')
+        .eq('phone', phoneNumber)
+        .single();
+
       // Analisar padrões de comportamento
-      const behaviorPatterns = await this.analyzeBehaviorPatterns(appointments || []);
+      const behaviorPatterns = await this.analyzeBehaviorPatterns(phoneNumber, appointments);
       
       // Identificar oportunidades
-      const opportunities = await this.identifyOpportunities(appointments || []);
+      const opportunities = await this.identifyOpportunities(
+        patientData,
+        appointments,
+        memory
+      );
 
       // Construir contexto de personalização
       return {
         patientProfile: {
-          name: appointments?.[0]?.patient_name || memory.userProfile.name || 'Paciente',
+          name: patientData?.name || memory.userProfile.name || 'Paciente',
           phone: phoneNumber,
           appointmentCount: appointments?.length || 0,
-          ...(appointments?.[0] && {
-            lastAppointment: {
-              date: appointments[0].appointment_date,
-              doctor: appointments[0].doctor_name,
-              service: appointments[0].status
-            }
-          }),
-          preferredTimes: this.extractPreferredTimes(appointments || []),
-          commonServices: this.extractCommonServices(appointments || []),
-          communicationPreference: this.detectCommunicationStyle(),
-          insurancePlan: '',
-          medicalHistory: []
+          lastAppointment: appointments?.[0] ? {
+            date: appointments[0].date,
+            doctor: appointments[0].doctor_name,
+            service: appointments[0].service_type
+          } : undefined,
+          preferredDoctor: this.extractPreferredDoctor(appointments),
+          preferredTimes: this.extractPreferredTimes(appointments),
+          commonServices: this.extractCommonServices(appointments),
+          communicationPreference: this.detectCommunicationStyle(memory),
+          insurancePlan: patientData?.insurance_plan,
+          medicalHistory: patientData?.medical_conditions || []
         },
         behaviorPatterns,
         opportunities
@@ -93,147 +105,408 @@ export class PersonalizationService {
     intent?: string
   ): string {
     let message = template;
+
+    // Substituir placeholders
+    message = message.replace('{name}', context.patientProfile.name);
+    message = message.replace('{appointmentCount}', context.patientProfile.appointmentCount.toString());
     
-    // Substituir variáveis básicas
-    message = message.replace('[Nome]', context.patientProfile.name);
-    
-    // Personalização baseada em histórico
-    if (context.patientProfile.appointmentCount > 0) {
-      // Paciente recorrente
-      if (intent === 'APPOINTMENT_CREATE' && context.patientProfile.preferredDoctor) {
-        message = `Olá, ${context.patientProfile.name}! Bem-vindo(a) de volta. ` +
-                 `Você costuma se consultar com ${context.patientProfile.preferredDoctor}. ` +
-                 `Gostaria de marcar um novo horário com ele(a) ou prefere ver outras opções?`;
-      }
-    } else {
-      // Paciente novo
-      if (intent === 'APPOINTMENT_CREATE') {
-        message = `Olá, ${context.patientProfile.name}! Seja muito bem-vindo(a) à nossa clínica. ` +
-                 `Ficarei feliz em ajudá-lo(a) a agendar sua primeira consulta. ` +
-                 `Temos excelentes profissionais em diversas especialidades. Por qual área gostaria de começar?`;
-      }
+    if (context.patientProfile.lastAppointment) {
+      message = message.replace('{lastDoctor}', context.patientProfile.lastAppointment.doctor);
+      message = message.replace('{lastService}', context.patientProfile.lastAppointment.service);
     }
-    
-    // Ajustar tom baseado na preferência
-    message = this.adjustTone(message, context.patientProfile.communicationPreference);
-    
+
+    // Adaptar tom baseado na preferência de comunicação
+    message = this.adaptLanguageStyle(message, context);
+
+    // Adicionar contexto específico da intenção
+    if (intent === 'APPOINTMENT_CREATE' && context.patientProfile.preferredDoctor) {
+      message += `\n\n💡 Nota: Você costuma agendar com ${context.patientProfile.preferredDoctor}. Posso verificar a disponibilidade dele primeiro.`;
+    }
+
     return message;
   }
 
   /**
-   * Sugere ações personalizadas (cross-sell/up-sell)
+   * Gera sugestões personalizadas baseadas no contexto
    */
   static async generatePersonalizedSuggestions(
     context: PersonalizationContext,
     currentService?: string
   ): Promise<string[]> {
     const suggestions: string[] = [];
-    
-    // Cross-sell baseado no serviço atual
-    if (currentService) {
-      if (currentService.includes('cardiologia') && !context.patientProfile.medicalHistory?.includes('eletrocardiograma_recente')) {
-        suggestions.push(
-          'Muitos pacientes aproveitam para fazer um eletrocardiograma no mesmo dia. ' +
-          'Gostaria de saber mais ou já incluir no seu agendamento?'
-        );
-      }
-      
-      if (currentService.includes('checkup') && context.patientProfile.appointmentCount > 2) {
-        suggestions.push(
-          'Notei que você é um paciente frequente. Temos um programa de check-up anual ' +
-          'com condições especiais. Posso enviar mais informações?'
-        );
+
+    // Sugestões baseadas em histórico
+    if (context.patientProfile.lastAppointment) {
+      suggestions.push(`Gostaria de agendar novamente com ${context.patientProfile.lastAppointment.doctor}?`);
+    }
+
+    // Sugestões de cross-sell
+    if (currentService && context.opportunities.crossSell.length > 0) {
+      const relatedServices = await this.getRelatedServices(currentService);
+      if (relatedServices.length > 0) {
+        suggestions.push(`Que tal também agendar ${relatedServices[0]}?`);
       }
     }
-    
-    return suggestions;
+
+    // Sugestões de follow-up
+    if (context.opportunities.followUp.length > 0) {
+      suggestions.push(context.opportunities.followUp[0]);
+    }
+
+    // Sugestões baseadas em frequência
+    if (context.behaviorPatterns.appointmentFrequency > 2) {
+      suggestions.push('Posso agendar sua próxima consulta de rotina?');
+    }
+
+    return suggestions.slice(0, 3); // Limitar a 3 sugestões
   }
 
   /**
-   * Adapta linguagem baseada no histórico
+   * Adapta o estilo de linguagem baseado na preferência
    */
   static adaptLanguageStyle(
     message: string,
     context: PersonalizationContext
   ): string {
-    const style = context.patientProfile.communicationPreference || 'formal';
+    const preference = context.patientProfile.communicationPreference;
     
-    switch (style) {
+    switch (preference) {
       case 'informal':
         return this.makeInformal(message);
-      
       case 'friendly':
         return this.makeFriendly(message);
-      
       case 'formal':
-      default:
         return this.makeFormal(message);
+      default:
+        return message;
     }
   }
 
-  // Métodos auxiliares (implementações simplificadas)
-  private static async analyzeBehaviorPatterns(appointments: any[]): Promise<PersonalizationContext['behaviorPatterns']> {
-    return {
-      averageResponseTime: 60,
-      preferredChannels: ['whatsapp'],
-      appointmentFrequency: appointments?.length || 0,
-      cancellationRate: 0.1,
-      noShowRate: 0.05
-    };
+  /**
+   * Analisa padrões de comportamento do paciente
+   */
+  private static async analyzeBehaviorPatterns(
+    phoneNumber: string,
+    appointments: any[]
+  ): Promise<PersonalizationContext['behaviorPatterns']> {
+    try {
+      // Calcular frequência de agendamentos
+      const appointmentFrequency = this.calculateAppointmentFrequency(appointments);
+
+      // Calcular taxas de cancelamento e no-show
+      const totalAppointments = appointments.length;
+      const cancelledAppointments = appointments.filter(a => a.status === 'cancelled').length;
+      const noShowAppointments = appointments.filter(a => a.status === 'no_show').length;
+
+      const cancellationRate = totalAppointments > 0 ? cancelledAppointments / totalAppointments : 0;
+      const noShowRate = totalAppointments > 0 ? noShowAppointments / totalAppointments : 0;
+
+      // Buscar dados de comunicação
+      const { data: communicationData } = await supabase
+        .from('whatsapp_conversations')
+        .select('created_at, updated_at')
+        .eq('phone_number', phoneNumber)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      // Calcular tempo médio de resposta
+      let averageResponseTime = 0;
+      if (communicationData && communicationData.length > 1) {
+        const responseTimes = communicationData.slice(1).map((conv, index) => {
+          const current = new Date(conv.created_at);
+          const previous = new Date(communicationData[index].created_at);
+          return current.getTime() - previous.getTime();
+        });
+        averageResponseTime = responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length;
+      }
+
+      return {
+        averageResponseTime,
+        preferredChannels: ['whatsapp'], // Assumindo WhatsApp como principal
+        appointmentFrequency,
+        cancellationRate,
+        noShowRate
+      };
+    } catch (error) {
+      console.error('Error analyzing behavior patterns:', error);
+      return {
+        averageResponseTime: 0,
+        preferredChannels: ['whatsapp'],
+        appointmentFrequency: 0,
+        cancellationRate: 0,
+        noShowRate: 0
+      };
+    }
   }
 
-  private static async identifyOpportunities(_appointments: any[]): Promise<PersonalizationContext['opportunities']> {
-    return {
-      crossSell: ['Eletrocardiograma', 'Check-up anual'],
-      upSell: ['Programa de acompanhamento'],
-      preventiveCare: ['Vacinas em dia'],
-      followUp: ['Retorno pós-consulta']
+  /**
+   * Identifica oportunidades de negócio
+   */
+  private static async identifyOpportunities(
+    patientData: any,
+    appointments: any[],
+    memory: any
+  ): Promise<PersonalizationContext['opportunities']> {
+    const opportunities: PersonalizationContext['opportunities'] = {
+      crossSell: [],
+      upSell: [],
+      preventiveCare: [],
+      followUp: []
     };
+
+    // Oportunidades baseadas no histórico médico
+    if (patientData?.medical_conditions) {
+      if (patientData.medical_conditions.includes('diabetes')) {
+        opportunities.preventiveCare.push('consulta de endocrinologia');
+        opportunities.followUp.push('exame de glicemia');
+      }
+      if (patientData.medical_conditions.includes('hipertensão')) {
+        opportunities.preventiveCare.push('monitoramento de pressão');
+      }
+    }
+
+    // Oportunidades baseadas em idade (se disponível)
+    if (patientData?.birth_date) {
+      const age = this.calculateAge(patientData.birth_date);
+      if (age > 50) {
+        opportunities.preventiveCare.push('check-up completo');
+      }
+    }
+
+    // Oportunidades baseadas em frequência
+    if (appointments.length > 0) {
+      const lastAppointment = appointments[0];
+      const daysSinceLast = this.getDaysDifference(new Date(lastAppointment.date), new Date());
+      
+      if (daysSinceLast > 365) {
+        opportunities.followUp.push('consulta de rotina anual');
+      }
+    }
+
+    return opportunities;
   }
 
-  // Função removida pois não está sendo utilizada
+  /**
+   * Extrai médico preferido do histórico
+   */
+  private static extractPreferredDoctor(appointments: any[]): string | undefined {
+    if (!appointments || appointments.length === 0) return undefined;
 
+    const doctorCounts: Record<string, number> = {};
+    appointments.forEach(appointment => {
+      if (appointment.doctor_name) {
+        doctorCounts[appointment.doctor_name] = (doctorCounts[appointment.doctor_name] || 0) + 1;
+      }
+    });
+
+    const preferredDoctor = Object.entries(doctorCounts)
+      .sort(([,a], [,b]) => b - a)[0];
+
+    return preferredDoctor?.[0];
+  }
+
+  /**
+   * Extrai horários preferidos
+   */
   private static extractPreferredTimes(appointments: any[]): string[] {
-    const times = appointments.map(apt => apt.appointment_time).filter(Boolean);
-    return [...new Set(times)].slice(0, 3);
+    if (!appointments || appointments.length === 0) return [];
+
+    const timeCounts: Record<string, number> = {};
+    appointments.forEach(appointment => {
+      if (appointment.appointment_time) {
+        const hour = appointment.appointment_time.split(':')[0];
+        timeCounts[hour] = (timeCounts[hour] || 0) + 1;
+      }
+    });
+
+    return Object.entries(timeCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 3)
+      .map(([hour]) => `${hour}:00`);
   }
 
+  /**
+   * Extrai serviços mais comuns
+   */
   private static extractCommonServices(appointments: any[]): string[] {
-    const services = appointments.map(apt => apt.status).filter(Boolean);
-    return [...new Set(services)].slice(0, 5);
+    if (!appointments || appointments.length === 0) return [];
+
+    const serviceCounts: Record<string, number> = {};
+    appointments.forEach(appointment => {
+      if (appointment.service_type) {
+        serviceCounts[appointment.service_type] = (serviceCounts[appointment.service_type] || 0) + 1;
+      }
+    });
+
+    return Object.entries(serviceCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 5)
+      .map(([service]) => service);
   }
 
-  private static detectCommunicationStyle(): 'formal' | 'informal' | 'friendly' {
-    return 'formal';
+  /**
+   * Detecta estilo de comunicação baseado na memória
+   */
+  private static detectCommunicationStyle(memory: any): 'formal' | 'informal' | 'friendly' {
+    if (!memory.history || memory.history.length === 0) return 'formal';
+
+    const recentMessages = memory.history
+      .filter((h: any) => h.role === 'user')
+      .slice(-5)
+      .map((h: any) => h.content.toLowerCase());
+
+    const informalWords = ['oi', 'ola', 'beleza', 'valeu', 'tranquilo'];
+    const formalWords = ['por favor', 'gostaria', 'poderia', 'obrigado'];
+
+    let informalCount = 0;
+    let formalCount = 0;
+
+    recentMessages.forEach(message => {
+      informalWords.forEach(word => {
+        if (message.includes(word)) informalCount++;
+      });
+      formalWords.forEach(word => {
+        if (message.includes(word)) formalCount++;
+      });
+    });
+
+    if (informalCount > formalCount) return 'informal';
+    if (formalCount > informalCount) return 'formal';
+    return 'friendly';
   }
 
+  /**
+   * Ajusta tom da mensagem
+   */
   private static adjustTone(message: string, preference?: string): string {
-    if (preference === 'informal') return this.makeInformal(message);
-    if (preference === 'friendly') return this.makeFriendly(message);
-    return this.makeFormal(message);
+    switch (preference) {
+      case 'informal':
+        return this.makeInformal(message);
+      case 'friendly':
+        return this.makeFriendly(message);
+      case 'formal':
+        return this.makeFormal(message);
+      default:
+        return message;
+    }
   }
 
+  /**
+   * Torna mensagem informal
+   */
   private static makeInformal(message: string): string {
-    return message.replace('Olá', 'Oi');
+    return message
+      .replace(/Por favor/g, 'Pode ser')
+      .replace(/Gostaria/g, 'Quer')
+      .replace(/Posso ajudá-lo/g, 'Posso te ajudar');
   }
 
+  /**
+   * Torna mensagem amigável
+   */
   private static makeFriendly(message: string): string {
-    return message + ' 😊';
+    return message
+      .replace(/\./g, ' 😊')
+      .replace(/!/g, ' 😄');
   }
 
+  /**
+   * Torna mensagem formal
+   */
   private static makeFormal(message: string): string {
-    return message;
+    return message
+      .replace(/Pode ser/g, 'Por favor')
+      .replace(/Quer/g, 'Gostaria')
+      .replace(/Posso te ajudar/g, 'Posso ajudá-lo');
   }
 
+  /**
+   * Busca serviços relacionados
+   */
+  private static async getRelatedServices(service: string): Promise<string[]> {
+    try {
+      const { data } = await supabase
+        .from('contextualization_data')
+        .select('content')
+        .eq('category', 'servicos')
+        .ilike('content', `%${service}%`);
+
+      return data?.map(item => item.content) || [];
+    } catch (error) {
+      console.error('Error getting related services:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Formata sugestão de oportunidade
+   */
+  private static formatOpportunitySuggestion(opportunity: string, context: PersonalizationContext): string {
+    return `💡 ${opportunity}`;
+  }
+
+  /**
+   * Calcula frequência de agendamentos
+   */
+  private static calculateAppointmentFrequency(appointments: any[]): number {
+    if (appointments.length < 2) return 0;
+
+    const sortedAppointments = appointments
+      .map(a => new Date(a.date))
+      .sort((a, b) => a.getTime() - b.getTime());
+
+    const totalMonths = this.getMonthsDifference(
+      sortedAppointments[0],
+      sortedAppointments[sortedAppointments.length - 1]
+    );
+
+    return totalMonths > 0 ? appointments.length / totalMonths : 0;
+  }
+
+  /**
+   * Calcula diferença em meses entre duas datas
+   */
+  private static getMonthsDifference(date1: Date, date2: Date): number {
+    return (date2.getFullYear() - date1.getFullYear()) * 12 + 
+           (date2.getMonth() - date1.getMonth());
+  }
+
+  /**
+   * Calcula diferença em dias entre duas datas
+   */
+  private static getDaysDifference(date1: Date, date2: Date): number {
+    return Math.floor((date2.getTime() - date1.getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  /**
+   * Calcula idade baseada na data de nascimento
+   */
+  private static calculateAge(birthDate: string): number {
+    const birth = new Date(birthDate);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    
+    return age;
+  }
+
+  /**
+   * Retorna contexto padrão
+   */
   private static getDefaultContext(phoneNumber: string): PersonalizationContext {
     return {
       patientProfile: {
         name: 'Paciente',
         phone: phoneNumber,
-        appointmentCount: 0
+        appointmentCount: 0,
+        communicationPreference: 'formal'
       },
       behaviorPatterns: {
-        averageResponseTime: 60,
+        averageResponseTime: 0,
         preferredChannels: ['whatsapp'],
         appointmentFrequency: 0,
         cancellationRate: 0,
