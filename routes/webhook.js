@@ -2,6 +2,8 @@
 // WEBHOOK WHATSAPP COM SERVIÇOS ROBUSTOS
 // ========================================
 
+console.log('🚨 [Webhook-Robusto] ARQUIVO CARREGADO!');
+
 import express from 'express';
 import { sendWhatsAppTextMessage } from '../services/whatsappMetaService.js';
 
