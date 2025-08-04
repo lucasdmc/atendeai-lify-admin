@@ -209,7 +209,6 @@ Responda apenas com o nome da categoria.`;
         .from('conversation_memory')
         .select('*')
         .eq('phone_number', phoneNumber)
-        .eq('agent_id', agentId)
         .order('created_at', { ascending: false })
         .limit(this.maxHistoryTurns);
 
@@ -237,17 +236,17 @@ Responda apenas com o nome da categoria.`;
 
       // Processar dados da memória
       const recentMessages = data.map(record => ({
-        user: record.user_message,
-        assistant: record.bot_response,
-        intent: record.intent,
-        confidence: record.confidence,
+        user: record.memory_data?.last_message || '',
+        assistant: record.memory_data?.last_response || '',
+        intent: record.last_intent,
+        confidence: record.memory_data?.confidence || 0.5,
         timestamp: record.created_at
       })).reverse(); // Ordem cronológica
 
       // Extrair informações importantes
       const userName = data.find(record => record.user_name)?.user_name || null;
-      const hasIntroduced = data.some(record => record.has_introduced) || false;
-      const lastIntent = data[0]?.intent || null;
+      const hasIntroduced = data.some(record => record.memory_data?.has_introduced) || false;
+      const lastIntent = data[0]?.last_intent || null;
 
       console.log('🎯 [EnhancedAI] Memória processada', {
         messagesCount: recentMessages.length,
@@ -290,18 +289,19 @@ Responda apenas com o nome da categoria.`;
 
       const interactionData = {
         phone_number: phoneNumber,
-        agent_id: metadata.agentId || 'default',
-        user_message: message,
-        bot_response: response,
-        intent: intent,
-        confidence: metadata.confidence || 0.5,
         user_name: metadata.userName || null,
-        pending_action: metadata.pendingAction || null,
-        is_user_return: metadata.isUserReturn || false,
-        is_repeated_greeting: metadata.isRepeatedGreeting || false,
-        has_introduced: metadata.hasIntroduced || false,
-        conversation_context: metadata.conversationContext || {},
-        created_at: new Date().toISOString()
+        last_intent: intent,
+        interaction_count: 1,
+        memory_data: {
+          last_message: message,
+          last_response: response,
+          confidence: metadata.confidence || 0.5,
+          pending_action: metadata.pendingAction || null,
+          is_user_return: metadata.isUserReturn || false,
+          is_repeated_greeting: metadata.isRepeatedGreeting || false,
+          has_introduced: metadata.hasIntroduced || false,
+          conversation_context: metadata.conversationContext || {}
+        }
       };
 
       const { data, error } = await supabase

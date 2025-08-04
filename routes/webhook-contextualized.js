@@ -45,6 +45,7 @@ router.get('/whatsapp-meta', async (req, res) => {
 // Webhook para receber mensagens do WhatsApp
 router.post('/whatsapp-meta', async (req, res) => {
   try {
+    console.log('🚨 [Webhook-Contextualizado] WEBHOOK CHAMADO!');
     console.log('[Webhook-Contextualizado] Mensagem recebida:', {
       method: req.method,
       headers: req.headers,
@@ -72,11 +73,18 @@ router.post('/whatsapp-meta', async (req, res) => {
     if (req.body.entry && req.body.entry.length > 0) {
       const webhookData = req.body;
       
+      console.log('[Webhook-Contextualizado] Estrutura do webhook:', JSON.stringify(webhookData, null, 2));
+      
       // Configuração do WhatsApp
       const whatsappConfig = {
         accessToken: process.env.WHATSAPP_META_ACCESS_TOKEN,
         phoneNumberId: process.env.WHATSAPP_META_PHONE_NUMBER_ID
       };
+
+      console.log('[Webhook-Contextualizado] Configuração WhatsApp:', {
+        hasAccessToken: !!whatsappConfig.accessToken,
+        hasPhoneNumberId: !!whatsappConfig.phoneNumberId
+      });
 
       // Processar com CONTEXTUALIZAÇÃO COMPLETA
       const result = await processWhatsAppWebhookWithContext(
@@ -193,27 +201,27 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
 
     if (clinic) {
       console.log('🏥 [Contextualizado] Clínica encontrada com dados completos', { 
-        clinicId: clinic.id,
-        clinicName: clinic.name,
-        doctorsCount: clinic.doctors?.length || 0,
-        servicesCount: clinic.services?.length || 0
+        clinicId: clinic._id,
+        clinicName: clinic.clinica?.informacoes_basicas?.nome,
+        doctorsCount: clinic.profissionais?.length || 0,
+        servicesCount: (clinic.servicos?.consultas?.length || 0) + (clinic.servicos?.exames?.length || 0)
       });
       
       // 2. Usar dados COMPLETOS da clínica
       contextualization = {
-        clinicId: clinic.id,
-        clinicName: clinic.name,
-        specialty: clinic.specialty,
-        doctors: clinic.doctors,
-        schedule: clinic.schedule,
-        services: clinic.services,
-        location: clinic.location,
-        contact: clinic.contact,
-        policies: clinic.policies,
-        assistant: clinic.assistant
+        clinicId: clinic._id,
+        clinicName: clinic.clinica?.informacoes_basicas?.nome,
+        specialty: clinic.clinica?.informacoes_basicas?.especialidade_principal,
+        doctors: clinic.profissionais,
+        schedule: clinic.clinica?.horario_funcionamento,
+        services: clinic.servicos,
+        location: clinic.clinica?.localizacao,
+        contact: clinic.clinica?.contatos,
+        policies: clinic.politicas,
+        assistant: clinic.agente_ia
       };
       
-      systemPrompt = ClinicContextService.generateSystemPromptFromContext(contextualization);
+      systemPrompt = ClinicContextService.generateSystemPromptFromContext(clinic);
       
     } else {
       console.log('⚠️ [Contextualizado] Clínica não encontrada - usando prompt padrão', { phoneNumber });
@@ -302,4 +310,5 @@ async function sendAIResponseViaWhatsApp(to, aiResponse, config) {
   }
 }
 
+export { processWhatsAppWebhookWithContext };
 export default router;
