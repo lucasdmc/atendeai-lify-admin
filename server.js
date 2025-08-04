@@ -5,7 +5,7 @@ import cors from 'cors';
 dotenv.config();
 
 const whatsappRoutes = await import('./routes/whatsapp.js');
-const webhookRoutes = await import('./routes/webhook.js');
+const webhookRoutes = await import('./routes/webhook-contextualized.js');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -56,7 +56,7 @@ app.post('/api/ai/process', async (req, res) => {
     console.log('🤖 [AI Process] Processando mensagem:', { message, clinicId, userId });
 
     // Usar LLMOrchestratorService diretamente (compatível com Node.js)
-    const { LLMOrchestratorService } = await import('./src/services/ai/llmOrchestratorService.js');
+    const { LLMOrchestratorService } = await import('./services/llmOrchestratorService.js');
     
     const request = {
       phoneNumber: userId, // Usar userId como phoneNumber

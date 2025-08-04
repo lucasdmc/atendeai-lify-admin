@@ -89,24 +89,11 @@ const DeleteClinicModal = ({ clinic, isOpen, onClose, onClinicDeleted }: DeleteC
 
       console.log('👥 Usuários associados à clínica:', clinicUsers?.length || 0);
 
-      // 2. Verificar se há agentes associados à clínica
-      const { data: agents, error: agentsError } = await supabase
-        .from('agents')
-        .select('*')
-        .eq('clinic_id', clinic.id);
-
-      if (agentsError) {
-        console.error('❌ Erro ao verificar agentes da clínica:', agentsError);
-        throw agentsError;
-      }
-
-      console.log('🤖 Agentes associados à clínica:', agents?.length || 0);
-
-      // 3. Se há usuários ou agentes associados, mostrar aviso
-      if ((clinicUsers && clinicUsers.length > 0) || (agents && agents.length > 0)) {
+      // 3. Se há usuários associados, mostrar aviso
+      if (clinicUsers && clinicUsers.length > 0) {
         toast({
           title: "Aviso",
-          description: `Esta clínica possui ${clinicUsers?.length || 0} usuários e ${agents?.length || 0} agentes associados. Eles serão desassociados automaticamente.`,
+          description: `Esta clínica possui ${clinicUsers?.length || 0} usuários associados. Eles serão desassociados automaticamente.`,
           variant: "default",
         });
       }
@@ -126,20 +113,7 @@ const DeleteClinicModal = ({ clinic, isOpen, onClose, onClinicDeleted }: DeleteC
         console.log('✅ Associações de usuários excluídas');
       }
 
-      // 5. Excluir agentes associados
-      if (agents && agents.length > 0) {
-        const { error: deleteAgentsError } = await supabase
-          .from('agents')
-          .delete()
-          .eq('clinic_id', clinic.id);
 
-        if (deleteAgentsError) {
-          console.error('❌ Erro ao excluir agentes:', deleteAgentsError);
-          throw deleteAgentsError;
-        }
-
-        console.log('✅ Agentes excluídos');
-      }
 
       // 6. Excluir a clínica
       const { error: deleteClinicError } = await supabase
@@ -210,7 +184,6 @@ const DeleteClinicModal = ({ clinic, isOpen, onClose, onClinicDeleted }: DeleteC
                 </p>
                 <ul className="mt-2 space-y-1">
                   <li>• Usuários associados à clínica</li>
-                  <li>• Agentes da clínica</li>
                   <li>• Configurações específicas</li>
                 </ul>
               </div>

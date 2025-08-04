@@ -170,7 +170,7 @@ const EditUserModal = ({ user, isOpen, onClose, onUserUpdated }: EditUserModalPr
   const getRolePermissionDescription = (role: UserRole) => {
     const descriptions = {
       atendente: 'Acesso a: Dashboard, Conversas e Agendamentos',
-      gestor: 'Acesso a: Dashboard, Conversas, WhatsApp, Agentes, Agendamentos, Contextualizar e Configurações',
+      gestor: 'Acesso a: Dashboard, Conversas, WhatsApp, Agendamentos, Contextualizar e Configurações',
       admin: 'Acesso completo a uma clínica específica',
       suporte_lify: 'Acesso total exceto criação de clínicas',
       admin_lify: 'Acesso total incluindo criação de clínicas'

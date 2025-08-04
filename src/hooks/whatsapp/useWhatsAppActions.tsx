@@ -192,7 +192,7 @@ export const useWhatsAppActions = (): WhatsAppActionsHook => {
         } else if (error.message.includes('502')) {
           errorMessage = 'Servidor WhatsApp não está respondendo';
         } else if (error.message.includes('404')) {
-          errorMessage = 'Agente não encontrado';
+          errorMessage = 'Clínica não encontrada';
         } else {
           errorMessage = error.message;
         }

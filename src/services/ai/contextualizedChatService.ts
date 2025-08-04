@@ -2,6 +2,7 @@
 
 import { contextualizacaoService } from '../contextualizacaoService';
 import { LLMOrchestratorService } from './llmOrchestratorService';
+import { EnhancedClinicContextService } from './enhancedClinicContextService';
 import { ConversationMemoryService } from './conversationMemoryService';
 
 export interface ContextualizedMessage {
@@ -23,7 +24,7 @@ export class ContextualizedChatService {
   static async processMessage(data: ContextualizedMessage): Promise<string> {
     try {
       // 1. Carregar contexto da clínica
-      const clinicContext = this.getOrCreateContext();
+      const clinicContext = await this.getOrCreateContext();
       
       // 2. Carregar memória da conversa
       const memory = await ConversationMemoryService.loadMemory(data.phoneNumber);
@@ -63,15 +64,46 @@ export class ContextualizedChatService {
   }
   
   /**
-   * Constrói o contexto completo da clínica para o chatbot
+   * Constrói o contexto completo da clínica para o chatbot usando navegação inteligente
    */
-  private static getOrCreateContext(): string {
+  private static async getOrCreateContext(): Promise<string> {
     // Verificar cache
     if (this.contextCache.has('clinic_context')) {
       return this.contextCache.get('clinic_context')!;
     }
     
-    // Buscar dados da contextualização
+    try {
+      // Usar EnhancedClinicContextService para navegação inteligente
+      const enhancedContextService = new EnhancedClinicContextService();
+      
+      // Buscar clínica ativa
+      const { data: clinicData } = await supabase
+        .from('clinics')
+        .select('*')
+        .eq('has_contextualization', true)
+        .single();
+
+      if (clinicData) {
+        const enhancedContext = await enhancedContextService.getEnhancedClinicContextualization(
+          clinicData.id,
+          '', // userMessage vazio para contexto geral
+          'general'
+        );
+
+        if (enhancedContext && enhancedContext.fullContext) {
+          console.log('✅ [ContextualizedChat] Usando contexto avançado com navegação inteligente');
+          
+          // Cachear contexto avançado
+          this.contextCache.set('clinic_context', enhancedContext.fullContext.prompt);
+          
+          return enhancedContext.fullContext.prompt;
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ [ContextualizedChat] Erro ao carregar contexto avançado, usando fallback:', error);
+    }
+    
+    // Fallback para método antigo
     const contexto = contextualizacaoService.getContextualizacao();
     const info = contexto.clinica.informacoes_basicas;
     const contatos = contexto.clinica.contatos;
@@ -84,7 +116,7 @@ export class ContextualizedChatService {
     const convenios = contextualizacaoService.getConvenios();
     const formasPagamento = contextualizacaoService.getFormasPagamento();
     
-    // Construir contexto detalhado
+    // Construir contexto detalhado (método antigo)
     const contextText = `
 Você é ${agente.nome}, assistente virtual da ${info.nome}.
 

@@ -1,0 +1,92 @@
+# Frontend files (TypeScript/React)
+src/components/
+src/pages/
+src/hooks/
+src/contexts/
+src/lib/
+src/middleware/
+src/utils/
+src/types/
+src/data/
+src/config/
+src/integrations/
+src/services/ai/
+src/services/analytics/
+src/services/compliance/
+src/services/google/
+src/services/addressService.ts
+src/services/apiClient.ts
+src/services/authService.ts
+src/services/contextualizacaoService.ts
+src/services/userService.ts
+src/services/aiChatService.ts
+src/routes/ai-routes.ts
+
+# Frontend build files
+public/
+dist/
+build/
+
+# Frontend config files
+vite.config.ts
+tailwind.config.ts
+postcss.config.js
+eslint.config.js
+tsconfig.json
+tsconfig.app.json
+tsconfig.backend.json
+
+# Development files
+*.log
+.env.local
+.env.development
+.env.test
+
+# IDE files
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+docs/
+
+# Scripts (manter apenas os essenciais)
+scripts/
+temp-refactor/
+
+# Supabase (manter apenas as funções essenciais)
+supabase/functions/agent-whatsapp-manager/
+supabase/functions/apply-agent-whatsapp-tables/
+supabase/functions/whatsapp-integration/
+supabase/functions/test-simple-connection/
+supabase/functions/whatsapp-cleanup/
+
+# Backup files
+*.backup*
+*.backup.20250801_131726
+
+# Test files
+test-*.js
+test-*.ts
+
+# Railway specific
+railway.json
+railway.toml
+
+# Other
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+qrcode.png
+
+# VPS backup
+vps-backup/
+
+# Node modules (será reinstalado)
+node_modules/ 
