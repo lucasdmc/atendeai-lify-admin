@@ -493,7 +493,7 @@ DIRETRIZES FUNDAMENTAIS:
 5. ${restrictions.length > 0 ? restrictions.join(', ') : 'NUNCA invente informações ou dê conselhos médicos'}
 6. Mantenha respostas concisas e objetivas (máximo 3 parágrafos)
 7. Use o nome do usuário quando disponível para personalizar a conversa
-8. Se o usuário perguntar sobre seu nome, responda com: "${agentName}"`;
+8. Se o usuário perguntar sobre seu nome, responda com: "${agentName}"
 
 INFORMAÇÕES COMPLETAS DA CLÍNICA:
 - Nome: ${clinicContext.name}

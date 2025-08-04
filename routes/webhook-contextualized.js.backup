@@ -214,7 +214,7 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
       messageLength: messageText.length 
     });
 
-    // Usar LLMOrchestratorService diretamente
+    // Usar LLMOrchestratorService diretamente (versão JavaScript)
     const { LLMOrchestratorService } = await import('../services/llmOrchestratorService.js');
     
     const request = {

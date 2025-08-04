@@ -1,8 +1,12 @@
 // src/services/ai/llmOrchestratorService.js
 // Versão JavaScript para compatibilidade com Node.js
 
+import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
+
+// Carregar variáveis de ambiente
+dotenv.config();
 
 // Configuração do Supabase
 const supabaseUrl = process.env.SUPABASE_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co';
@@ -39,8 +43,8 @@ export class LLMOrchestratorService {
       // Detectar intenção básica
       const intent = await this.detectIntent(message);
       
-      // Buscar contexto da clínica
-      const clinicContext = await this.getClinicContext();
+      // Buscar contexto da clínica (contextualização dinâmica)
+      const clinicContext = await this.getClinicContext(phoneNumber);
       
       // Preparar prompt do sistema com perfil do usuário
       const systemPrompt = this.prepareSystemPrompt(clinicContext, memory.userProfile);
@@ -309,21 +313,125 @@ Responda apenas com o nome da categoria.`;
     return categories[intentName] || 'general';
   }
 
-  static async getClinicContext() {
+  static async getClinicContext(phoneNumber = null) {
     try {
-      const { data } = await supabase
-        .from('clinics')
-        .select('*')
-        .eq('has_contextualization', true)
-        .single();
+      console.log(`🏥 [LLMOrchestrator] Buscando contextualização para: ${phoneNumber || 'sem telefone'}`);
+      
+      let data;
+      
+      if (phoneNumber) {
+        // ✅ BUSCA DINÂMICA - Buscar clínica específica pelo telefone
+        console.log(`🔍 [LLMOrchestrator] Buscando clínica por WhatsApp: ${phoneNumber}`);
+        
+        const { data: clinicData, error } = await supabase
+          .from('clinics')
+          .select('*')
+          .eq('whatsapp_phone', phoneNumber)
+          .single();
+
+        if (error) {
+          console.log(`⚠️ [LLMOrchestrator] Clínica não encontrada para WhatsApp: ${phoneNumber}`);
+          // Fallback para busca genérica
+          const { data: fallbackData } = await supabase
+            .from('clinics')
+            .select('*')
+            .eq('has_contextualization', true)
+            .single();
+          data = fallbackData;
+        } else {
+          data = clinicData;
+        }
+      } else {
+        // Fallback para busca genérica (compatibilidade)
+        console.log('⚠️ [LLMOrchestrator] Sem telefone fornecido, usando busca genérica');
+        const { data: fallbackData } = await supabase
+          .from('clinics')
+          .select('*')
+          .eq('has_contextualization', true)
+          .single();
+        data = fallbackData;
+      }
+
+      if (!data || !data.contextualization_json) {
+        console.log('⚠️ [LLMOrchestrator] Clínica sem contextualização JSON');
+        return {
+          name: data?.name || 'Clínica Médica',
+          address: '',
+          phone: '',
+          services: []
+        };
+      }
+
+      const context = data.contextualization_json;
+      console.log('📋 [LLMOrchestrator] Contextualização encontrada:', Object.keys(context));
+
+      // Extrair informações básicas da clínica
+      const clinica = context.clinica || {};
+      const localizacao = clinica.localizacao || {};
+      const contatos = clinica.contatos || {};
+      const servicos = context.servicos || {};
+      const profissionais = context.profissionais || [];
+
+      // Construir endereço completo
+      let enderecoCompleto = '';
+      if (localizacao.endereco_principal) {
+        const end = localizacao.endereco_principal;
+        enderecoCompleto = `${end.logradouro || ''}, ${end.numero || ''}${end.complemento ? ` - ${end.complemento}` : ''}, ${end.bairro || ''}, ${end.cidade || ''} - ${end.estado || ''}, CEP: ${end.cep || ''}`.trim();
+      }
+
+      // Extrair telefone principal
+      const telefone = contatos.telefone_principal || contatos.whatsapp || '';
+
+      // Extrair serviços
+      const servicosList = [];
+      if (servicos.consultas) {
+        servicosList.push(...servicos.consultas.map(s => s.nome));
+      }
+      if (servicos.exames) {
+        servicosList.push(...servicos.exames.map(s => s.nome));
+      }
+
+      // Extrair profissionais
+      const profissionaisList = profissionais.map(p => p.nome_completo);
+
+      console.log('✅ [LLMOrchestrator] Dados extraídos:', {
+        nome: clinica.informacoes_basicas?.nome || data.name,
+        endereco: enderecoCompleto,
+        telefone: telefone,
+        servicos: servicosList.length,
+        profissionais: profissionaisList.length,
+        whatsapp_phone: data.whatsapp_phone
+      });
 
       return {
-        name: data?.name || 'Clínica Médica',
-        address: data?.address || '',
-        phone: data?.phone || '',
-        services: []
+        name: clinica.informacoes_basicas?.nome || data.name || 'Clínica Médica',
+        address: enderecoCompleto,
+        phone: telefone,
+        services: servicosList,
+        professionals: profissionaisList,
+        specialties: clinica.informacoes_basicas?.especialidades_secundarias || [],
+        description: clinica.informacoes_basicas?.descricao || '',
+        mission: clinica.informacoes_basicas?.missao || '',
+        values: clinica.informacoes_basicas?.valores || [],
+        differentiators: clinica.informacoes_basicas?.diferenciais || [],
+        workingHours: clinica.horario_funcionamento || {},
+        paymentMethods: context.formas_pagamento || {},
+        insurance: context.convenios || [],
+        insuranceDetails: context.convenios || [],
+        emails: contatos.emails_departamentos || {},
+        website: contatos.website || '',
+        mainEmail: contatos.email_principal || '',
+        bookingPolicies: context.politicas?.agendamento || {},
+        servicePolicies: context.politicas?.atendimento || {},
+        additionalInfo: context.informacoes_adicionais || {},
+        professionalsDetails: context.profissionais || [],
+        servicesDetails: context.servicos || {},
+        agentConfig: context.agente_ia?.configuracao || {},
+        agentBehavior: context.agente_ia?.comportamento || {},
+        agentRestrictions: context.agente_ia?.restricoes || {}
       };
     } catch (error) {
+      console.error('❌ [LLMOrchestrator] Erro ao obter contexto da clínica:', error);
       return {
         name: 'Clínica Médica',
         address: '',
@@ -334,23 +442,282 @@ Responda apenas com o nome da categoria.`;
   }
 
   static prepareSystemPrompt(clinicContext, userProfile = null) {
-    let prompt = `Você é uma recepcionista virtual da ${clinicContext.name}.
-Sua personalidade é: profissional, empática e prestativa
+    // Configurações do agente IA do JSON
+    const agentConfig = clinicContext.agentConfig || {};
+    const agentBehavior = clinicContext.agentBehavior || {};
+    const agentRestrictions = clinicContext.agentRestrictions || {};
+    
+    // Nome do agente (padrão ou do JSON)
+    const agentName = agentConfig.nome || 'Assistente Virtual';
+    
+    // Personalidade do agente (padrão ou do JSON)
+    const agentPersonality = agentConfig.personalidade || 'profissional, empática e prestativa';
+    
+    // Tom de comunicação (padrão ou do JSON)
+    const communicationTone = agentConfig.tom_comunicacao || 'Formal mas acessível';
+    
+    // Nível de formalidade (padrão ou do JSON)
+    const formalityLevel = agentConfig.nivel_formalidade || 'Médio';
+    
+    // Saudação inicial (padrão ou do JSON)
+    const initialGreeting = agentConfig.saudacao_inicial || `Olá! Sou o ${agentName}, assistente virtual da ${clinicContext.name}. Como posso ajudá-lo hoje?`;
+    
+    // Mensagem de despedida (padrão ou do JSON)
+    const farewellMessage = agentConfig.mensagem_despedida || 'Obrigado por escolher nossa clínica. Até breve!';
+    
+    // Mensagem fora do horário (padrão ou do JSON)
+    const outOfHoursMessage = agentConfig.mensagem_fora_horario || 'No momento estamos fora do horário de atendimento. Retornaremos seu contato no próximo horário comercial.';
+    
+    // Restrições específicas
+    const restrictions = [];
+    if (agentRestrictions.nao_pode_diagnosticar) {
+      restrictions.push('NUNCA faça diagnósticos médicos');
+    }
+    if (agentRestrictions.nao_pode_prescrever) {
+      restrictions.push('NUNCA prescreva medicamentos');
+    }
+    
+    // Emergências cardíacas (se configuradas)
+    const cardiacEmergencies = agentRestrictions.emergencias_cardiacas || [];
+    
+    let prompt = `Você é ${agentName}, assistente virtual da ${clinicContext.name}.
+Sua personalidade é: ${agentPersonality}
+Tom de comunicação: ${communicationTone}
+Nível de formalidade: ${formalityLevel}
 
 DIRETRIZES FUNDAMENTAIS:
 1. Use EXCLUSIVAMENTE as informações fornecidas no contexto da clínica
-2. Seja sempre cordial, profissional e empática
+2. Seja sempre cordial, profissional e empático
 3. Para agendamentos, oriente o usuário sobre o processo
 4. Se não souber uma informação, diga educadamente que não possui essa informação
-5. NUNCA invente informações ou dê conselhos médicos
+5. ${restrictions.length > 0 ? restrictions.join(', ') : 'NUNCA invente informações ou dê conselhos médicos'}
 6. Mantenha respostas concisas e objetivas (máximo 3 parágrafos)
 7. Use o nome do usuário quando disponível para personalizar a conversa
-8. Se o usuário perguntar sobre seu nome e você souber, responda com o nome dele
+8. Se o usuário perguntar sobre seu nome, responda com: "${agentName}"
 
-INFORMAÇÕES DA CLÍNICA:
+\nINFORMAÇÕES COMPLETAS DA CLÍNICA:
 - Nome: ${clinicContext.name}
-- Endereço: ${clinicContext.address}
-- Telefone: ${clinicContext.phone}`;
+- Endereço: ${clinicContext.address || 'Não informado'}
+- Telefone: ${clinicContext.phone || 'Não informado'}`;
+
+    // Adicionar email principal se disponível
+    if (clinicContext.mainEmail) {
+      prompt += `\n- Email: ${clinicContext.mainEmail}`;
+    }
+
+    // Adicionar website se disponível
+    if (clinicContext.website) {
+      prompt += `\n- Website: ${clinicContext.website}`;
+    }
+
+    // Adicionar descrição se disponível
+    if (clinicContext.description) {
+      prompt += `\n- Descrição: ${clinicContext.description}`;
+    }
+
+    // Adicionar missão se disponível
+    if (clinicContext.mission) {
+      prompt += `\n- Missão: ${clinicContext.mission}`;
+    }
+
+    // Adicionar valores se disponível
+    if (clinicContext.values && clinicContext.values.length > 0) {
+      prompt += `\n- Valores: ${clinicContext.values.join(', ')}`;
+    }
+
+    // Adicionar diferenciais se disponível
+    if (clinicContext.differentiators && clinicContext.differentiators.length > 0) {
+      prompt += `\n- Diferenciais: ${clinicContext.differentiators.join(', ')}`;
+    }
+
+    // Adicionar especialidades se disponível
+    if (clinicContext.specialties && clinicContext.specialties.length > 0) {
+      prompt += `\n- Especialidades: ${clinicContext.specialties.join(', ')}`;
+    }
+
+    // Adicionar serviços se disponível
+    if (clinicContext.services && clinicContext.services.length > 0) {
+      prompt += `\n- Serviços oferecidos: ${clinicContext.services.join(', ')}`;
+    }
+
+    // Adicionar profissionais se disponível
+    if (clinicContext.professionals && clinicContext.professionals.length > 0) {
+      prompt += `\n- Profissionais: ${clinicContext.professionals.join(', ')}`;
+    }
+
+    // Adicionar convênios se disponível
+    if (clinicContext.insurance && clinicContext.insurance.length > 0) {
+      const convenios = clinicContext.insurance.map(c => c.nome).join(', ');
+      prompt += `\n- Convênios aceitos: ${convenios}`;
+    }
+
+    // Adicionar formas de pagamento se disponível
+    if (clinicContext.paymentMethods) {
+      const formas = [];
+      if (clinicContext.paymentMethods.dinheiro) formas.push('Dinheiro');
+      if (clinicContext.paymentMethods.cartao_credito) formas.push('Cartão de Crédito');
+      if (clinicContext.paymentMethods.cartao_debito) formas.push('Cartão de Débito');
+      if (clinicContext.paymentMethods.pix) formas.push('PIX');
+      
+      if (formas.length > 0) {
+        prompt += `\n- Formas de pagamento: ${formas.join(', ')}`;
+      }
+
+      // Adicionar informações de parcelamento
+      if (clinicContext.paymentMethods.parcelamento && clinicContext.paymentMethods.parcelamento.disponivel) {
+        prompt += `\n- Parcelamento: Disponível em até ${clinicContext.paymentMethods.parcelamento.max_parcelas} parcelas`;
+      }
+
+      // Adicionar informações de desconto
+      if (clinicContext.paymentMethods.desconto_a_vista && clinicContext.paymentMethods.desconto_a_vista.disponivel) {
+        prompt += `\n- Desconto à vista: ${clinicContext.paymentMethods.desconto_a_vista.percentual}%`;
+      }
+    }
+
+    // Adicionar horário de funcionamento se disponível
+    if (clinicContext.workingHours && Object.keys(clinicContext.workingHours).length > 0) {
+      prompt += `\n- Horário de funcionamento:`;
+      const dias = {
+        'segunda': 'Segunda-feira',
+        'terca': 'Terça-feira', 
+        'quarta': 'Quarta-feira',
+        'quinta': 'Quinta-feira',
+        'sexta': 'Sexta-feira',
+        'sabado': 'Sábado',
+        'domingo': 'Domingo'
+      };
+      
+      Object.entries(clinicContext.workingHours).forEach(([dia, horario]) => {
+        if (horario && horario.abertura && horario.fechamento) {
+          prompt += `\n  • ${dias[dia]}: ${horario.abertura} às ${horario.fechamento}`;
+        } else if (horario) {
+          prompt += `\n  • ${dias[dia]}: Fechado`;
+        }
+      });
+    }
+
+    // Adicionar emails específicos por departamento se disponível
+    if (clinicContext.emails && Object.keys(clinicContext.emails).length > 0) {
+      prompt += `\n- Emails por departamento:`;
+      Object.entries(clinicContext.emails).forEach(([dept, email]) => {
+        prompt += `\n  • ${dept}: ${email}`;
+      });
+    }
+
+    // Adicionar políticas de agendamento se disponível
+    if (clinicContext.bookingPolicies) {
+      prompt += `\n- Políticas de agendamento:`;
+      if (clinicContext.bookingPolicies.antecedencia_minima_horas) {
+        prompt += `\n  • Antecedência mínima: ${clinicContext.bookingPolicies.antecedencia_minima_horas}h`;
+      }
+      if (clinicContext.bookingPolicies.antecedencia_maxima_dias) {
+        prompt += `\n  • Antecedência máxima: ${clinicContext.bookingPolicies.antecedencia_maxima_dias} dias`;
+      }
+      if (clinicContext.bookingPolicies.reagendamento_permitido !== undefined) {
+        prompt += `\n  • Reagendamento: ${clinicContext.bookingPolicies.reagendamento_permitido ? 'Permitido' : 'Não permitido'}`;
+      }
+      if (clinicContext.bookingPolicies.cancelamento_antecedencia_horas) {
+        prompt += `\n  • Cancelamento: ${clinicContext.bookingPolicies.cancelamento_antecedencia_horas}h de antecedência`;
+      }
+    }
+
+    // Adicionar políticas de atendimento se disponível
+    if (clinicContext.servicePolicies) {
+      prompt += `\n- Políticas de atendimento:`;
+      if (clinicContext.servicePolicies.tolerancia_atraso_minutos) {
+        prompt += `\n  • Tolerância atraso: ${clinicContext.servicePolicies.tolerancia_atraso_minutos} min`;
+      }
+      if (clinicContext.servicePolicies.acompanhante_permitido !== undefined) {
+        prompt += `\n  • Acompanhante: ${clinicContext.servicePolicies.acompanhante_permitido ? 'Permitido' : 'Não permitido'}`;
+      }
+      if (clinicContext.servicePolicies.documentos_obrigatorios && clinicContext.servicePolicies.documentos_obrigatorios.length > 0) {
+        prompt += `\n  • Documentos obrigatórios: ${clinicContext.servicePolicies.documentos_obrigatorios.join(', ')}`;
+      }
+    }
+
+    // Adicionar informações adicionais se disponível
+    if (clinicContext.additionalInfo && clinicContext.additionalInfo.parcerias && clinicContext.additionalInfo.parcerias.length > 0) {
+      prompt += `\n- Parcerias:`;
+      clinicContext.additionalInfo.parcerias.forEach(parceria => {
+        prompt += `\n  • ${parceria.nome} (${parceria.tipo}): ${parceria.descricao}`;
+      });
+    }
+
+    // Adicionar emergências cardíacas se configuradas
+    if (cardiacEmergencies && cardiacEmergencies.length > 0) {
+      prompt += `\n\nEMERGÊNCIAS CARDÍACAS - ORIENTAÇÕES:`;
+      cardiacEmergencies.forEach(emergencia => {
+        prompt += `\n• ${emergencia}`;
+      });
+    }
+
+    // Adicionar informações detalhadas dos profissionais se disponível
+    if (clinicContext.professionalsDetails && clinicContext.professionalsDetails.length > 0) {
+      prompt += `\n- Detalhes dos profissionais:`;
+      clinicContext.professionalsDetails.forEach(prof => {
+        prompt += `\n  • ${prof.nome_completo} (${prof.crm}): ${prof.especialidades?.join(', ')} - ${prof.experiencia}`;
+        if (prof.horarios_disponibilidade) {
+          const horarios = Object.entries(prof.horarios_disponibilidade)
+            .filter(([dia, horarios]) => horarios && horarios.length > 0)
+            .map(([dia, horarios]) => `${dia}: ${horarios.map(h => `${h.inicio}-${h.fim}`).join(', ')}`)
+            .join('; ');
+          if (horarios) {
+            prompt += `\n    Horários: ${horarios}`;
+          }
+        }
+      });
+    }
+
+    // Adicionar informações detalhadas dos serviços se disponível
+    if (clinicContext.servicesDetails) {
+      if (clinicContext.servicesDetails.consultas && clinicContext.servicesDetails.consultas.length > 0) {
+        prompt += `\n- Detalhes das consultas:`;
+        clinicContext.servicesDetails.consultas.forEach(consulta => {
+          // Formatar preço para aceitar ambos os formatos
+          const precoFormatado = consulta.preco_particular ? 
+            (consulta.preco_particular % 1 === 0 ? 
+              `R$ ${consulta.preco_particular},00` : 
+              `R$ ${consulta.preco_particular.toFixed(2).replace('.', ',')}`) : 
+            'Preço sob consulta';
+          
+          prompt += `\n  • ${consulta.nome}: ${consulta.descricao} - ${consulta.duracao_minutos}min - ${precoFormatado}`;
+          if (consulta.convenios_aceitos && consulta.convenios_aceitos.length > 0) {
+            prompt += ` (Convênios: ${consulta.convenios_aceitos.join(', ')})`;
+          }
+        });
+      }
+
+      if (clinicContext.servicesDetails.exames && clinicContext.servicesDetails.exames.length > 0) {
+        prompt += `\n- Detalhes dos exames:`;
+        clinicContext.servicesDetails.exames.forEach(exame => {
+          // Formatar preço para aceitar ambos os formatos
+          const precoFormatado = exame.preco_particular ? 
+            (exame.preco_particular % 1 === 0 ? 
+              `R$ ${exame.preco_particular},00` : 
+              `R$ ${exame.preco_particular.toFixed(2).replace('.', ',')}`) : 
+            'Preço sob consulta';
+          
+          prompt += `\n  • ${exame.nome}: ${exame.descricao} - ${exame.duracao_minutos}min - ${precoFormatado}`;
+          if (exame.preparacao) {
+            prompt += `\n    Preparação: ${exame.preparacao.instrucoes_especiais}`;
+          }
+          if (exame.resultado_prazo_dias) {
+            prompt += `\n    Resultado: ${exame.resultado_prazo_dias} dia(s)`;
+          }
+        });
+      }
+    }
+
+    // Adicionar informações detalhadas dos convênios se disponível
+    if (clinicContext.insuranceDetails && clinicContext.insuranceDetails.length > 0) {
+      prompt += `\n- Detalhes dos convênios:`;
+      clinicContext.insuranceDetails.forEach(conv => {
+        prompt += `\n  • ${conv.nome}: ${conv.copagamento ? `Copagamento R$ ${conv.valor_copagamento}` : 'Sem copagamento'}`;
+        if (conv.autorizacao_necessaria) {
+          prompt += ` (Autorização necessária)`;
+        }
+      });
+    }
 
     if (userProfile && userProfile.name) {
       prompt += `\n\nINFORMAÇÕES DO USUÁRIO:

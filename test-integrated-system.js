@@ -27,8 +27,7 @@ async function testIntegratedSystem() {
   
   try {
     // Teste 1: Sistema de Memória
-    console.log('
-📋 1. Testando Sistema de Memória...');
+    console.log('📋 1. Testando Sistema de Memória...');
     
     // Simular primeira interação
     const firstInteraction = {
@@ -99,8 +98,7 @@ async function testIntegratedSystem() {
     }
     
     // Teste 2: Contextualização JSON
-    console.log('
-📋 2. Testando Contextualização JSON...');
+    console.log('📋 2. Testando Contextualização JSON...');
     
     // Simular dados da clínica
     const clinicData = {
@@ -166,8 +164,7 @@ async function testIntegratedSystem() {
     console.log('📊 Serviços:', clinicData.services.length);
     
     // Teste 3: Geração de Prompt Contextualizado
-    console.log('
-📋 3. Testando Geração de Prompt Contextualizado...');
+    console.log('📋 3. Testando Geração de Prompt Contextualizado...');
     
     function generateSystemPromptFromContext(clinicData) {
       const {
@@ -247,8 +244,7 @@ INSTRUÇÕES IMPORTANTES:
     console.log('📊 Tamanho do prompt:', systemPrompt.length, 'caracteres');
     
     // Teste 4: Simulação de Conversa Completa
-    console.log('
-📋 4. Simulando Conversa Completa...');
+    console.log('📋 4. Simulando Conversa Completa...');
     
     const testMessages = [
       'Olá!',
@@ -301,8 +297,7 @@ INSTRUÇÕES IMPORTANTES:
     }
     
     // Teste 5: Verificação Final
-    console.log('
-📋 5. Verificação Final...');
+    console.log('📋 5. Verificação Final...');
     
     const { data: finalMemory, error: finalError } = await supabase
       .from('conversation_memory')

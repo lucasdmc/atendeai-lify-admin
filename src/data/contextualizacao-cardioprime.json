@@ -84,6 +84,16 @@
       "escalacao_automatica": true,
       "limite_tentativas": 3,
       "contexto_conversa": true
+    },
+    "restricoes": {
+      "nao_pode_diagnosticar": true,
+      "nao_pode_prescrever": true,
+      "emergencias_cardiacas": [
+        "Dor no peito - orientar procurar emergência imediatamente",
+        "Falta de ar súbita - orientar procurar atendimento urgente",
+        "Palpitações intensas - orientar procurar avaliação médica",
+        "Desmaio - orientar procurar emergência"
+      ]
     }
   },
   "profissionais": [
