@@ -46,6 +46,14 @@ export class LLMOrchestratorService {
       // Buscar contexto da clínica (contextualização dinâmica)
       const clinicContext = await this.getClinicContext(phoneNumber);
       
+      // Verificar se é primeira conversa do dia
+      const isFirstConversationOfDay = await this.isFirstConversationOfDay(phoneNumber);
+      console.log('📅 Primeira conversa do dia:', isFirstConversationOfDay);
+      
+      // Verificar horário de funcionamento
+      const isWithinBusinessHours = this.isWithinBusinessHours(clinicContext);
+      console.log('🕒 Dentro do horário de funcionamento:', isWithinBusinessHours);
+      
       // Preparar prompt do sistema com perfil do usuário
       const systemPrompt = this.prepareSystemPrompt(clinicContext, memory.userProfile);
       
@@ -60,7 +68,10 @@ export class LLMOrchestratorService {
         max_tokens: 1000,
       });
 
-      const response = completion.choices[0]?.message?.content || 'Desculpe, não consegui gerar uma resposta.';
+      let response = completion.choices[0]?.message?.content || 'Desculpe, não consegui gerar uma resposta.';
+
+      // Aplicar lógica de saudação e horário
+      response = await this.applyResponseLogic(response, clinicContext, isFirstConversationOfDay, isWithinBusinessHours, memory.userProfile);
 
       // Salvar na memória
       await this.saveConversationMemory(phoneNumber, message, response, intent);
@@ -74,7 +85,11 @@ export class LLMOrchestratorService {
           modelUsed: 'gpt-4o',
           memoryUsed: true,
           userProfile: memory.userProfile || { name: 'Usuário' },
-          conversationContext: { lastIntent: intent.name }
+          conversationContext: { 
+            lastIntent: intent.name,
+            isFirstConversationOfDay: isFirstConversationOfDay,
+            isWithinBusinessHours: isWithinBusinessHours
+          }
         }
       };
 
@@ -754,5 +769,114 @@ DIRETRIZES FUNDAMENTAIS:
     console.log('  - Total de mensagens:', messages.length);
 
     return messages;
+  }
+
+  /**
+   * Verifica se é a primeira conversa do dia
+   */
+  static async isFirstConversationOfDay(phoneNumber) {
+    try {
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      
+      const { data } = await supabase
+        .from('conversation_memory')
+        .select('last_interaction')
+        .eq('phone_number', phoneNumber)
+        .gte('last_interaction', startOfDay.toISOString())
+        .order('last_interaction', { ascending: false })
+        .limit(1);
+
+      // Se não há interações hoje, é primeira conversa
+      return !data || data.length === 0;
+    } catch (error) {
+      console.error('❌ Erro ao verificar primeira conversa do dia:', error);
+      return true; // Por segurança, assume que é primeira conversa
+    }
+  }
+
+  /**
+   * Verifica se está dentro do horário de funcionamento
+   */
+  static isWithinBusinessHours(clinicContext) {
+    try {
+      if (!clinicContext.workingHours) {
+        return true; // Se não há horário configurado, assume que está aberto
+      }
+
+      const now = new Date();
+      const currentDay = this.getDayOfWeek(now.getDay());
+      const currentTime = now.getHours() * 100 + now.getMinutes(); // Formato HHMM
+
+      const todaySchedule = clinicContext.workingHours[currentDay];
+      
+      if (!todaySchedule || !todaySchedule.abertura || !todaySchedule.fechamento) {
+        return false; // Fechado se não há horário configurado
+      }
+
+      const openingTime = this.parseTime(todaySchedule.abertura);
+      const closingTime = this.parseTime(todaySchedule.fechamento);
+
+      return currentTime >= openingTime && currentTime <= closingTime;
+    } catch (error) {
+      console.error('❌ Erro ao verificar horário de funcionamento:', error);
+      return true; // Por segurança, assume que está aberto
+    }
+  }
+
+  /**
+   * Converte string de tempo para formato HHMM
+   */
+  static parseTime(timeString) {
+    const [hours, minutes] = timeString.split(':').map(Number);
+    return hours * 100 + minutes;
+  }
+
+  /**
+   * Obtém o dia da semana em formato string
+   */
+  static getDayOfWeek(dayNumber) {
+    const days = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
+    return days[dayNumber];
+  }
+
+  /**
+   * Aplica lógica de resposta baseada em saudação e horário
+   */
+  static async applyResponseLogic(response, clinicContext, isFirstConversationOfDay, isWithinBusinessHours, userProfile) {
+    try {
+      // Obter configurações do agente
+      const agentConfig = clinicContext.agente_ia?.configuracao || {};
+      
+      // Se está fora do horário, usar mensagem fora do horário
+      if (!isWithinBusinessHours) {
+        const outOfHoursMessage = agentConfig.mensagem_fora_horario || 
+          'No momento estamos fora do horário de atendimento. Retornaremos seu contato no próximo horário comercial.';
+        
+        console.log('🕒 Aplicando mensagem fora do horário');
+        return outOfHoursMessage;
+      }
+
+      // Se é primeira conversa do dia, adicionar saudação inicial
+      if (isFirstConversationOfDay) {
+        const initialGreeting = agentConfig.saudacao_inicial || 
+          `Olá! Sou o ${agentConfig.nome || 'Assistente Virtual'}, assistente virtual da ${clinicContext.name}. Como posso ajudá-lo hoje?`;
+        
+        console.log('👋 Aplicando saudação inicial');
+        
+        // Personalizar saudação com nome do usuário se disponível
+        let personalizedGreeting = initialGreeting;
+        if (userProfile?.name) {
+          personalizedGreeting = initialGreeting.replace('Como posso ajudá-lo hoje?', `Como posso ajudá-lo hoje, ${userProfile.name}?`);
+        }
+        
+        return personalizedGreeting + "\n\n" + response;
+      }
+
+      return response;
+    } catch (error) {
+      console.error('❌ Erro ao aplicar lógica de resposta:', error);
+      return response;
+    }
   }
 } 
