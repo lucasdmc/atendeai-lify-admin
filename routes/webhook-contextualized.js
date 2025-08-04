@@ -22,6 +22,17 @@ router.post('/whatsapp-meta', async (req, res) => {
     // Verificar se é um desafio de verificação
     if (req.body.mode === 'subscribe' && req.body['hub.challenge']) {
       console.log('[Webhook-Contextualizado] Respondendo ao desafio de verificação');
+      
+      // Verificar o token de verificação
+      const verifyToken = req.body['hub.verify_token'];
+      const expectedToken = process.env.WEBHOOK_VERIFY_TOKEN || 'atendeai-lify-backend';
+      
+      if (verifyToken !== expectedToken) {
+        console.error('[Webhook-Contextualizado] Token de verificação inválido:', verifyToken);
+        return res.status(403).send('Forbidden');
+      }
+      
+      console.log('[Webhook-Contextualizado] Token de verificação válido');
       return res.status(200).send(req.body['hub.challenge']);
     }
 
