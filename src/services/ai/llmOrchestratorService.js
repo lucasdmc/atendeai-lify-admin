@@ -86,15 +86,23 @@ export class LLMOrchestratorService {
 
   static async loadConversationMemory(phoneNumber) {
     try {
+      console.log('🔍 Carregando memória para:', phoneNumber);
+      
       const { data } = await supabase
         .from('conversation_memory')
         .select('memory_data')
         .eq('phone_number', phoneNumber)
         .single();
 
+      console.log('✅ Memória carregada:', data ? 'encontrada' : 'não encontrada');
+      if (data?.memory_data) {
+        console.log('  - Histórico:', data.memory_data.history?.length || 0, 'mensagens');
+        console.log('  - UserProfile:', data.memory_data.userProfile?.name || 'sem nome');
+      }
+
       return data?.memory_data || { history: [], userProfile: {} };
     } catch (error) {
-      console.log('No memory found for:', phoneNumber);
+      console.log('❌ Erro ao carregar memória para:', phoneNumber, error.message);
       return { history: [], userProfile: {} };
     }
   }
@@ -244,18 +252,26 @@ INFORMAÇÕES DA CLÍNICA:
       { role: 'system', content: systemPrompt }
     ];
 
+    console.log('🧠 Construindo mensagens com memória...');
+    console.log('  - Histórico disponível:', memory.history?.length || 0, 'mensagens');
+
     // Adicionar histórico relevante
     if (memory.history && memory.history.length > 0) {
       const recentHistory = memory.history.slice(-6);
-      recentHistory.forEach(h => {
+      console.log('  - Usando últimas:', recentHistory.length, 'mensagens');
+      
+      recentHistory.forEach((h, index) => {
         if (h.role && h.content) {
           messages.push({ role: h.role, content: h.content });
+          console.log(`    ${index + 1}. ${h.role}: ${h.content.substring(0, 30)}...`);
         }
       });
     }
 
     // Adicionar mensagem atual
     messages.push({ role: 'user', content: userMessage });
+    console.log('  - Mensagem atual: user:', userMessage.substring(0, 30) + '...');
+    console.log('  - Total de mensagens:', messages.length);
 
     return messages;
   }
