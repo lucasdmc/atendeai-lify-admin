@@ -5,7 +5,6 @@ import { RAGEngineService } from './ragEngineService';
 import { ConversationMemoryService } from './conversationMemoryService';
 import { ToolCallingService } from './toolCallingService';
 import { PersonalizationService } from './personalizationService';
-import { EnhancedClinicContextService } from './enhancedClinicContextService';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface OrchestratorRequest {
@@ -62,22 +61,13 @@ Use as ferramentas quando necessário para executar ações no sistema.`;
       const personalization = await PersonalizationService.loadPersonalizationContext(request.phoneNumber);
       console.log('👤 Personalization loaded:', personalization.patientProfile.name);
 
-      // 2. Reconhecer intenção com contexto avançado
-      const enhancedContextService = new EnhancedClinicContextService();
-      const userIntent = enhancedContextService.identifyIntent(request.message);
-      
+      // 2. Reconhecer intenção
       const intent = await IntentRecognitionService.recognizeIntent({
         message: request.message,
         conversationHistory,
         clinicContext: await this.getClinicContext(),
         userProfile
       });
-
-      // Usar intenção identificada pelo EnhancedClinicContextService se disponível
-      if (userIntent && userIntent !== 'general') {
-        intent.name = userIntent;
-        console.log('🎯 [LLMOrchestrator] Intenção identificada:', userIntent);
-      }
 
       console.log('📊 Intent recognized:', intent);
 
@@ -186,41 +176,14 @@ Use as ferramentas quando necessário para executar ações no sistema.`;
   }
 
   private static async prepareSystemPrompt(): Promise<string> {
-    // Usar EnhancedClinicContextService para navegação inteligente do JSON
-    const enhancedContextService = new EnhancedClinicContextService();
-    
-    try {
-      // Buscar dados da clínica com navegação inteligente
-      const { data: clinicData } = await supabase
-        .from('clinics')
-        .select('*')
-        .eq('has_contextualization', true)
-        .single();
-
-      if (clinicData) {
-        // Usar navegação inteligente do JSON
-        const enhancedContext = await enhancedContextService.getEnhancedClinicContextualization(
-          clinicData.id,
-          '', // userMessage vazio para contexto geral
-          'general'
-        );
-
-        if (enhancedContext && enhancedContext.fullContext) {
-          console.log('✅ [LLMOrchestrator] Usando contexto avançado com navegação inteligente');
-          return enhancedContext.fullContext.prompt;
-        }
-      }
-    } catch (error) {
-      console.warn('⚠️ [LLMOrchestrator] Erro ao carregar contexto avançado, usando fallback:', error);
-    }
-
-    // Fallback para dados básicos
+    // Buscar dados da clínica
     const { data: clinicData } = await supabase
       .from('clinics')
       .select('*')
       .eq('has_contextualization', true)
       .single();
 
+    // Usar dados padrão se não encontrar contextualização
     const clinicName = clinicData?.name || 'Clínica Médica';
     const personality = 'profissional, empática e prestativa';
 
