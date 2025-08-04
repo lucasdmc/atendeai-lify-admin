@@ -1,0 +1,389 @@
+{
+  "_id": "cardioprime_blumenau_2024",
+  "clinica": {
+    "informacoes_basicas": {
+      "nome": "CardioPrime",
+      "razao_social": "CardioPrime Cardiologia Ltda",
+      "cnpj": "45.678.901/0001-03",
+      "especialidade_principal": "Cardiologia",
+      "especialidades_secundarias": [
+        "Cardiologia Intervencionista",
+        "Hemodinâmica",
+        "Cateterismo Cardíaco",
+        "Angioplastia",
+        "Eletrofisiologia",
+        "Ecocardiografia",
+        "Ergometria"
+      ],
+      "descricao": "Clínica especializada em cardiologia com foco em procedimentos intervencionistas por cateteres. Localizada no Hospital Santa Catarina de Blumenau, oferece a melhor infraestrutura e tecnologia de ponta para cuidados cardiovasculares.",
+      "missao": "Proporcionar cuidados cardiológicos de excelência com tecnologia avançada e procedimentos minimamente invasivos, preservando e restaurando a saúde cardiovascular dos nossos pacientes.",
+      "valores": [
+        "Excelência médica",
+        "Tecnologia de ponta",
+        "Procedimentos minimamente invasivos",
+        "Segurança do paciente",
+        "Inovação em cardiologia"
+      ],
+      "diferenciais": [
+        "Seleção rigorosa de profissionais",
+        "Infraestrutura de ponta no Hospital Santa Catarina",
+        "Especialização em procedimentos intervencionistas",
+        "Equipamentos de última geração",
+        "Equipe altamente qualificada",
+        "Localização estratégica em hospital de referência"
+      ]
+    },
+    "localizacao": {
+      "endereco_principal": {
+        "logradouro": "Rua Azambuja",
+        "numero": "1000",
+        "complemento": "Hospital Santa Catarina - 1º andar",
+        "bairro": "Centro",
+        "cidade": "Blumenau",
+        "estado": "SC",
+        "cep": "89010-000",
+        "pais": "Brasil",
+        "coordenadas": {
+          "latitude": -26.9194,
+          "longitude": -49.0661
+        }
+      }
+    },
+    "contatos": {
+      "telefone_principal": "(47) 3231-0200",
+      "telefone_emergencia": "(47) 3231-0200",
+      "whatsapp": "(47) 99999-7777",
+      "email_principal": "contato@cardioprime.med.br",
+      "emails_departamentos": {
+        "agendamento": "agendamento@cardioprime.med.br",
+        "hemodinamica": "hemodinamica@cardioprime.med.br"
+      },
+      "website": "https://cardioprime.med.br"
+    },
+    "horario_funcionamento": {
+      "segunda": {"abertura": "07:00", "fechamento": "18:00"},
+      "terca": {"abertura": "07:00", "fechamento": "18:00"},
+      "quarta": {"abertura": "07:00", "fechamento": "18:00"},
+      "quinta": {"abertura": "07:00", "fechamento": "18:00"},
+      "sexta": {"abertura": "07:00", "fechamento": "17:00"},
+      "sabado": {"abertura": "08:00", "fechamento": "12:00"},
+      "domingo": {"abertura": null, "fechamento": null},
+      "emergencia_24h": true
+    }
+  },
+  "agente_ia": {
+    "configuracao": {
+      "nome": "Cardio",
+      "personalidade": "Profissional, confiável e especializado em cardiologia. Demonstra conhecimento sobre saúde cardiovascular e tranquiliza pacientes sobre procedimentos cardíacos.",
+      "tom_comunicacao": "Formal mas acessível, com foco na saúde cardiovascular",
+      "nivel_formalidade": "Alto",
+      "idiomas": ["português"],
+      "saudacao_inicial": "Olá! Sou o Cardio, assistente virtual da CardioPrime. Como posso cuidar da sua saúde cardiovascular hoje?",
+      "mensagem_despedida": "Obrigado por escolher a CardioPrime para cuidar do seu coração. Até breve!",
+      "mensagem_fora_horario": "No momento estamos fora do horário de atendimento. Para emergências cardíacas, procure o pronto-socorro do Hospital Santa Catarina ou ligue 192 (SAMU). Retornaremos seu contato no próximo horário comercial."
+    },
+    "comportamento": {
+      "proativo": true,
+      "oferece_sugestoes": true,
+      "solicita_feedback": true,
+      "escalacao_automatica": true,
+      "limite_tentativas": 3,
+      "contexto_conversa": true
+    },
+    "restricoes": {
+      "nao_pode_diagnosticar": true,
+      "nao_pode_prescrever": true,
+      "emergencias_cardiacas": [
+        "Dor no peito - orientar procurar emergência imediatamente",
+        "Falta de ar súbita - orientar procurar atendimento urgente",
+        "Palpitações intensas - orientar procurar avaliação médica",
+        "Desmaio - orientar procurar emergência"
+      ]
+    }
+  },
+  "profissionais": [
+    {
+      "id": "prof_001",
+      "nome_completo": "Dr. Roberto Silva",
+      "nome_exibicao": "Dr. Roberto Silva",
+      "titulo": "Doutor",
+      "crm": "CRM-SC 4567",
+      "especialidades": ["Cardiologia", "Cardiologia Intervencionista"],
+      "subespecialidades": ["Cateterismo Cardíaco", "Angioplastia"],
+      "experiencia": "Mais de 20 anos de experiência em cardiologia intervencionista",
+      "biografia": "Especialista em procedimentos hemodinâmicos e cardiologia intervencionista",
+      "ativo": true,
+      "aceita_novos_pacientes": true,
+      "horarios_disponibilidade": {
+        "segunda": [{"inicio": "08:00", "fim": "12:00"}, {"inicio": "14:00", "fim": "18:00"}],
+        "terca": [{"inicio": "08:00", "fim": "12:00"}],
+        "quarta": [{"inicio": "14:00", "fim": "18:00"}],
+        "quinta": [{"inicio": "08:00", "fim": "12:00"}, {"inicio": "14:00", "fim": "18:00"}],
+        "sexta": [{"inicio": "08:00", "fim": "12:00"}]
+      },
+      "tempo_consulta_padrao": 30,
+      "intervalo_entre_consultas": 15
+    },
+    {
+      "id": "prof_002",
+      "nome_completo": "Dra. Maria Fernanda",
+      "nome_exibicao": "Dra. Maria Fernanda",
+      "titulo": "Doutora",
+      "crm": "CRM-SC 5678",
+      "especialidades": ["Cardiologia", "Ecocardiografia"],
+      "experiencia": "15 anos de experiência em cardiologia clínica",
+      "ativo": true,
+      "aceita_novos_pacientes": true,
+      "horarios_disponibilidade": {
+        "segunda": [{"inicio": "14:00", "fim": "18:00"}],
+        "terca": [{"inicio": "08:00", "fim": "12:00"}, {"inicio": "14:00", "fim": "18:00"}],
+        "quarta": [{"inicio": "08:00", "fim": "12:00"}],
+        "quinta": [{"inicio": "14:00", "fim": "18:00"}],
+        "sexta": [{"inicio": "14:00", "fim": "17:00"}]
+      },
+      "tempo_consulta_padrao": 30
+    }
+  ],
+  "servicos": {
+    "consultas": [
+      {
+        "id": "cons_001",
+        "nome": "Consulta Cardiológica",
+        "descricao": "Avaliação completa do sistema cardiovascular com eletrocardiograma",
+        "especialidade": "Cardiologia",
+        "duracao_minutos": 30,
+        "preco_particular": 300.00,
+        "aceita_convenio": true,
+        "convenios_aceitos": ["Unimed", "Bradesco Saúde", "Amil", "SulAmérica"],
+        "preparacao_necessaria": "Não é necessário jejum. Traga exames cardiológicos anteriores se houver.",
+        "ativo": true
+      },
+      {
+        "id": "cons_002",
+        "nome": "Consulta Pré-Procedimento",
+        "descricao": "Avaliação específica para pacientes que realizarão procedimentos hemodinâmicos",
+        "especialidade": "Cardiologia Intervencionista",
+        "duracao_minutos": 45,
+        "preco_particular": 350.00,
+        "aceita_convenio": true,
+        "convenios_aceitos": ["Unimed", "Bradesco Saúde", "Amil"],
+        "ativo": true
+      }
+    ],
+    "exames": [
+      {
+        "id": "exam_001",
+        "nome": "Ecocardiograma Transtorácico",
+        "descricao": "Ultrassom do coração para avaliação da função cardíaca",
+        "categoria": "Diagnóstico por Imagem",
+        "duracao_minutos": 30,
+        "preco_particular": 250.00,
+        "aceita_convenio": true,
+        "convenios_aceitos": ["Unimed", "Bradesco Saúde", "Amil", "SulAmérica"],
+        "preparacao": {
+          "instrucoes_especiais": "Não é necessário preparo especial. Vista roupas confortáveis."
+        },
+        "resultado_prazo_dias": 1,
+        "ativo": true
+      },
+      {
+        "id": "exam_002",
+        "nome": "Teste Ergométrico",
+        "descricao": "Teste de esforço para avaliação da capacidade cardíaca durante exercício",
+        "categoria": "Teste Funcional",
+        "duracao_minutos": 45,
+        "preco_particular": 200.00,
+        "aceita_convenio": true,
+        "convenios_aceitos": ["Unimed", "Bradesco Saúde", "Amil"],
+        "preparacao": {
+          "instrucoes_especiais": "Jejum de 3 horas. Vista roupas e calçados adequados para exercício. Traga lista de medicamentos em uso."
+        },
+        "contraindicacoes": ["Infarto recente", "Angina instável", "Arritmias graves"],
+        "resultado_prazo_dias": 2,
+        "ativo": true
+      },
+      {
+        "id": "exam_003",
+        "nome": "Holter 24 horas",
+        "descricao": "Monitorização contínua do ritmo cardíaco por 24 horas",
+        "categoria": "Monitorização",
+        "duracao_minutos": 30,
+        "preco_particular": 180.00,
+        "aceita_convenio": true,
+        "convenios_aceitos": ["Unimed", "Bradesco Saúde"],
+        "preparacao": {
+          "instrucoes_especiais": "Banho antes da colocação. Evitar atividades que molhem o equipamento. Anotar sintomas e atividades."
+        },
+        "resultado_prazo_dias": 3,
+        "ativo": true
+      }
+    ],
+    "procedimentos": [
+      {
+        "id": "proc_001",
+        "nome": "Cateterismo Cardíaco Diagnóstico",
+        "descricao": "Exame invasivo para avaliação das artérias coronárias",
+        "categoria": "Procedimento Diagnóstico",
+        "tipo": "Hemodinâmico",
+        "duracao_minutos": 60,
+        "preco_particular": 2500.00,
+        "aceita_convenio": true,
+        "convenios_aceitos": ["Unimed", "Bradesco Saúde", "Amil"],
+        "preparacao_pre": "Jejum de 8 horas. Exames pré-procedimento. Suspender anticoagulantes conforme orientação.",
+        "cuidados_pos": "Repouso absoluto por 6 horas. Observação hospitalar. Hidratação adequada.",
+        "contraindicacoes": ["Alergia ao contraste", "Insuficiência renal grave"],
+        "anestesia_necessaria": true,
+        "tipo_anestesia": "Local",
+        "internacao_necessaria": true,
+        "tempo_internacao_horas": 12,
+        "ativo": true
+      },
+      {
+        "id": "proc_002",
+        "nome": "Angioplastia Coronária",
+        "descricao": "Procedimento para desobstrução de artérias coronárias com implante de stent",
+        "categoria": "Procedimento Terapêutico",
+        "tipo": "Hemodinâmico",
+        "duracao_minutos": 90,
+        "preco_particular": 8500.00,
+        "aceita_convenio": true,
+        "convenios_aceitos": ["Unimed", "Bradesco Saúde", "Amil"],
+        "preparacao_pre": "Jejum de 8 horas. Exames pré-procedimento completos. Avaliação anestésica.",
+        "cuidados_pos": "Repouso absoluto por 12 horas. Monitorização cardíaca. Medicação antiagregante.",
+        "anestesia_necessaria": true,
+        "tipo_anestesia": "Local com sedação",
+        "internacao_necessaria": true,
+        "tempo_internacao_dias": 2,
+        "ativo": true
+      }
+    ]
+  },
+  "convenios": [
+    {
+      "id": "conv_001",
+      "nome": "Unimed",
+      "categoria": "Cooperativa Médica",
+      "ativo": true,
+      "servicos_cobertos": ["cons_001", "cons_002", "exam_001", "exam_002", "exam_003", "proc_001", "proc_002"],
+      "copagamento": false,
+      "autorizacao_necessaria": true,
+      "documentos_necessarios": ["Carteirinha atualizada", "Documento com foto"],
+      "observacoes": "Necessária autorização prévia para procedimentos"
+    },
+    {
+      "id": "conv_002",
+      "nome": "Bradesco Saúde",
+      "categoria": "Seguradora",
+      "ativo": true,
+      "servicos_cobertos": ["cons_001", "cons_002", "exam_001", "exam_002", "exam_003", "proc_001", "proc_002"],
+      "copagamento": true,
+      "valor_copagamento": 40.00,
+      "autorizacao_necessaria": true
+    },
+    {
+      "id": "conv_003",
+      "nome": "Amil",
+      "categoria": "Seguradora",
+      "ativo": true,
+      "servicos_cobertos": ["cons_001", "cons_002", "exam_001", "exam_002", "proc_001", "proc_002"],
+      "copagamento": true,
+      "valor_copagamento": 45.00,
+      "autorizacao_necessaria": true
+    }
+  ],
+  "formas_pagamento": {
+    "dinheiro": true,
+    "cartao_credito": true,
+    "cartao_debito": true,
+    "pix": true,
+    "transferencia": true,
+    "boleto": true,
+    "parcelamento": {
+      "disponivel": true,
+      "max_parcelas": 10,
+      "valor_minimo_parcela": 300.00,
+      "juros": 2.0
+    },
+    "desconto_a_vista": {
+      "disponivel": true,
+      "percentual": 8.0
+    }
+  },
+  "politicas": {
+    "agendamento": {
+      "antecedencia_minima_horas": 24,
+      "antecedencia_maxima_dias": 90,
+      "reagendamento_permitido": true,
+      "reagendamento_antecedencia_horas": 48,
+      "cancelamento_antecedencia_horas": 48,
+      "confirmacao_necessaria": true,
+      "confirmacao_antecedencia_horas": 24,
+      "lista_espera": true
+    },
+    "atendimento": {
+      "tolerancia_atraso_minutos": 15,
+      "acompanhante_permitido": true,
+      "criancas_acompanhante_obrigatorio": true,
+      "idade_minima_sem_responsavel": 18,
+      "documentos_obrigatorios": ["RG ou CNH", "CPF", "Carteirinha do convênio"],
+      "primeira_consulta_documentos": ["RG", "CPF", "Comprovante de residência", "Carteirinha do convênio", "Exames cardiológicos anteriores"]
+    },
+    "procedimentos": {
+      "jejum_pre_procedimento": "8 horas para procedimentos com contraste",
+      "acompanhante_obrigatorio": true,
+      "exames_pre_procedimento": ["Hemograma", "Coagulograma", "Função renal", "Eletrocardiograma", "Ecocardiograma"],
+      "idade_minima_procedimento": 18
+    }
+  },
+  "estrutura_fisica": {
+    "salas_atendimento": 4,
+    "salas_procedimentos": 2,
+    "sala_hemodinamica": 1,
+    "leitos_observacao": 4,
+    "estacionamento": {
+      "disponivel": true,
+      "vagas": 100,
+      "gratuito": false,
+      "valor_hora": 5.00
+    },
+    "acessibilidade": {
+      "cadeirante": true,
+      "elevador": true,
+      "banheiro_adaptado": true
+    },
+    "equipamentos": [
+      {
+        "nome": "Equipamento de Hemodinâmica Siemens",
+        "finalidade": "Cateterismo e angioplastia",
+        "ativo": true
+      },
+      {
+        "nome": "Ecocardiógrafo GE Vivid",
+        "finalidade": "Ecocardiograma",
+        "ativo": true
+      },
+      {
+        "nome": "Sistema de Ergometria",
+        "finalidade": "Teste de esforço",
+        "ativo": true
+      }
+    ]
+  },
+  "informacoes_adicionais": {
+    "localizacao_hospitalar": {
+      "hospital": "Hospital Santa Catarina",
+      "andar": "1º andar",
+      "vantagens": ["Acesso a UTI", "Pronto-socorro 24h", "Centro cirúrgico", "Laboratório"]
+    },
+    "emergencia_cardiaca": {
+      "disponivel": true,
+      "telefone": "(47) 3231-0200",
+      "procedimentos": ["Cateterismo de urgência", "Angioplastia primária", "Avaliação de síndrome coronariana aguda"]
+    }
+  },
+  "metadados": {
+    "versao_schema": "1.0.0",
+    "data_criacao": "2024-06-30T19:00:00Z",
+    "status": "ativo"
+  }
+} 

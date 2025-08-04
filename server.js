@@ -5,7 +5,7 @@ import cors from 'cors';
 dotenv.config();
 
 const whatsappRoutes = await import('./routes/whatsapp.js');
-const webhookRoutes = await import('./routes/webhook.js');
+const webhookRoutes = await import('./routes/webhook-contextualized.js');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -25,7 +25,8 @@ app.get('/', (req, res) => {
     endpoints: [
       '/webhook/whatsapp-meta', 
       '/api/whatsapp/send-message',
-      '/health'
+      '/health',
+      '/api/ai/process'
     ] 
   });
 });
@@ -40,7 +41,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Rota de teste para AI (sem autenticação)
+// Rota de AI com AIOrchestrator real
 app.post('/api/ai/process', async (req, res) => {
   try {
     const { message, clinicId, userId, sessionId, options = {} } = req.body;
@@ -52,27 +53,47 @@ app.post('/api/ai/process', async (req, res) => {
       });
     }
 
-    // Simular resposta da AI (versão simplificada para teste)
-    const aiResponse = {
-      response: `Olá! Recebi sua mensagem: "${message}". Como posso ajudá-lo hoje?`,
-      metadata: {
-        confidence: 0.8,
-        modelUsed: 'gpt-4o',
-        tokensUsed: 0,
-        cost: 0,
-        responseTime: Date.now(),
-        memoryUsed: true,
-        userProfile: { name: 'Usuário' },
-        conversationContext: { lastIntent: 'GREETING' }
-      }
+    console.log('🤖 [AI Process] Processando mensagem:', { message, clinicId, userId });
+
+    // Usar LLMOrchestratorService diretamente (compatível com Node.js)
+    const { LLMOrchestratorService } = await import('./src/services/ai/llmOrchestratorService.js');
+    
+    const request = {
+      phoneNumber: userId, // Usar userId como phoneNumber
+      message: message,
+      conversationId: `whatsapp-${userId}-${Date.now()}`,
+      userId: userId
     };
+
+    console.log('[AI Process] Chamando LLMOrchestratorService...');
+    const response = await LLMOrchestratorService.processMessage(request);
+
+    console.log('✅ [AI Process] Resposta gerada:', {
+      response: response.response,
+      intent: response.intent?.name,
+      confidence: response.intent?.confidence
+    });
 
     res.json({
       success: true,
-      data: aiResponse,
+      data: {
+        response: response.response,
+        metadata: {
+          confidence: response.intent?.confidence || 0.8,
+          modelUsed: 'llm-orchestrator',
+          tokensUsed: 0,
+          cost: 0,
+          responseTime: Date.now(),
+          memoryUsed: true,
+          userProfile: { name: 'Usuário' },
+          conversationContext: { lastIntent: response.intent?.name || 'GREETING' },
+          intent: response.intent,
+          toolsUsed: response.toolsUsed
+        }
+      },
     });
   } catch (error) {
-    console.error('AI Process Error:', error);
+    console.error('❌ [AI Process] Erro:', error);
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Internal server error',

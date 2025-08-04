@@ -18,6 +18,9 @@ export const environment = {
   isProduction: process.env.NODE_ENV === 'production',
 };
 
+// Exportação de compatibilidade para config
+export const config = environment;
+
 // Função para obter URL base dinamicamente
 export function getBaseUrl(): string {
   return environment.backend.url;

@@ -168,7 +168,7 @@ async function processMessageWithRobustServices(message, clinicId, userId) {
     console.log(`[Serviços-Robustos] Processando mensagem: "${messageText}"`);
 
     // Usar LLMOrchestratorService via import dinâmico com tsx
-    const { LLMOrchestratorService } = await import('../src/services/ai/llmOrchestratorService.ts');
+    const { LLMOrchestratorService } = await import('../src/services/ai/llmOrchestratorService.js');
     
     const request = {
       phoneNumber: message.from,
