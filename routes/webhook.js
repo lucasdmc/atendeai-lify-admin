@@ -10,6 +10,7 @@ const router = express.Router();
 // Webhook para receber mensagens do WhatsApp
 router.post('/whatsapp-meta', async (req, res) => {
   try {
+    console.log('🚨 [Webhook-Robusto] WEBHOOK ROBUSTO CHAMADO!');
     console.log('[Webhook-Robusto] Mensagem recebida:', {
       method: req.method,
       headers: req.headers,
