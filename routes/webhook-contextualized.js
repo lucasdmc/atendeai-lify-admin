@@ -128,6 +128,9 @@ router.post('/whatsapp-meta', async (req, res) => {
  */
 async function processWhatsAppWebhookWithContext(webhookData, whatsappConfig) {
   try {
+    console.log('🚨 [Webhook-Contextualizado] FUNÇÃO CHAMADA!');
+    console.log('🚨 [Webhook-Contextualizado] webhookData:', JSON.stringify(webhookData, null, 2));
+    
     const processed = [];
 
     console.log('[Webhook-Contextualizado] Processando entries:', webhookData.entry?.length || 0);
