@@ -31,8 +31,8 @@ export class LLMOrchestratorService {
       // Buscar contexto da clínica
       const clinicContext = await this.getClinicContext();
       
-      // Preparar prompt do sistema
-      const systemPrompt = this.prepareSystemPrompt(clinicContext);
+      // Preparar prompt do sistema com perfil do usuário
+      const systemPrompt = this.prepareSystemPrompt(clinicContext, memory.userProfile);
       
       // Construir mensagens para o LLM
       const messages = this.buildMessages(systemPrompt, memory, message);
@@ -228,8 +228,8 @@ Responda apenas com o nome da categoria.`;
     }
   }
 
-  static prepareSystemPrompt(clinicContext) {
-    return `Você é uma recepcionista virtual da ${clinicContext.name}.
+  static prepareSystemPrompt(clinicContext, userProfile = null) {
+    let prompt = `Você é uma recepcionista virtual da ${clinicContext.name}.
 Sua personalidade é: profissional, empática e prestativa
 
 DIRETRIZES FUNDAMENTAIS:
@@ -240,11 +240,19 @@ DIRETRIZES FUNDAMENTAIS:
 5. NUNCA invente informações ou dê conselhos médicos
 6. Mantenha respostas concisas e objetivas (máximo 3 parágrafos)
 7. Use o nome do usuário quando disponível para personalizar a conversa
+8. Se o usuário perguntar sobre seu nome e você souber, responda com o nome dele
 
 INFORMAÇÕES DA CLÍNICA:
 - Nome: ${clinicContext.name}
 - Endereço: ${clinicContext.address}
 - Telefone: ${clinicContext.phone}`;
+
+    if (userProfile && userProfile.name) {
+      prompt += `\n\nINFORMAÇÕES DO USUÁRIO:
+- Nome: ${userProfile.name}`;
+    }
+
+    return prompt;
   }
 
   static buildMessages(systemPrompt, memory, userMessage) {
