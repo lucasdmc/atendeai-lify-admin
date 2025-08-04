@@ -147,6 +147,12 @@ async function processWhatsAppWebhookWithContext(webhookData, whatsappConfig) {
       for (const change of entry.changes) {
         console.log('[Webhook-Contextualizado] Processando change:', change.field);
         
+        console.log('[Webhook-Contextualizado] Verificando mensagens em change.value:', {
+          hasMessages: !!change.value.messages,
+          messagesLength: change.value.messages?.length || 0,
+          changeValueKeys: Object.keys(change.value || {})
+        });
+        
         if (change.value.messages && change.value.messages.length > 0) {
           console.log('[Webhook-Contextualizado] Encontradas mensagens:', change.value.messages.length);
           for (const message of change.value.messages) {
