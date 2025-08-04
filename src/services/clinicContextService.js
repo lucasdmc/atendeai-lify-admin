@@ -4,7 +4,7 @@
 // ========================================
 
 import { createClient } from '@supabase/supabase-js';
-import CARDIO_PRIME_DATA from '../config/cardioprime-blumenau.json';
+import CARDIO_PRIME_DATA from '../config/cardioprime-blumenau.json' assert { type: 'json' };
 
 const supabase = createClient(
   'https://niakqdolcdwxtrkbqmdi.supabase.co',
