@@ -111,9 +111,14 @@ export class LLMOrchestratorService {
       
       // Adicionar nova interação
       memoryData.history.push({
-        userMessage,
-        botResponse,
-        intent: intent.name,
+        role: 'user',
+        content: userMessage,
+        timestamp: new Date().toISOString()
+      });
+      
+      memoryData.history.push({
+        role: 'assistant',
+        content: botResponse,
         timestamp: new Date().toISOString()
       });
 
@@ -243,8 +248,9 @@ INFORMAÇÕES DA CLÍNICA:
     if (memory.history && memory.history.length > 0) {
       const recentHistory = memory.history.slice(-6);
       recentHistory.forEach(h => {
-        messages.push({ role: 'user', content: h.userMessage });
-        messages.push({ role: 'assistant', content: h.botResponse });
+        if (h.role && h.content) {
+          messages.push({ role: h.role, content: h.content });
+        }
       });
     }
 
