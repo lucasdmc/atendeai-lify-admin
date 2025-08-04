@@ -10,6 +10,38 @@ import { EnhancedAIService } from '../src/services/ai/enhancedAIService.js';
 
 const router = express.Router();
 
+// Webhook para verificação (GET) e receber mensagens (POST)
+router.get('/whatsapp-meta', async (req, res) => {
+  try {
+    console.log('[Webhook-Contextualizado] Verificação GET recebida:', {
+      query: req.query,
+      headers: req.headers
+    });
+
+    // Verificar se é um desafio de verificação
+    if (req.query['hub.mode'] === 'subscribe' && req.query['hub.challenge']) {
+      console.log('[Webhook-Contextualizado] Respondendo ao desafio de verificação GET');
+      
+      // Verificar o token de verificação
+      const verifyToken = req.query['hub.verify_token'];
+      const expectedToken = process.env.WEBHOOK_VERIFY_TOKEN || 'atendeai-lify-backend';
+      
+      if (verifyToken !== expectedToken) {
+        console.error('[Webhook-Contextualizado] Token de verificação inválido:', verifyToken);
+        return res.status(403).send('Forbidden');
+      }
+      
+      console.log('[Webhook-Contextualizado] Token de verificação válido (GET)');
+      return res.status(200).send(req.query['hub.challenge']);
+    }
+
+    return res.status(200).send('OK');
+  } catch (error) {
+    console.error('[Webhook-Contextualizado] Erro na verificação GET:', error.message);
+    return res.status(500).send('Internal Server Error');
+  }
+});
+
 // Webhook para receber mensagens do WhatsApp
 router.post('/whatsapp-meta', async (req, res) => {
   try {
