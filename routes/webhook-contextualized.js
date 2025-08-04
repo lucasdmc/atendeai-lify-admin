@@ -70,6 +70,12 @@ router.post('/whatsapp-meta', async (req, res) => {
     }
 
     // Processar mensagens
+    console.log('🚨 [Webhook-Contextualizado] Verificando estrutura:', {
+      hasEntry: !!req.body.entry,
+      entryLength: req.body.entry?.length || 0,
+      bodyKeys: Object.keys(req.body)
+    });
+    
     if (req.body.entry && req.body.entry.length > 0) {
       const webhookData = req.body;
       
