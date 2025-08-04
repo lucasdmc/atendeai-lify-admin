@@ -87,7 +87,7 @@ export class LLMOrchestratorService {
   static async loadConversationMemory(phoneNumber) {
     try {
       const { data } = await supabase
-        .from('whatsapp_conversation_memory')
+        .from('conversation_memory')
         .select('memory_data')
         .eq('phone_number', phoneNumber)
         .single();
@@ -102,7 +102,7 @@ export class LLMOrchestratorService {
   static async saveConversationMemory(phoneNumber, userMessage, botResponse, intent) {
     try {
       const { data: existingMemory } = await supabase
-        .from('whatsapp_conversation_memory')
+        .from('conversation_memory')
         .select('memory_data')
         .eq('phone_number', phoneNumber)
         .single();
@@ -124,7 +124,7 @@ export class LLMOrchestratorService {
 
       // Upsert na tabela
       await supabase
-        .from('whatsapp_conversation_memory')
+        .from('conversation_memory')
         .upsert({
           phone_number: phoneNumber,
           memory_data: memoryData,
