@@ -4,9 +4,9 @@
 // ========================================
 
 import express from 'express';
-import { sendWhatsAppTextMessage } from '../services/whatsappMetaService.js';
-import ClinicContextService from '../services/clinicContextService.js';
-import { EnhancedAIService } from '../services/ai/enhancedAIService.js';
+import { sendWhatsAppTextMessage } from '../src/services/whatsappMetaService.js';
+import ClinicContextService from '../src/services/clinicContextService.js';
+import { EnhancedAIService } from '../src/services/ai/enhancedAIService.js';
 
 const router = express.Router();
 
