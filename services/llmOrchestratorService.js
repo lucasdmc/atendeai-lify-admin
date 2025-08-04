@@ -845,8 +845,15 @@ DIRETRIZES FUNDAMENTAIS:
    */
   static async applyResponseLogic(response, clinicContext, isFirstConversationOfDay, isWithinBusinessHours, userProfile) {
     try {
-      // Obter configurações do agente
-      const agentConfig = clinicContext.agente_ia?.configuracao || {};
+      // Obter configurações do agente (corrigido para usar agentConfig)
+      const agentConfig = clinicContext.agentConfig || {};
+      
+      console.log('🔧 Configurações do agente encontradas:', {
+        nome: agentConfig.nome,
+        saudacao_inicial: agentConfig.saudacao_inicial ? 'CONFIGURADA' : 'NÃO CONFIGURADA',
+        mensagem_despedida: agentConfig.mensagem_despedida ? 'CONFIGURADA' : 'NÃO CONFIGURADA',
+        mensagem_fora_horario: agentConfig.mensagem_fora_horario ? 'CONFIGURADA' : 'NÃO CONFIGURADA'
+      });
       
       // Se está fora do horário, usar mensagem fora do horário
       if (!isWithinBusinessHours) {
@@ -862,7 +869,7 @@ DIRETRIZES FUNDAMENTAIS:
         const initialGreeting = agentConfig.saudacao_inicial || 
           `Olá! Sou o ${agentConfig.nome || 'Assistente Virtual'}, assistente virtual da ${clinicContext.name}. Como posso ajudá-lo hoje?`;
         
-        console.log('👋 Aplicando saudação inicial');
+        console.log('👋 Aplicando saudação inicial:', initialGreeting.substring(0, 50) + '...');
         
         // Personalizar saudação com nome do usuário se disponível
         let personalizedGreeting = initialGreeting;
