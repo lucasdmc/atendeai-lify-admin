@@ -5,7 +5,7 @@ import cors from 'cors';
 dotenv.config();
 
 const whatsappRoutes = await import('./routes/whatsapp.js');
-const webhookRoutes = await import('./routes/webhook-contextualized.js');
+const webhookRoutes = await import('./routes/webhook.js');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
