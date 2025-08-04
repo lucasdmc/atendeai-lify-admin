@@ -21,7 +21,7 @@ app.use('/webhook', webhookRoutes.default);
 app.get('/', (req, res) => {
   res.json({ 
     status: 'ok', 
-    message: 'atendeai-lify-backend rodando', 
+    message: 'atendeai-lify-backend rodando com webhook robusto', 
     endpoints: [
       '/webhook/whatsapp-meta', 
       '/api/whatsapp/send-message',
