@@ -4,7 +4,7 @@
 // ========================================
 
 import express from 'express';
-import { sendWhatsAppTextMessage } from '../src/services/whatsappMetaService.js';
+import { sendWhatsAppTextMessage } from '../services/whatsappMetaService.js';
 import ClinicContextService from '../src/services/clinicContextService.js';
 import { EnhancedAIService } from '../src/services/ai/enhancedAIService.js';
 
