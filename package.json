@@ -15,11 +15,21 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.38.0",
+    "@tanstack/react-query": "^4.40.1",
+    "@types/react": "^18.3.23",
+    "@types/react-dom": "^18.3.7",
     "axios": "^1.6.0",
     "cors": "^2.8.5",
+    "date-fns": "^2.30.0",
     "dotenv": "^16.6.1",
     "express": "^4.18.2",
+    "lovable-tagger": "^1.1.9",
+    "lucide-react": "^0.263.1",
     "openai": "^4.20.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.1",
+    "recharts": "^2.15.4",
     "winston": "^3.11.0"
   },
   "devDependencies": {

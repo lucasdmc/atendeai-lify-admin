@@ -1,12 +1,17 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { componentTagger } from "lovable-tagger"
 
 const timestamp = Date.now()
 
-export default defineConfig({
-  plugins: [react()],
+export default defineConfig(({ mode }) => ({
+  plugins: [
+    react(),
+    mode === 'development' && componentTagger(),
+  ].filter(Boolean),
   server: {
+    host: "::",
     port: 8080,
     proxy: {
       '/api': {
@@ -34,4 +39,4 @@ export default defineConfig({
     __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
     __VERSION__: JSON.stringify('1.0.0-ssl-fix')
   }
-})
+}))

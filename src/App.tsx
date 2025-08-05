@@ -21,7 +21,7 @@ const GestaoUsuarios = lazy(() => import("./pages/GestaoUsuarios"));
 const Agendamentos = lazy(() => import("./pages/Agendamentos"));
 const Clinicas = lazy(() => import("./pages/Clinicas"));
 const AIDashboard = lazy(() => import("./pages/AIDashboard"));
-const AITest = lazy(() => import("./pages/AITest"));
+
 const WhatsAppAITest = lazy(() => import("./pages/WhatsAppAITest"));
 const Index = lazy(() => import("./pages/Index"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -32,7 +32,7 @@ const queryClient = new QueryClient({
       retry: 1,
       refetchOnWindowFocus: false,
       staleTime: 5 * 60 * 1000, // 5 minutos
-      gcTime: 10 * 60 * 1000, // 10 minutos (antigo cacheTime)
+      cacheTime: 10 * 60 * 1000, // 10 minutos
     },
     mutations: {
       retry: 1,
