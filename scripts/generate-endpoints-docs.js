@@ -75,7 +75,7 @@ function generateEndpointsDocs() {
 ## 📅 Última atualização: ${now}
 
 ## 🚀 Servidor
-- **URL Base:** http://31.97.241.19:3001
+- **URL Base:** https://atendeai-backend-production.up.railway.app
 - **Ambiente:** Produção
 - **Versão:** 1.0.0
 
@@ -115,7 +115,7 @@ ${JSON.stringify(endpoint.response, null, 2)}
 
 **Exemplo de uso:**
 \`\`\`bash
-curl -X ${endpoint.method} http://31.97.241.19:3001${endpoint.path} \\
+curl -X ${endpoint.method} https://atendeai-backend-production.up.railway.app${endpoint.path} \\
   -H "Content-Type: application/json" \\
   ${endpoint.body ? `-d '${JSON.stringify(endpoint.body)}'` : ''}
 \`\`\`
@@ -129,22 +129,22 @@ curl -X ${endpoint.method} http://31.97.241.19:3001${endpoint.path} \\
 
 ### Verificar status do servidor
 \`\`\`bash
-curl http://31.97.241.19:3001/health
+curl https://atendeai-backend-production.up.railway.app/health
 \`\`\`
 
 ### Ver logs em tempo real
 \`\`\`bash
-ssh root@31.97.241.19 "pm2 logs atendeai-backend"
+ssh root@atendeai-backend-production.up.railway.app "pm2 logs atendeai-backend"
 \`\`\`
 
 ### Reiniciar servidor
 \`\`\`bash
-ssh root@31.97.241.19 "pm2 restart atendeai-backend"
+ssh root@atendeai-backend-production.up.railway.app "pm2 restart atendeai-backend"
 \`\`\`
 
 ### Ver status PM2
 \`\`\`bash
-ssh root@31.97.241.19 "pm2 list"
+ssh root@atendeai-backend-production.up.railway.app "pm2 list"
 \`\`\`
 
 ## 📝 Notas

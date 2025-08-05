@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const whatsappServerUrl = Deno.env.get('WHATSAPP_SERVER_URL') || 'http://31.97.241.19:3001';
+    const whatsappServerUrl = Deno.env.get('WHATSAPP_SERVER_URL') || 'https://atendeai-backend-production.up.railway.app';
 
     console.log(`Testing connection to: ${whatsappServerUrl}`);
 

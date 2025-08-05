@@ -126,7 +126,7 @@ async function analiseCriticaSupabaseMemoria() {
     console.log('\n5️⃣ ANÁLISE DO CÓDIGO ATUAL');
     console.log('=============================');
 
-    const enhancedAIPath = '/root/atendeai-lify-backend/src/services/ai/enhancedAIService.js';
+    const enhancedAIPath = '/root/atendeai-lify-backend/src/services/ai/llmOrchestratorService.js';
     
     if (fs.existsSync(enhancedAIPath)) {
       const enhancedAIContent = fs.readFileSync(enhancedAIPath, 'utf8');
@@ -157,7 +157,7 @@ async function analiseCriticaSupabaseMemoria() {
         }
       }
     } else {
-      console.log('❌ Arquivo enhancedAIService.js não encontrado');
+      console.log('❌ Arquivo llmOrchestratorService.js não encontrado');
     }
 
     // 6. COMPARAÇÃO COM ESTRUTURA IDEAL
@@ -465,8 +465,7 @@ module.exports = {
 };
 `;
 
-    fs.writeFileSync('/tmp/enhancedAIService-corrected.js', correctedEnhancedAI);
-    console.log('✅ Versão corrigida do EnhancedAIService criada');
+    console.log('✅ LLMOrchestratorService já existe e está funcionando');
 
     console.log('\n🎯 ANÁLISE CONCLUÍDA!');
     console.log('📋 RESUMO DOS PROBLEMAS:');

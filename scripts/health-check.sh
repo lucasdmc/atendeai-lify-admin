@@ -3,7 +3,7 @@
 # Script de Health Check Automático
 # Verifica se todos os endpoints estão funcionando
 
-VPS_HOST="31.97.241.19"
+VPS_HOST="atendeai-backend-production.up.railway.app"
 VPS_USER="root"
 PORT=3001
 

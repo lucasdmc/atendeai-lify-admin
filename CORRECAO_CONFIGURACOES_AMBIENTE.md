@@ -63,7 +63,7 @@ SUPABASE_URL=https://niakqdolcdwxtrkbqmdi.supabase.co
 SUPABASE_ANON_KEY=...
 
 # Webhook URL
-WEBHOOK_URL=https://atendeai.com.br/webhook/whatsapp-meta
+WEBHOOK_URL=https://atendeai-backend-production.up.railway.app/webhook/whatsapp-meta
 ```
 
 ### 2. **Conversão para ES Modules**

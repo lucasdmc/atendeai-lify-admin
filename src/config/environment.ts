@@ -11,7 +11,7 @@ export const environment = {
     url: process.env.VITE_BACKEND_URL || 'http://localhost:3001',
   },
   whatsapp: {
-    serverUrl: process.env.VITE_WHATSAPP_SERVER_URL || 'http://31.97.241.19:3001',
+    serverUrl: process.env.VITE_WHATSAPP_SERVER_URL || 'https://atendeai-lify-backend-production.up.railway.app',
   },
   environment: process.env.NODE_ENV || 'development',
   isDevelopment: process.env.NODE_ENV === 'development',

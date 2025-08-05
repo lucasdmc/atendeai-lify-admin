@@ -7,7 +7,7 @@ echo "📦 Coletando Dados para Claude Opus"
 echo "==================================="
 
 # Configurações
-VPS_IP="31.97.241.19"
+VPS_IP="atendeai-backend-production.up.railway.app"
 VPS_USER="root"
 OUTPUT_DIR="opus-analysis-$(date +%Y%m%d-%H%M%S)"
 
@@ -64,9 +64,7 @@ if [ -f "src/components/whatsapp/QRCodeDisplay.tsx" ]; then
     cp src/components/whatsapp/QRCodeDisplay.tsx "$OUTPUT_DIR/"
 fi
 
-if [ -f "src/services/aiChatService.ts" ]; then
-    cp src/services/aiChatService.ts "$OUTPUT_DIR/"
-fi
+# aiChatService.ts removido - não é mais necessário
 
 echo "✅ Arquivos locais copiados"
 
@@ -91,7 +89,7 @@ Erro 500 "Conexão não autorizada ou encerrada" ao gerar QR Code via Edge Funct
 - Logs não capturaram requisições da Edge Function
 
 ## 🔧 Configurações
-- VPS: atendeai.server.com.br (31.97.241.19)
+- VPS: atendeai.server.com.br (atendeai-backend-production.up.railway.app)
 - Backend: Node.js + PM2 (porta 3001)
 - Frontend: React + Vite
 - Edge Function: Supabase Functions
@@ -136,7 +134,7 @@ cat > "$OUTPUT_DIR/README.md" << 'EOF'
 - `agent-whatsapp-manager/` - Edge Functions
 - `useWhatsAppActions.tsx` - Hook do frontend
 - `QRCodeDisplay.tsx` - Componente do frontend
-- `aiChatService.ts` - Serviço do frontend
+- `aiChatService.ts` - Removido (não mais necessário)
 
 ## 🎯 Como Usar com Claude Opus
 

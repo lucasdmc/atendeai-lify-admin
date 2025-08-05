@@ -1,18 +1,18 @@
 #!/bin/bash
 
 # Script de Debug para VPS AtendeAI
-# VPS: atendeai.server.com.br (31.97.241.19)
+# VPS: atendeai.server.com.br (atendeai-backend-production.up.railway.app)
 # Autor: Assistente Claude
 
 echo "🚀 Debug WhatsApp - VPS AtendeAI"
 echo "================================="
-echo "📍 VPS: atendeai.server.com.br (31.97.241.19)"
+echo "📍 VPS: atendeai.server.com.br (atendeai-backend-production.up.railway.app)"
 echo "👤 Usuário: root"
 echo "📁 Servidor: /root/LifyChatbot-Node-Server/server.js"
 echo ""
 
 # Configurações da VPS
-VPS_IP="31.97.241.19"
+VPS_IP="atendeai-backend-production.up.railway.app"
 VPS_HOST="atendeai.server.com.br"
 VPS_USER="root"
 SERVER_FILE="/root/LifyChatbot-Node-Server/server.js"

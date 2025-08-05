@@ -9,7 +9,7 @@ set -e
 echo "🚀 Atualizando servidor WhatsApp com handlers de mensagens..."
 
 # Configurações
-VPS_HOST="31.97.241.19"
+RAILWAY_URL="https://atendeai-backend-production.up.railway.app"
 VPS_USER="root"
 PROJECT_DIR="/root/atendeai-lify-admin"
 BACKUP_DIR="/root/backup-$(date +%Y%m%d-%H%M%S)"

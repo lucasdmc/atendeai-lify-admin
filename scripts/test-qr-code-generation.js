@@ -66,7 +66,7 @@ async function testQRCodeGeneration() {
     
     console.log('\n3. Testando backend diretamente:');
     try {
-      const backendResponse = await fetch('http://31.97.241.19:3001/api/whatsapp/generate-qr', {
+      const backendResponse = await fetch('https://atendeai-backend-production.up.railway.app/api/whatsapp/generate-qr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agentId })

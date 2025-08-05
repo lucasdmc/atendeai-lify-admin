@@ -24,9 +24,9 @@ configFiles.forEach(config => {
             if (content.includes('seu-servidor-vps.com')) {
                 console.log(`❌ ${config.name} contém URL incorreta`);
                 console.log(`   - Encontrado: seu-servidor-vps.com`);
-            } else if (content.includes('31.97.241.19')) {
+            } else if (content.includes('atendeai-backend-production.up.railway.app')) {
                 console.log(`✅ ${config.name} contém URL correta`);
-                console.log(`   - URL: 31.97.241.19`);
+                console.log(`   - URL: atendeai-backend-production.up.railway.app`);
             } else {
                 console.log(`⚠️ ${config.name} não contém URL do servidor`);
             }
@@ -44,7 +44,7 @@ try {
     if (fs.existsSync('src/config/environment.ts')) {
         const content = fs.readFileSync('src/config/environment.ts', 'utf8');
         
-        if (content.includes('31.97.241.19')) {
+        if (content.includes('atendeai-backend-production.up.railway.app')) {
             console.log('✅ environment.ts contém URL correta');
         } else if (content.includes('seu-servidor-vps.com')) {
             console.log('❌ environment.ts contém URL incorreta');
@@ -105,10 +105,10 @@ console.log('3. Vá em Settings → Environment Variables');
 console.log('');
 console.log('4. Verifique se existe: VITE_WHATSAPP_SERVER_URL');
 console.log('   - Se estiver como: https://seu-servidor-vps.com:3001');
-console.log('   - DELETE e adicione: http://31.97.241.19:3001');
+console.log('   - DELETE e adicione: https://atendeai-backend-production.up.railway.app');
 console.log('');
 console.log('5. Adicione também:');
-console.log('   VITE_BACKEND_URL=http://31.97.241.19:3001');
+console.log('   VITE_BACKEND_URL=https://atendeai-backend-production.up.railway.app');
 console.log('');
 console.log('6. Save e Force Deploy');
 console.log('');

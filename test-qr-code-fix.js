@@ -5,7 +5,7 @@ import fetch from 'node-fetch';
 console.log('🔧 Testando correção do QR Code');
 console.log('===============================');
 
-const BACKEND_URL = 'http://31.97.241.19:3001';
+const BACKEND_URL = 'https://atendeai-backend-production.up.railway.app';
 const TEST_AGENT_ID = '8aae1bc7-07b7-40ba-9ff3-e13fc32caa0b';
 
 async function testQRCodeFix() {

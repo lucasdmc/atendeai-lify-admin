@@ -28,7 +28,7 @@ async function syncAllAgentConnections() {
       
       try {
         // Verificar status no servidor WhatsApp
-        const statusResponse = await fetch(`http://31.97.241.19:3001/api/whatsapp/status/${agent.id}`);
+        const statusResponse = await fetch(`https://atendeai-backend-production.up.railway.app/api/whatsapp/status/${agent.id}`);
         
         if (!statusResponse.ok) {
           console.log(`   ⚠️ Servidor não respondeu para ${agent.name}`);

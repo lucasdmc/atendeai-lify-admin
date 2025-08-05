@@ -25,7 +25,7 @@ fi
 # 3. Testar conectividade
 echo ""
 echo "🌐 Testando conectividade..."
-if curl -s http://31.97.241.19:3001/health > /dev/null; then
+if curl -s https://atendeai-backend-production.up.railway.app/health > /dev/null; then
     echo "✅ Servidor HTTP acessível"
 else
     echo "❌ Servidor HTTP não acessível"
@@ -34,7 +34,7 @@ fi
 # 4. Testar QR Code
 echo ""
 echo "📱 Testando QR Code..."
-QR_RESPONSE=$(curl -s -X POST http://31.97.241.19:3001/api/whatsapp/generate-qr \
+QR_RESPONSE=$(curl -s -X POST https://atendeai-backend-production.up.railway.app/api/whatsapp/generate-qr \
   -H "Content-Type: application/json" \
   -d '{"agentId":"8aae1bc7-07b7-40ba-9ff3-e13fc32caa0b"}')
 
@@ -55,13 +55,13 @@ echo "   3. Selecione o projeto: atendeai-lify-admin"
 echo "   4. Vá para: Arquivos"
 echo "   5. Faça upload da pasta dist/ (que já está pronta)"
 echo "   6. Configure as variáveis de ambiente:"
-echo "      VITE_WHATSAPP_SERVER_URL=http://31.97.241.19:3001"
-echo "      VITE_BACKEND_URL=http://31.97.241.19:3001"
+echo "      VITE_WHATSAPP_SERVER_URL=https://atendeai-backend-production.up.railway.app"
+echo "      VITE_BACKEND_URL=https://atendeai-backend-production.up.railway.app"
 echo "   7. Clique em: Deploy"
 echo ""
 echo "🌐 URLs importantes:"
 echo "   - Frontend: https://atendeai.lify.com.br"
-echo "   - Backend: http://31.97.241.19:3001"
+echo "   - Backend: https://atendeai-backend-production.up.railway.app"
 echo "   - Dashboard: https://lify.com.br"
 echo ""
 echo "🔧 Para testar localmente:"

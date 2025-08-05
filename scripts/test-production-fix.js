@@ -60,7 +60,7 @@ async function testQRCodeGeneration() {
 async function testExternalConnectivity() {
   console.log('\n🌐 Testando conectividade externa...');
   try {
-    const response = await fetch('http://31.97.241.19:3001/health', {
+    const response = await fetch('https://atendeai-backend-production.up.railway.app/health', {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' }
     });
@@ -100,7 +100,7 @@ function checkConfigurations() {
         if (content.includes('seu-servidor-vps.com')) {
           console.log(`❌ ${config.name} ainda tem URL incorreta`);
           allCorrect = false;
-        } else if (content.includes('31.97.241.19')) {
+        } else if (content.includes('atendeai-backend-production.up.railway.app')) {
           console.log(`✅ ${config.name} está correto`);
         } else {
           console.log(`⚠️ ${config.name} não tem URL do servidor`);

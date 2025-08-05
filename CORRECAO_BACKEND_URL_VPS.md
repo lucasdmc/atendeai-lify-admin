@@ -7,7 +7,7 @@ A variável `VITE_BACKEND_URL=http://localhost:3001` estava apontando para local
 
 ### 1. Configurações por Ambiente
 - **Desenvolvimento**: `VITE_BACKEND_URL=http://localhost:3001`
-- **Produção (VPS)**: `VITE_BACKEND_URL=https://atendeai.com.br`
+- **Produção (VPS)**: `VITE_BACKEND_URL=https://atendeai-backend-production.up.railway.app`
 
 ### 2. Scripts Criados
 - `select-environment.sh` - Seleciona ambiente (dev/prod)

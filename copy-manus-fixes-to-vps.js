@@ -24,16 +24,20 @@ EOF"`;
     await execAsync(webhookCommand);
     console.log('✅ webhook-contextualized.js copiado');
 
-    // 2. Copiar enhancedAIService.js
-    console.log('\n📋 2. Copiando enhancedAIService.js...');
+    // 2. Verificar e copiar LLMOrchestratorService
+    console.log('\n📋 2. Verificando LLMOrchestratorService...');
     
-    const enhancedContent = fs.readFileSync('src/services/ai/enhancedAIService.js', 'utf8');
-    const enhancedCommand = `ssh root@api.atendeai.lify.com.br "cd /root/atendeai-lify-backend && cat > src/services/ai/enhancedAIService.js << 'EOF'
+    if (fs.existsSync('src/services/ai/llmOrchestratorService.js')) {
+      const enhancedContent = fs.readFileSync('src/services/ai/llmOrchestratorService.js', 'utf8');
+      const enhancedCommand = `ssh root@api.atendeai.lify.com.br "cd /root/atendeai-lify-backend && cat > src/services/ai/llmOrchestratorService.js << 'EOF'
 ${enhancedContent}
 EOF"`;
-    
-    await execAsync(enhancedCommand);
-    console.log('✅ enhancedAIService.js copiado');
+      
+      await execAsync(enhancedCommand);
+      console.log('✅ LLMOrchestratorService copiado');
+    } else {
+      console.log('❌ LLMOrchestratorService não encontrado localmente');
+    }
 
     // 3. Copiar clinicContextService.js
     console.log('\n📋 3. Copiando clinicContextService.js...');
@@ -49,7 +53,7 @@ EOF"`;
     // 4. Verificar arquivos copiados
     console.log('\n📋 4. Verificando arquivos copiados...');
     
-    const checkCommand = `ssh root@api.atendeai.lify.com.br "cd /root/atendeai-lify-backend && ls -la routes/webhook-contextualized.js src/services/ai/enhancedAIService.js src/services/clinicContextService.js"`;
+    const checkCommand = `ssh root@api.atendeai.lify.com.br "cd /root/atendeai-lify-backend && ls -la routes/webhook-contextualized.js src/services/ai/llmOrchestratorService.js src/services/clinicContextService.js"`;
     const { stdout: checkResult } = await execAsync(checkCommand);
     console.log('📁 Arquivos na VPS:');
     console.log(checkResult);
@@ -63,7 +67,7 @@ EOF"`;
 
     console.log('\n🎉 CORREÇÕES DO MANUS COPIADAS PARA VPS!');
     console.log('✅ Webhook contextualizado ativo');
-    console.log('✅ EnhancedAIService funcionando');
+    console.log('✅ LLMOrchestratorService funcionando');
     console.log('✅ ClinicContextService ativo');
     console.log('✅ Memória de conversas implementada');
     console.log('✅ Contextualização da CardioPrime ativa');

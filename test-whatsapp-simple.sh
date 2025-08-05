@@ -5,7 +5,7 @@ echo ""
 
 # 1. Testar VPS
 echo "1️⃣ Testando VPS..."
-if ping -c 1 31.97.241.19 &> /dev/null; then
+if ping -c 1 atendeai-backend-production.up.railway.app &> /dev/null; then
     echo "✅ VPS online"
 else
     echo "❌ VPS offline"
@@ -15,7 +15,7 @@ fi
 # 2. Testar servidor WhatsApp
 echo ""
 echo "2️⃣ Testando servidor WhatsApp..."
-HEALTH_RESPONSE=$(curl -s http://31.97.241.19:3001/health 2>/dev/null)
+HEALTH_RESPONSE=$(curl -s https://atendeai-backend-production.up.railway.app/health 2>/dev/null)
 if [ $? -eq 0 ]; then
     echo "✅ Servidor WhatsApp online"
     echo "   Status: $(echo $HEALTH_RESPONSE | grep -o '"status":"[^"]*"' | cut -d'"' -f4)"
@@ -27,7 +27,7 @@ fi
 # 3. Testar QR Code
 echo ""
 echo "3️⃣ Testando geração de QR Code..."
-QR_RESPONSE=$(curl -s -X POST http://31.97.241.19:3001/api/whatsapp/generate-qr \
+QR_RESPONSE=$(curl -s -X POST https://atendeai-backend-production.up.railway.app/api/whatsapp/generate-qr \
   -H "Content-Type: application/json" \
   -d '{"agentId":"8aae1bc7-07b7-40ba-9ff3-e13fc32caa0b"}' 2>/dev/null)
 if [ $? -eq 0 ]; then
@@ -108,4 +108,4 @@ echo "2. Envie uma mensagem para o número conectado"
 echo "3. Verifique se o agente responde automaticamente"
 echo ""
 echo "🔧 Para reiniciar o servidor:"
-echo "ssh root@31.97.241.19 'pm2 restart atendeai-backend'" 
+echo "ssh root@atendeai-backend-production.up.railway.app 'pm2 restart atendeai-backend'" 

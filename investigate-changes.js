@@ -6,8 +6,8 @@ import https from 'https';
 import http from 'http';
 
 // Configurações da VPS
-const VPS_IP = '31.97.241.19';
-const VPS_URL = 'https://atendeai.com.br';
+const VPS_IP = 'atendeai-backend-production.up.railway.app';
+const VPS_URL = 'https://atendeai-backend-production.up.railway.app';
 
 async function investigateChanges() {
   console.log('🔍 INVESTIGANDO MUDANÇAS RECENTES');

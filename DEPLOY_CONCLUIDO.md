@@ -6,7 +6,7 @@
 - **Problema identificado**: `VITE_BACKEND_URL=http://localhost:3001` em produção
 - **Solução implementada**: 
   - Criação de `.env.development` e `.env.production`
-  - `VITE_BACKEND_URL=https://atendeai.com.br` para VPS
+  - `VITE_BACKEND_URL=https://atendeai-backend-production.up.railway.app` para VPS
   - Script `select-environment.sh` para alternar entre ambientes
 
 ### ✅ **2. SISTEMA DE MEMÓRIA FUNCIONAL**
@@ -39,10 +39,10 @@
 ## 🚀 **SISTEMA PRONTO PARA PRODUÇÃO**
 
 ### 📋 **URLs de Produção**
-- **Frontend**: https://atendeai.com.br
-- **Backend**: https://atendeai.com.br/api
-- **Webhook**: https://atendeai.com.br/webhook/whatsapp-meta
-- **Health Check**: https://atendeai.com.br/health
+- **Frontend**: https://atendeai-backend-production.up.railway.app
+- **Backend**: https://atendeai-backend-production.up.railway.app/api
+- **Webhook**: https://atendeai-backend-production.up.railway.app/webhook/whatsapp-meta
+- **Health Check**: https://atendeai-backend-production.up.railway.app/health
 
 ### 🔧 **Scripts Disponíveis**
 ```bash

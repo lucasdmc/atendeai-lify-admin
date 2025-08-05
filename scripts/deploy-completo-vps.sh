@@ -4,7 +4,7 @@
 # 🚀 DEPLOY COMPLETO - VPS WHATSAPP
 # ===============================
 
-VPS_HOST="31.97.241.19"
+VPS_HOST="atendeai-backend-production.up.railway.app"
 VPS_USER="root"
 PROJ_DIR="/root/atendeai-lify-admin"
 LOCAL_PROJ_DIR="/Users/lucascantoni/Desktop/Lify-AtendeAI/atendeai-lify-admin"

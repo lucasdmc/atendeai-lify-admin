@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # Script para enviar e executar o deploy na VPS
-# VPS: atendeai.server.com.br (31.97.241.19)
+# VPS: atendeai.server.com.br (atendeai-backend-production.up.railway.app)
 
 echo "📤 Enviando script de deploy para VPS..."
 
 # Configurações da VPS
 VPS_HOST="atendeai.server.com.br"
-VPS_IP="31.97.241.19"
+VPS_IP="atendeai-backend-production.up.railway.app"
 VPS_USER="root"
 
 echo "📋 VPS: $VPS_HOST ($VPS_IP)"

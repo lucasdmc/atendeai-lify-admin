@@ -78,12 +78,12 @@ curl -X POST https://api.atendeai.lify.com.br/webhook/whatsapp-meta/test-send \
 
 #### **Ver logs da VPS:**
 ```bash
-ssh root@31.97.241.19 'pm2 logs atendeai-backend'
+ssh root@atendeai-backend-production.up.railway.app 'pm2 logs atendeai-backend'
 ```
 
 #### **Verificar status dos serviços:**
 ```bash
-ssh root@31.97.241.19 'pm2 status'
+ssh root@atendeai-backend-production.up.railway.app 'pm2 status'
 ```
 
 ### **5. CONFIGURAÇÕES IMPORTANTES**

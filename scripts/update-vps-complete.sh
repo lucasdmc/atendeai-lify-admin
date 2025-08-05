@@ -79,5 +79,5 @@ curl -s -X POST "http://localhost:3001/api/whatsapp/refresh-qr" \
 echo ""
 echo "🎉 ATUALIZAÇÃO CONCLUÍDA!"
 echo "📋 Para ver logs em tempo real: tail -f logs.txt"
-echo "🌐 Servidor rodando em: http://31.97.241.19:3001"
+echo "🌐 Servidor rodando em: https://atendeai-backend-production.up.railway.app"
 echo "📊 Status do processo: ps aux | grep server.js" 

@@ -7,7 +7,7 @@ console.log('🔗 Configurando Integração Completa - AtendeAI\n');
 
 // Configurações da VPS
 const VPS_CONFIG = {
-  ip: '31.97.241.19',
+  ip: 'atendeai-backend-production.up.railway.app',
   port: '3001',
   protocol: 'http'
 };

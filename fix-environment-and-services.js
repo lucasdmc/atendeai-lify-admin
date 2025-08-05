@@ -61,7 +61,7 @@ SUPABASE_URL=https://niakqdolcdwxtrkbqmdi.supabase.co
 SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxODI1NTksImV4cCI6MjA2NTc1ODU1OX0.90ihAk2geP1JoHIvMj_pxeoMe6dwRwH-rBbJwbFeomw
 
 # Webhook URL
-WEBHOOK_URL=https://atendeai.com.br/webhook/whatsapp-meta
+WEBHOOK_URL=https://atendeai-backend-production.up.railway.app/webhook/whatsapp-meta
 `;
 
   fs.writeFileSync('.env.production.unified', unifiedEnvContent);

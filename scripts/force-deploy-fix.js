@@ -36,8 +36,8 @@ async function forceDeployFix() {
       const whatsappUrl = lifyConfig.environment?.VITE_WHATSAPP_SERVER_URL;
       if (whatsappUrl && whatsappUrl.includes('https://')) {
         console.log('❌ lify.json ainda tem HTTPS');
-        lifyConfig.environment.VITE_WHATSAPP_SERVER_URL = 'http://31.97.241.19:3001';
-        lifyConfig.environment.VITE_BACKEND_URL = 'http://31.97.241.19:3001';
+        lifyConfig.environment.VITE_WHATSAPP_SERVER_URL = 'https://atendeai-backend-production.up.railway.app';
+        lifyConfig.environment.VITE_BACKEND_URL = 'https://atendeai-backend-production.up.railway.app';
         fs.writeFileSync('lify.json', JSON.stringify(lifyConfig, null, 2));
         console.log('✅ lify.json corrigido');
       } else {
@@ -51,8 +51,8 @@ async function forceDeployFix() {
       const whatsappUrl = lovableConfig.environment?.VITE_WHATSAPP_SERVER_URL;
       if (whatsappUrl && whatsappUrl.includes('https://')) {
         console.log('❌ lovable.json ainda tem HTTPS');
-        lovableConfig.environment.VITE_WHATSAPP_SERVER_URL = 'http://31.97.241.19:3001';
-        lovableConfig.environment.VITE_BACKEND_URL = 'http://31.97.241.19:3001';
+        lovableConfig.environment.VITE_WHATSAPP_SERVER_URL = 'https://atendeai-backend-production.up.railway.app';
+        lovableConfig.environment.VITE_BACKEND_URL = 'https://atendeai-backend-production.up.railway.app';
         fs.writeFileSync('lovable.json', JSON.stringify(lovableConfig, null, 2));
         console.log('✅ lovable.json corrigido');
       } else {
@@ -65,9 +65,9 @@ async function forceDeployFix() {
     const envPath = 'src/config/environment.ts';
     if (fs.existsSync(envPath)) {
       let envContent = fs.readFileSync(envPath, 'utf8');
-      if (envContent.includes('https://31.97.241.19')) {
+      if (envContent.includes('https://atendeai-backend-production.up.railway.app')) {
         console.log('❌ environment.ts ainda tem HTTPS');
-        envContent = envContent.replace(/https:\/\/31\.97\.241\.19/g, 'http://31.97.241.19');
+        envContent = envContent.replace(/https:\/\/31\.97\.241\.19/g, 'http://atendeai-backend-production.up.railway.app');
         fs.writeFileSync(envPath, envContent);
         console.log('✅ environment.ts corrigido');
       } else {
@@ -117,7 +117,7 @@ async function forceDeployFix() {
     // 9. Testar conectividade
     console.log('\n🌐 Testando conectividade...');
     try {
-      const healthCheck = execSync('curl -s http://31.97.241.19:3001/health', { encoding: 'utf8' });
+      const healthCheck = execSync('curl -s https://atendeai-backend-production.up.railway.app/health', { encoding: 'utf8' });
       const health = JSON.parse(healthCheck);
       console.log('✅ Servidor HTTP acessível');
       console.log(`   Status: ${health.status}`);
@@ -133,8 +133,8 @@ async function forceDeployFix() {
       buildId: cacheBustingConfig.buildId,
       version: cacheBustingConfig.version,
       environment: {
-        VITE_WHATSAPP_SERVER_URL: 'http://31.97.241.19:3001',
-        VITE_BACKEND_URL: 'http://31.97.241.19:3001',
+        VITE_WHATSAPP_SERVER_URL: 'https://atendeai-backend-production.up.railway.app',
+        VITE_BACKEND_URL: 'https://atendeai-backend-production.up.railway.app',
         NODE_ENV: 'production'
       },
       instructions: [
@@ -146,8 +146,8 @@ async function forceDeployFix() {
         '   - VITE_WHATSAPP_SERVER_URL (se estiver como HTTPS)',
         '   - VITE_BACKEND_URL (se estiver como HTTPS)',
         '6. ADICIONE as seguintes variáveis:',
-        '   VITE_WHATSAPP_SERVER_URL=http://31.97.241.19:3001',
-        '   VITE_BACKEND_URL=http://31.97.241.19:3001',
+        '   VITE_WHATSAPP_SERVER_URL=https://atendeai-backend-production.up.railway.app',
+        '   VITE_BACKEND_URL=https://atendeai-backend-production.up.railway.app',
         '7. Salve as configurações',
         '8. Force um novo deploy'
       ]
@@ -166,8 +166,8 @@ async function forceDeployFix() {
     console.log('      - VITE_WHATSAPP_SERVER_URL (se estiver como HTTPS)');
     console.log('      - VITE_BACKEND_URL (se estiver como HTTPS)');
     console.log('   6. ADICIONE as seguintes variáveis:');
-    console.log('      VITE_WHATSAPP_SERVER_URL=http://31.97.241.19:3001');
-    console.log('      VITE_BACKEND_URL=http://31.97.241.19:3001');
+    console.log('      VITE_WHATSAPP_SERVER_URL=https://atendeai-backend-production.up.railway.app');
+    console.log('      VITE_BACKEND_URL=https://atendeai-backend-production.up.railway.app');
     console.log('   7. Salve as configurações');
     console.log('   8. Force um novo deploy');
     console.log('\n🔧 Para testar localmente:');

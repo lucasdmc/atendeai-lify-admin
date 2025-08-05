@@ -46,7 +46,7 @@ function verifyEnvironmentConfiguration() {
     console.log('- LOG_LEVEL:', logLevel);
     
     // Verificar se está correto
-    if (nodeEnv === 'production' && backendUrl === 'https://atendeai.com.br') {
+    if (nodeEnv === 'production' && backendUrl === 'https://atendeai-backend-production.up.railway.app') {
       console.log('\n✅ CONFIGURAÇÃO CORRETA PARA VPS!');
       console.log('🌐 Backend apontando para VPS');
       console.log('🚀 Pronto para produção');

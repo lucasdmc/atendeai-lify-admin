@@ -70,7 +70,7 @@ PORT=3001
 # ========================================
 # FRONTEND CONFIGURAÇÕES - PRODUÇÃO (VPS)
 # ========================================
-VITE_BACKEND_URL=https://atendeai.com.br
+VITE_BACKEND_URL=https://atendeai-backend-production.up.railway.app
 VITE_SUPABASE_URL=https://niakqdolcdwxtrkbqmdi.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxODI1NTksImV4cCI6MjA2NTc1ODU1OX0.90ihAk2geP1JoHIvMj_pxeoMe6dwRwH-rBbJwbFeomw
 VITE_GOOGLE_CLIENT_ID=367439444210-phr1e6oiu8hnh5vm57lpoud5lhrdda2o.apps.googleusercontent.com
@@ -94,7 +94,7 @@ SUPABASE_URL=https://niakqdolcdwxtrkbqmdi.supabase.co
 SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxODI1NTksImV4cCI6MjA2NTc1ODU1OX0.90ihAk2geP1JoHIvMj_pxeoMe6dwRwH-rBbJwbFeomw
 
 # Webhook URL (produção)
-WEBHOOK_URL=https://atendeai.com.br/webhook/whatsapp-meta
+WEBHOOK_URL=https://atendeai-backend-production.up.railway.app/webhook/whatsapp-meta
 
 # Logs
 LOG_LEVEL=info
@@ -123,7 +123,7 @@ if [ "\$1" = "production" ]; then
     echo "📋 Configurando ambiente PRODUÇÃO (VPS)..."
     cp .env.production .env
     echo "✅ Ambiente de PRODUÇÃO configurado"
-    echo "🌐 VITE_BACKEND_URL=https://atendeai.com.br"
+    echo "🌐 VITE_BACKEND_URL=https://atendeai-backend-production.up.railway.app"
     echo "🚀 Sistema pronto para VPS"
 elif [ "\$1" = "development" ]; then
     echo "📋 Configurando ambiente DESENVOLVIMENTO..."
@@ -168,7 +168,7 @@ echo "\\n📋 1. Configurando ambiente de produção..."
 
 # 2. Verificar configuração
 echo "\\n📋 2. Verificando configuração..."
-if grep -q "VITE_BACKEND_URL=https://atendeai.com.br" .env; then
+if grep -q "VITE_BACKEND_URL=https://atendeai-backend-production.up.railway.app" .env; then
     echo "✅ VITE_BACKEND_URL configurado corretamente para VPS"
 else
     echo "❌ ERRO: VITE_BACKEND_URL não está configurado para VPS"
@@ -201,9 +201,9 @@ fi
 
 # 6. Deploy
 echo "\\n📋 6. Iniciando deploy..."
-echo "🌐 Backend URL: https://atendeai.com.br"
-echo "📱 Webhook URL: https://atendeai.com.br/webhook/whatsapp-meta"
-echo "🔗 Health Check: https://atendeai.com.br/health"
+echo "🌐 Backend URL: https://atendeai-backend-production.up.railway.app"
+echo "📱 Webhook URL: https://atendeai-backend-production.up.railway.app/webhook/whatsapp-meta"
+echo "🔗 Health Check: https://atendeai-backend-production.up.railway.app/health"
 
 # Iniciar servidor
 npm start &
@@ -269,7 +269,7 @@ function verifyEnvironmentConfiguration() {
     console.log('- LOG_LEVEL:', logLevel);
     
     // Verificar se está correto
-    if (nodeEnv === 'production' && backendUrl === 'https://atendeai.com.br') {
+    if (nodeEnv === 'production' && backendUrl === 'https://atendeai-backend-production.up.railway.app') {
       console.log('\\n✅ CONFIGURAÇÃO CORRETA PARA VPS!');
       console.log('🌐 Backend apontando para VPS');
       console.log('🚀 Pronto para produção');
@@ -311,7 +311,7 @@ A variável \`VITE_BACKEND_URL=http://localhost:3001\` estava apontando para loc
 
 ### 1. Configurações por Ambiente
 - **Desenvolvimento**: \`VITE_BACKEND_URL=http://localhost:3001\`
-- **Produção (VPS)**: \`VITE_BACKEND_URL=https://atendeai.com.br\`
+- **Produção (VPS)**: \`VITE_BACKEND_URL=https://atendeai-backend-production.up.railway.app\`
 
 ### 2. Scripts Criados
 - \`select-environment.sh\` - Seleciona ambiente (dev/prod)

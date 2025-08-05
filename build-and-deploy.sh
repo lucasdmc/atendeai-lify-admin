@@ -54,7 +54,7 @@ fi
 # 6. Testar conectividade
 echo ""
 echo "🌐 Testando conectividade..."
-if curl -s http://31.97.241.19:3001/health > /dev/null; then
+if curl -s https://atendeai-backend-production.up.railway.app/health > /dev/null; then
     echo "✅ Servidor HTTP acessível"
 else
     echo "❌ Servidor HTTP não acessível"
@@ -72,8 +72,8 @@ echo "   5. DELETE as seguintes variáveis se existirem:"
 echo "      - VITE_WHATSAPP_SERVER_URL (se estiver como HTTPS)"
 echo "      - VITE_BACKEND_URL (se estiver como HTTPS)"
 echo "   6. ADICIONE as seguintes variáveis:"
-echo "      VITE_WHATSAPP_SERVER_URL=http://31.97.241.19:3001"
-echo "      VITE_BACKEND_URL=http://31.97.241.19:3001"
+echo "      VITE_WHATSAPP_SERVER_URL=https://atendeai-backend-production.up.railway.app"
+echo "      VITE_BACKEND_URL=https://atendeai-backend-production.up.railway.app"
 echo "   7. Salve as configurações"
 echo "   8. Force um novo deploy"
 echo ""

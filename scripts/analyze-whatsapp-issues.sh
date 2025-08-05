@@ -11,7 +11,7 @@ echo "📁 Criando diretório de análise: $ANALYSIS_DIR"
 
 # 1. COLETAR DADOS DO BACKEND (VPS)
 echo "🔧 Coletando dados do backend..."
-ssh root@31.97.241.19 << 'EOF' > "$ANALYSIS_DIR/backend-status.txt" 2>&1
+ssh root@atendeai-backend-production.up.railway.app << 'EOF' > "$ANALYSIS_DIR/backend-status.txt" 2>&1
 echo "=== STATUS DO BACKEND ==="
 pm2 status
 echo ""
@@ -137,7 +137,7 @@ curl -X POST http://localhost:3001/api/whatsapp/generate-qr \
 
 # Teste 2: Backend VPS
 echo "2. Testando backend VPS..."
-curl -X POST http://31.97.241.19:3001/api/whatsapp/generate-qr \
+curl -X POST https://atendeai-backend-production.up.railway.app/api/whatsapp/generate-qr \
   -H "Content-Type: application/json" \
   -d '{"agentId": "test-agent-vps"}' \
   -w "\nStatus: %{http_code}\n"

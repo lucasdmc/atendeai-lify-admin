@@ -7,7 +7,7 @@ echo "🚀 Upload e execução do script de debug na VPS"
 echo "=============================================="
 
 # Configurações
-VPS_IP="31.97.241.19"  # IP da VPS atendeai.server.com.br
+VPS_IP="atendeai-backend-production.up.railway.app"  # IP da VPS atendeai.server.com.br
 VPS_USER="root"
 DEBUG_SCRIPT="scripts/debug-whatsapp-connection.sh"
 REMOTE_PATH="/root/debug-whatsapp-connection.sh"

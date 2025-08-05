@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # Script para verificar status do debug na VPS
-# VPS: atendeai.server.com.br (31.97.241.19)
+# VPS: atendeai.server.com.br (atendeai-backend-production.up.railway.app)
 
 echo "🔍 Verificando Status do Debug - VPS AtendeAI"
 echo "============================================="
 
 # Configurações
-VPS_IP="31.97.241.19"
+VPS_IP="atendeai-backend-production.up.railway.app"
 VPS_USER="root"
 
 echo "📍 VPS: $VPS_HOST ($VPS_IP)"

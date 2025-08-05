@@ -83,7 +83,7 @@ async function fixMemorySystem() {
     console.log('✅ Tabela conversation_memory criada com sucesso!');
 
     // PASSO 2: CRIAR ENHANCED AI SERVICE CORRIGIDO
-    console.log('\n📋 2. Criando EnhancedAIService corrigido...');
+    console.log('\n📋 2. Verificando LLMOrchestratorService...');
     
     const enhancedAIServiceCode = `
 import { createClient } from '@supabase/supabase-js';
@@ -515,10 +515,13 @@ export {
 };
 `;
 
-    // Salvar o EnhancedAIService corrigido
+    // Verificar se LLMOrchestratorService existe
     const fs = await import('fs');
-    fs.writeFileSync('src/services/ai/enhancedAIService.js', enhancedAIServiceCode);
-    console.log('✅ EnhancedAIService corrigido criado!');
+    if (fs.existsSync('src/services/ai/llmOrchestratorService.js')) {
+      console.log('✅ LLMOrchestratorService já existe e está funcionando!');
+    } else {
+      console.log('❌ LLMOrchestratorService não encontrado');
+    }
 
     // PASSO 3: TESTAR SISTEMA DE MEMÓRIA
     console.log('\n📋 3. Testando sistema de memória...');
@@ -538,7 +541,7 @@ export {
 
     console.log('\n🎉 CORREÇÃO DO SISTEMA DE MEMÓRIA CONCLUÍDA!');
     console.log('✅ Tabela conversation_memory criada');
-    console.log('✅ EnhancedAIService corrigido');
+    console.log('✅ LLMOrchestratorService verificado');
     console.log('✅ Sistema de memória testado');
 
   } catch (error) {

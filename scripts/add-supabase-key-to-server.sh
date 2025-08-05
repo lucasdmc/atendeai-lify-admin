@@ -6,7 +6,7 @@
 echo "🔑 Adicionando chave do Supabase no servidor VPS..."
 
 # Configurações
-VPS_HOST="31.97.241.19"
+VPS_HOST="atendeai-backend-production.up.railway.app"
 PROJECT_DIR="/root/LifyChatbot-Node-Server"
 SUPABASE_SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDE4MjU1OSwiZXhwIjoyMDY1NzU4NTU5fQ.SY8A3ReAs_D7SFBp99PpSe8rpm1hbWMv4b2q-c_VS5M"
 

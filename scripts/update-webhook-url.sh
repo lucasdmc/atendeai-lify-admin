@@ -6,7 +6,7 @@ echo "🔧 Atualizando URLs do webhook..."
 
 # Definir as URLs
 OLD_URL="https://lify-chatbot-production.up.railway.app/webhook/whatsapp"
-NEW_URL="http://31.97.241.19:3001/webhook/whatsapp"
+NEW_URL="https://atendeai-backend-production.up.railway.app/webhook/whatsapp"
 
 # Função para fazer backup
 backup_file() {
@@ -48,5 +48,5 @@ echo ""
 echo "📋 Próximos passos:"
 echo "1. Reinicie o servidor: pm2 restart atendeai-backend"
 echo "2. Teste o webhook: curl -X POST $NEW_URL -H 'Content-Type: application/json' -d '{\"test\":\"webhook\"}'"
-echo "3. Teste o QR Code: curl -X POST http://31.97.241.19:3001/api/whatsapp/generate-qr -H 'Content-Type: application/json' -d '{\"agentId\":\"test\"}'"
+echo "3. Teste o QR Code: curl -X POST https://atendeai-backend-production.up.railway.app/api/whatsapp/generate-qr -H 'Content-Type: application/json' -d '{\"agentId\":\"test\"}'"
 echo "" 

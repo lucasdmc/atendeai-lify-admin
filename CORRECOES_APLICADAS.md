@@ -1,7 +1,7 @@
 # ✅ CORREÇÕES APLICADAS - ATENDEAI
 
 **Data:** 31/07/2025  
-**VPS:** 31.97.241.19  
+**VPS:** atendeai-backend-production.up.railway.app  
 **WhatsApp:** 554730915628  
 
 ## 🎯 PROBLEMAS IDENTIFICADOS E CORRIGIDOS
@@ -114,7 +114,7 @@ curl http://localhost:3001/health
 
 ## 📞 CONTATOS
 
-- **VPS:** 31.97.241.19
+- **VPS:** atendeai-backend-production.up.railway.app
 - **WhatsApp:** 554730915628
 - **Backend:** http://localhost:3001
 

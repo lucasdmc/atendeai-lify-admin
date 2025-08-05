@@ -96,8 +96,8 @@ function createManualDeployFiles() {
         VITE_SUPABASE_URL: 'https://niakqdolcdwxtrkbqmdi.supabase.co',
         VITE_SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxODI1NTksImV4cCI6MjA2NTc1ODU1OX0.90ihAk2geP1JoHIvMj_pxeoMe6dwRwH-rBbJwbFeomw',
         VITE_GOOGLE_CLIENT_ID: '367439444210-phr1e6oiu8hnh5vm57lpoud5lhrdda2o.apps.googleusercontent.com',
-        VITE_WHATSAPP_SERVER_URL: 'http://31.97.241.19:3001',
-        VITE_BACKEND_URL: 'http://31.97.241.19:3001',
+        VITE_WHATSAPP_SERVER_URL: 'https://atendeai-backend-production.up.railway.app',
+        VITE_BACKEND_URL: 'https://atendeai-backend-production.up.railway.app',
         NODE_ENV: 'production'
       },
       buildCommand: 'npm run build:prod',
@@ -118,8 +118,8 @@ echo "3. Selecione o projeto: atendeai-lify-admin"
 echo "4. Vá para a seção de configurações"
 echo "5. Configure as variáveis de ambiente:"
 echo ""
-echo "VITE_WHATSAPP_SERVER_URL=http://31.97.241.19:3001"
-echo "VITE_BACKEND_URL=http://31.97.241.19:3001"
+echo "VITE_WHATSAPP_SERVER_URL=https://atendeai-backend-production.up.railway.app"
+echo "VITE_BACKEND_URL=https://atendeai-backend-production.up.railway.app"
 echo ""
 echo "6. Faça upload da pasta dist/"
 echo "7. Clique em 'Deploy' ou 'Force Deploy'"
@@ -210,8 +210,8 @@ async function main() {
     console.log('   2. Faça login na sua conta');
     console.log('   3. Selecione o projeto atendeai-lify-admin');
     console.log('   4. Configure as variáveis de ambiente:');
-    console.log('      VITE_WHATSAPP_SERVER_URL=http://31.97.241.19:3001');
-    console.log('      VITE_BACKEND_URL=http://31.97.241.19:3001');
+    console.log('      VITE_WHATSAPP_SERVER_URL=https://atendeai-backend-production.up.railway.app');
+    console.log('      VITE_BACKEND_URL=https://atendeai-backend-production.up.railway.app');
     console.log('   5. Faça upload da pasta dist/');
     console.log('   6. Clique em "Deploy" ou "Force Deploy"');
   }

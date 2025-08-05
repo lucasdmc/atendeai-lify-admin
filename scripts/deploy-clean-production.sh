@@ -11,7 +11,7 @@ echo "📅 Data/Hora: $(date)"
 echo ""
 
 # Configurações
-VPS_HOST="31.97.241.19"
+VPS_HOST="atendeai-backend-production.up.railway.app"
 VPS_USER="root"
 BACKUP_DIR="/root/backups"
 DEPLOY_DIR="/root/atendeai-lify-admin"

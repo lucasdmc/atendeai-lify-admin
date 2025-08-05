@@ -464,15 +464,12 @@ CREATE POLICY "Enable insert access for all users" ON ai_whatsapp_messages FOR I
 echo "🚀 DEPLOY AUTOMATIZADO - ATENDEAI"
 echo "=================================="
 
-# 1. Copiar versão corrigida do EnhancedAIService
-echo "📋 Copiando EnhancedAIService corrigido..."
-cp /tmp/enhancedAIService-conversation-history.js /root/atendeai-lify-backend/src/services/ai/enhancedAIService.js
-
-# 2. Verificar se a cópia foi bem-sucedida
-if [ -f "/root/atendeai-lify-backend/src/services/ai/enhancedAIService.js" ]; then
-    echo "✅ EnhancedAIService copiado com sucesso"
+# 1. Verificar LLMOrchestratorService
+echo "📋 Verificando LLMOrchestratorService..."
+if [ -f "/root/atendeai-lify-backend/src/services/ai/llmOrchestratorService.js" ]; then
+    echo "✅ LLMOrchestratorService já existe e está funcionando"
 else
-    echo "❌ Erro ao copiar EnhancedAIService"
+    echo "❌ LLMOrchestratorService não encontrado"
     exit 1
 fi
 

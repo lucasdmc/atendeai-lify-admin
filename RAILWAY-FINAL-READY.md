@@ -36,7 +36,7 @@ DEFAULT_CLINIC_ID=cardioprime_blumenau_2024
 
 ### ✅ **Código Principal**
 - `server.js` - Servidor com health check ✅
-- `src/services/ai/enhancedAIService.js` - IA principal ✅
+- `src/services/ai/llmOrchestratorService.js` - IA principal ✅
 - `src/services/clinicContextService.js` - Contextualização ✅
 - `src/config/cardioprime-blumenau.json` - Dados reais ✅
 - `routes/webhook-contextualized.js` - Webhook WhatsApp ✅

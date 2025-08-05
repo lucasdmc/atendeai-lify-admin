@@ -33,7 +33,7 @@ atendeai-backend/
 ├── src/
 │   ├── services/
 │   │   ├── ai/
-│   │   │   ├── enhancedAIService.js
+│   │   │   ├── llmOrchestratorService.js
 │   │   │   └── clinicContextService.js
 │   │   └── supabaseService.js
 │   ├── config/

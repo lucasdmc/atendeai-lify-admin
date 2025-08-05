@@ -3,7 +3,7 @@
 echo "🧪 TESTANDO ENDPOINTS DA VPS"
 echo "=============================="
 
-VPS_URL="http://31.97.241.19:3001"
+VPS_URL="https://atendeai-backend-production.up.railway.app"
 
 echo "1. Testando health check..."
 curl -s "$VPS_URL/health"

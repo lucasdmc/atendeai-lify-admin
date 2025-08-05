@@ -15,12 +15,12 @@ function checkServer() {
     console.log(`📡 Tentativa ${attempts}/${maxAttempts} - Testando conectividade...`);
     
     // Teste de ping
-    const pingResult = execSync('ping -c 1 31.97.241.19', { encoding: 'utf8' });
+    const pingResult = execSync('ping -c 1 atendeai-backend-production.up.railway.app', { encoding: 'utf8' });
     console.log('✅ Ping OK - Servidor respondendo!');
     
     // Teste de porta
     try {
-      const curlResult = execSync('curl -s --connect-timeout 5 http://31.97.241.19:3001/health', { encoding: 'utf8' });
+      const curlResult = execSync('curl -s --connect-timeout 5 https://atendeai-backend-production.up.railway.app/health', { encoding: 'utf8' });
       console.log('✅ Porta 3001 OK - Servidor WhatsApp funcionando!');
       console.log('   Resposta:', curlResult);
     } catch (curlError) {
@@ -29,7 +29,7 @@ function checkServer() {
     
     // Teste SSH
     try {
-      const sshResult = execSync('ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no root@31.97.241.19 "echo OK"', { encoding: 'utf8' });
+      const sshResult = execSync('ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no root@atendeai-backend-production.up.railway.app "echo OK"', { encoding: 'utf8' });
       console.log('✅ SSH OK - Conectividade completa!');
     } catch (sshError) {
       console.log('⚠️ SSH não responde ainda - Pode estar inicializando...');
@@ -38,7 +38,7 @@ function checkServer() {
     console.log('\n🎉 SERVIDOR ONLINE!');
     console.log('\n📋 Próximos passos:');
     console.log('   1. Aguarde mais 1-2 minutos para inicialização completa');
-    console.log('   2. Teste: ssh root@31.97.241.19 "pm2 list"');
+    console.log('   2. Teste: ssh root@atendeai-backend-production.up.railway.app "pm2 list"');
     console.log('   3. Se necessário, reinicie o servidor WhatsApp');
     
     return true;

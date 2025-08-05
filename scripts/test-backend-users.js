@@ -28,7 +28,7 @@ async function testBackendUsers() {
 
     // 2. Testar endpoint de usuários
     console.log('\n2️⃣ Testando endpoint /api/users/list...');
-    const response = await fetch('http://31.97.241.19:3001/api/users/list', {
+    const response = await fetch('https://atendeai-backend-production.up.railway.app/api/users/list', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,

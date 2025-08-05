@@ -14,7 +14,7 @@ async function testWhatsAppMessage() {
     
     // 1. Verificar se há alguma sessão conectada
     console.log('\n1️⃣ Verificando sessões ativas...');
-    const healthResponse = await fetch('http://31.97.241.19:3001/health');
+    const healthResponse = await fetch('https://atendeai-backend-production.up.railway.app/health');
     if (healthResponse.ok) {
       const healthData = await healthResponse.json();
       console.log(`📊 Sessões ativas: ${healthData.activeSessions}`);
@@ -66,7 +66,7 @@ async function testWhatsAppMessage() {
     
     // Verificar logs do servidor
     console.log('📋 Verificando logs do servidor...');
-    const logsResponse = await fetch('http://31.97.241.19:3001/logs');
+    const logsResponse = await fetch('https://atendeai-backend-production.up.railway.app/logs');
     if (logsResponse.ok) {
       const logs = await logsResponse.text();
       console.log('📝 Últimos logs:', logs.substring(0, 500));

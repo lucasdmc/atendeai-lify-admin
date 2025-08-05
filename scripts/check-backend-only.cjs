@@ -1,5 +1,5 @@
 // Configuração do backend WhatsApp
-const WHATSAPP_BACKEND_URL = 'http://31.97.241.19:3001';
+const WHATSAPP_BACKEND_URL = 'https://atendeai-backend-production.up.railway.app';
 
 const TARGET_NUMBER = '5547999528232';
 

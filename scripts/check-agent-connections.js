@@ -46,7 +46,7 @@ log('\n🖥️ Verificando status no backend WhatsApp...', 'cyan');
 
 const checkBackendStatus = () => {
   try {
-    const command = `curl -s -X GET "http://31.97.241.19:3001/api/whatsapp/status/${agentId}"`;
+    const command = `curl -s -X GET "https://atendeai-backend-production.up.railway.app/api/whatsapp/status/${agentId}"`;
     const result = execSync(command, { encoding: 'utf8' });
     return JSON.parse(result);
   } catch (error) {

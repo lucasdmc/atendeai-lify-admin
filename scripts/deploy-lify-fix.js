@@ -36,7 +36,7 @@ function checkConfigurations() {
     console.log(`📋 Lify config: ${lifyUrl}`);
     console.log(`📋 Lovable config: ${lovableUrl}`);
     
-    if (lifyUrl === 'http://31.97.241.19:3001' && lovableUrl === 'http://31.97.241.19:3001') {
+    if (lifyUrl === 'https://atendeai-backend-production.up.railway.app' && lovableUrl === 'https://atendeai-backend-production.up.railway.app') {
       console.log('✅ Configurações HTTP corretas!');
       return true;
     } else {
@@ -111,7 +111,7 @@ function testConnectivity() {
   console.log('\n🔍 Testando conectividade após deploy...');
   
   const testUrls = [
-    'http://31.97.241.19:3001/health',
+    'https://atendeai-backend-production.up.railway.app/health',
     'https://atendeai.lify.com.br'
   ];
   
@@ -137,7 +137,7 @@ async function main() {
     let lifyContent = fs.readFileSync(lifyJsonPath, 'utf8');
     lifyContent = lifyContent.replace(
       /"VITE_WHATSAPP_SERVER_URL":\s*"https:\/\/31\.97\.241\.19:3001"/,
-      '"VITE_WHATSAPP_SERVER_URL": "http://31.97.241.19:3001"'
+      '"VITE_WHATSAPP_SERVER_URL": "https://atendeai-backend-production.up.railway.app"'
     );
     fs.writeFileSync(lifyJsonPath, lifyContent);
     
@@ -145,7 +145,7 @@ async function main() {
     let lovableContent = fs.readFileSync(lovableJsonPath, 'utf8');
     lovableContent = lovableContent.replace(
       /"VITE_WHATSAPP_SERVER_URL":\s*"https:\/\/31\.97\.241\.19:3001"/,
-      '"VITE_WHATSAPP_SERVER_URL": "http://31.97.241.19:3001"'
+      '"VITE_WHATSAPP_SERVER_URL": "https://atendeai-backend-production.up.railway.app"'
     );
     fs.writeFileSync(lovableJsonPath, lovableContent);
     

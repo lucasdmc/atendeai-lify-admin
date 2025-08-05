@@ -56,7 +56,7 @@ echo "   Response: $BODY"
 # Teste 4: Verificar servidor WhatsApp diretamente
 echo ""
 echo "📋 Teste 4: Verificar servidor WhatsApp diretamente"
-VPS_IP="31.97.241.19"
+VPS_IP="atendeai-backend-production.up.railway.app"
 RESPONSE=$(curl -s -w "%{http_code}" -X POST "http://$VPS_IP:3001/api/whatsapp/generate-qr" \
   -H "Content-Type: application/json" \
   -d "{\"agentId\":\"test-agent\"}")

@@ -2,7 +2,7 @@
 echo "🔧 IMPLEMENTANDO MEMÓRIA PERSISTENTE..."
 echo "=============================================="
 
-ssh root@31.97.241.19 << 'EOF'
+ssh root@atendeai-backend-production.up.railway.app << 'EOF'
 
 echo "🛑 Parando PM2..."
 pm2 stop atendeai-backend

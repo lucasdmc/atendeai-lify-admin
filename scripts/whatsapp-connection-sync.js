@@ -12,7 +12,7 @@ if (!supabaseServiceKey) {
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Configuração do backend WhatsApp
-const WHATSAPP_BACKEND_URL = 'http://31.97.241.19:3001';
+const WHATSAPP_BACKEND_URL = 'https://atendeai-backend-production.up.railway.app';
 
 async function checkBackendStatus() {
   try {

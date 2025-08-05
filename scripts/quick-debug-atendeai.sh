@@ -2,16 +2,16 @@
 
 # Script de Debug Rápido - VPS AtendeAI
 # Executa debug completo automaticamente
-# VPS: atendeai.server.com.br (31.97.241.19)
+# VPS: atendeai.server.com.br (atendeai-backend-production.up.railway.app)
 
 echo "🚀 Debug Rápido - VPS AtendeAI"
 echo "==============================="
-echo "📍 VPS: atendeai.server.com.br (31.97.241.19)"
+echo "📍 VPS: atendeai.server.com.br (atendeai-backend-production.up.railway.app)"
 echo "⏰ Iniciando debug completo..."
 echo ""
 
 # Configurações
-VPS_IP="31.97.241.19"
+VPS_IP="atendeai-backend-production.up.railway.app"
 VPS_USER="root"
 MANUAL_SCRIPT="scripts/execute-debug-manual.sh"
 

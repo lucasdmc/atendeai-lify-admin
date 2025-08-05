@@ -8,7 +8,7 @@
 import https from 'https';
 import http from 'http';
 
-const VPS_URL = 'http://31.97.241.19:3001';
+const VPS_URL = 'https://atendeai-backend-production.up.railway.app';
 const LOCAL_URL = 'http://localhost:3001';
 
 console.log('🔍 Testando conectividade HTTP com servidor Baileys...\n');

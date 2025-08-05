@@ -58,8 +58,8 @@ function fixLifyConfig() {
       VITE_GOOGLE_CLIENT_ID: "367439444210-phr1e6oiu8hnh5vm57lpoud5lhrdda2o.apps.googleusercontent.com",
       VITE_SUPABASE_URL: "https://niakqdolcdwxtrkbqmdi.supabase.co",
       VITE_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxODI1NTksImV4cCI6MjA2NTc1ODU1OX0.90ihAk2geP1JoHIvMj_pxeoMe6dwRwH-rBbJwbFeomw",
-      VITE_WHATSAPP_SERVER_URL: "http://31.97.241.19:3001",
-      VITE_BACKEND_URL: "http://31.97.241.19:3001",
+      VITE_WHATSAPP_SERVER_URL: "https://atendeai-backend-production.up.railway.app",
+      VITE_BACKEND_URL: "https://atendeai-backend-production.up.railway.app",
       NODE_ENV: "production"
     },
     build: {
@@ -78,8 +78,8 @@ function fixLifyConfig() {
       VITE_GOOGLE_CLIENT_ID: "367439444210-phr1e6oiu8hnh5vm57lpoud5lhrdda2o.apps.googleusercontent.com",
       VITE_SUPABASE_URL: "https://niakqdolcdwxtrkbqmdi.supabase.co",
       VITE_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxODI1NTksImV4cCI6MjA2NTc1ODU1OX0.90ihAk2geP1JoHIvMj_pxeoMe6dwRwH-rBbJwbFeomw",
-      VITE_WHATSAPP_SERVER_URL: "http://31.97.241.19:3001",
-      VITE_BACKEND_URL: "http://31.97.241.19:3001",
+      VITE_WHATSAPP_SERVER_URL: "https://atendeai-backend-production.up.railway.app",
+      VITE_BACKEND_URL: "https://atendeai-backend-production.up.railway.app",
       NODE_ENV: "production"
     },
     build: {
@@ -193,7 +193,7 @@ function testDeploy() {
     console.log('   5. Vá para a aba Network');
     console.log('   6. Teste a geração de QR Code');
     console.log('   7. Verifique se não há erros SSL');
-    console.log('   8. Procure por requisições para http://31.97.241.19:3001');
+    console.log('   8. Procure por requisições para https://atendeai-backend-production.up.railway.app');
   }, 1000);
 }
 
@@ -222,8 +222,8 @@ async function main() {
     console.log('      - VITE_WHATSAPP_SERVER_URL (se estiver como HTTPS)');
     console.log('      - VITE_BACKEND_URL (se estiver como HTTPS)');
     console.log('   6. ADICIONE as seguintes variáveis:');
-    console.log('      VITE_WHATSAPP_SERVER_URL=http://31.97.241.19:3001');
-    console.log('      VITE_BACKEND_URL=http://31.97.241.19:3001');
+    console.log('      VITE_WHATSAPP_SERVER_URL=https://atendeai-backend-production.up.railway.app');
+    console.log('      VITE_BACKEND_URL=https://atendeai-backend-production.up.railway.app');
     console.log('   7. Salve as configurações');
     console.log('   8. Force um novo deploy');
     process.exit(1);

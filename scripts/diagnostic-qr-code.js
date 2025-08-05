@@ -54,27 +54,27 @@ const testEdgeFunction = async (agentId, supabaseToken) => {
 };
 
 const testBackendStatus = async (agentId) => {
-  const command = `curl -s -X GET "http://31.97.241.19:3001/api/whatsapp/status/${agentId}" \\
+  const command = `curl -s -X GET "https://atendeai-backend-production.up.railway.app/api/whatsapp/status/${agentId}" \\
     -w "\\nHTTP_STATUS: %{http_code}\\n"`;
 
   return executeCommand(command, 'Verificando status do agente no backend WhatsApp');
 };
 
 const testBackendHealth = async () => {
-  const command = `curl -s -X GET "http://31.97.241.19:3001/health" \\
+  const command = `curl -s -X GET "https://atendeai-backend-production.up.railway.app/health" \\
     -w "\\nHTTP_STATUS: %{http_code}\\n"`;
 
   return executeCommand(command, 'Verificando health check do backend WhatsApp');
 };
 
 const getBackendLogs = async () => {
-  const command = `ssh -o StrictHostKeyChecking=no root@31.97.241.19 "cd /root/atendeai-lify-admin && pm2 logs atendeai-backend --lines 20 --nostream"`;
+  const command = `ssh -o StrictHostKeyChecking=no root@atendeai-backend-production.up.railway.app "cd /root/atendeai-lify-admin && pm2 logs atendeai-backend --lines 20 --nostream"`;
 
   return executeCommand(command, 'Obtendo logs do backend WhatsApp');
 };
 
 const getBackendStatus = async () => {
-  const command = `ssh -o StrictHostKeyChecking=no root@31.97.241.19 "cd /root/atendeai-lify-admin && pm2 status"`;
+  const command = `ssh -o StrictHostKeyChecking=no root@atendeai-backend-production.up.railway.app "cd /root/atendeai-lify-admin && pm2 status"`;
 
   return executeCommand(command, 'Verificando status do PM2 no backend');
 };

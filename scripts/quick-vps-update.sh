@@ -20,4 +20,4 @@ nohup node server.js > logs.txt 2>&1 &
 
 echo "✅ Pronto! Servidor reiniciado."
 echo "📋 Logs: tail -f logs.txt"
-echo "🌐 URL: http://31.97.241.19:3001" 
+echo "🌐 URL: https://atendeai-backend-production.up.railway.app" 

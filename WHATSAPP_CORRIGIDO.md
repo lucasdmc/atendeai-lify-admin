@@ -41,9 +41,9 @@ O problema do WhatsApp sem respostas foi **completamente resolvido**!
 - **Informações específicas** da clínica
 
 ### 🔗 **URLs de Produção:**
-- **Webhook**: https://atendeai.com.br/webhook/whatsapp-meta
-- **Health Check**: https://atendeai.com.br/health
-- **Frontend**: https://atendeai.com.br
+- **Webhook**: https://atendeai-backend-production.up.railway.app/webhook/whatsapp-meta
+- **Health Check**: https://atendeai-backend-production.up.railway.app/health
+- **Frontend**: https://atendeai-backend-production.up.railway.app
 
 ## 📋 **PRÓXIMOS PASSOS**
 

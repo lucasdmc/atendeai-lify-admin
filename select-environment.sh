@@ -12,7 +12,7 @@ if [ "$1" = "production" ]; then
     echo "📋 Configurando ambiente PRODUÇÃO (VPS)..."
     cp .env.production .env
     echo "✅ Ambiente de PRODUÇÃO configurado"
-    echo "🌐 VITE_BACKEND_URL=https://atendeai.com.br"
+    echo "🌐 VITE_BACKEND_URL=https://atendeai-backend-production.up.railway.app"
     echo "🚀 Sistema pronto para VPS"
 elif [ "$1" = "development" ]; then
     echo "📋 Configurando ambiente DESENVOLVIMENTO..."

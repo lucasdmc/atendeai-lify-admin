@@ -26,7 +26,7 @@ async function integrateAllFixes() {
     const path = await import('path');
     
     const filesToCheck = [
-      'src/services/ai/enhancedAIService.js',
+      'src/services/ai/llmOrchestratorService.js',
       'src/config/clinic-schema.js',
       'src/services/clinicContextService.js',
       'routes/webhook-contextualized.js',
@@ -485,7 +485,7 @@ echo "\\nPara parar o servidor: kill $SERVER_PID"
 - **Problema**: Bot esquece nomes e contexto
 - **Solução**: Implementação completa de memória persistente
 - **Arquivos**: 
-  - \`src/services/ai/enhancedAIService.js\`
+  - \`src/services/ai/llmOrchestratorService.js\`
   - \`test-memory-system-corrected.js\`
 
 ### ✅ CORREÇÃO #2: Contextualização JSON Completa
@@ -560,7 +560,7 @@ src/
 │   └── environment.js            # Configuração de ambiente
 ├── services/
 │   ├── ai/
-│   │   └── enhancedAIService.js  # Sistema de IA corrigido
+│   │   └── llmOrchestratorService.js  # Sistema de IA corrigido
 │   └── clinicContextService.js   # Contextualização completa
 ├── utils/
 │   └── logger.js                 # Logs por ambiente

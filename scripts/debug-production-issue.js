@@ -30,7 +30,7 @@ configFiles.forEach(file => {
         const content = fs.readFileSync(file, 'utf8');
         if (content.includes('seu-servidor-vps.com')) {
             console.log(`❌ ${file} contém URL incorreta`);
-        } else if (content.includes('31.97.241.19')) {
+        } else if (content.includes('atendeai-backend-production.up.railway.app')) {
             console.log(`✅ ${file} contém URL correta`);
         } else {
             console.log(`⚠️ ${file} não contém URL do servidor`);
@@ -46,7 +46,7 @@ console.log('\n🎨 Verificando configuração do frontend:');
 const environmentFile = 'src/config/environment.ts';
 if (fs.existsSync(environmentFile)) {
     const content = fs.readFileSync(environmentFile, 'utf8');
-    if (content.includes('31.97.241.19')) {
+    if (content.includes('atendeai-backend-production.up.railway.app')) {
         console.log('✅ environment.ts contém URL correta');
     } else {
         console.log('❌ environment.ts não contém URL correta');
@@ -83,7 +83,7 @@ function checkServer(url) {
 async function checkServers() {
     const servers = [
         'https://localhost:3001/health',
-        'http://31.97.241.19:3001/health'
+        'https://atendeai-backend-production.up.railway.app/health'
     ];
     
     for (const server of servers) {
@@ -113,8 +113,8 @@ checkServers().then(() => {
     console.log('');
     console.log('4. 🔧 Configuração manual:');
     console.log('   - No dashboard do Lify, adicione:');
-    console.log('     VITE_WHATSAPP_SERVER_URL=http://31.97.241.19:3001');
-console.log('     VITE_BACKEND_URL=http://31.97.241.19:3001');
+    console.log('     VITE_WHATSAPP_SERVER_URL=https://atendeai-backend-production.up.railway.app');
+console.log('     VITE_BACKEND_URL=https://atendeai-backend-production.up.railway.app');
     console.log('');
     console.log('5. 🧪 Teste local:');
     console.log('   - npm run dev');

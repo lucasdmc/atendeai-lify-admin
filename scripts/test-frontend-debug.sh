@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # Script para testar frontend e capturar logs da Edge Function
-# VPS: atendeai.server.com.br (31.97.241.19)
+# VPS: atendeai.server.com.br (atendeai-backend-production.up.railway.app)
 
 echo "🧪 Teste Frontend + Debug - VPS AtendeAI"
 echo "========================================"
 
 # Configurações
-VPS_IP="31.97.241.19"
+VPS_IP="atendeai-backend-production.up.railway.app"
 VPS_USER="root"
 
 echo "📍 VPS: $VPS_IP"

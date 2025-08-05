@@ -53,7 +53,7 @@ async function checkWhatsAppNumber() {
     // 3. Verificar status no servidor WhatsApp
     console.log('\n3️⃣ Verificando servidor WhatsApp...');
     try {
-      const response = await fetch('http://31.97.241.19:3001/health');
+      const response = await fetch('https://atendeai-backend-production.up.railway.app/health');
       if (response.ok) {
         const data = await response.json();
         serverStatus = 'Online';

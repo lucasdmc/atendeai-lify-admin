@@ -90,8 +90,8 @@ function createCacheBustingConfig() {
         VITE_SUPABASE_URL: 'https://niakqdolcdwxtrkbqmdi.supabase.co',
         VITE_SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxODI1NTksImV4cCI6MjA2NTc1ODU1OX0.90ihAk2geP1JoHIvMj_pxeoMe6dwRwH-rBbJwbFeomw',
         VITE_GOOGLE_CLIENT_ID: '367439444210-phr1e6oiu8hnh5vm57lpoud5lhrdda2o.apps.googleusercontent.com',
-        VITE_WHATSAPP_SERVER_URL: 'http://31.97.241.19:3001',
-        VITE_BACKEND_URL: 'http://31.97.241.19:3001',
+        VITE_WHATSAPP_SERVER_URL: 'https://atendeai-backend-production.up.railway.app',
+        VITE_BACKEND_URL: 'https://atendeai-backend-production.up.railway.app',
         NODE_ENV: 'production',
         VITE_DEPLOY_TIMESTAMP: timestamp.toString()
       },
@@ -132,7 +132,7 @@ function testDeployWithCacheBusting() {
         console.log('   Acesse: https://atendeai.lify.com.br');
         console.log('   Abra DevTools (F12)');
         console.log('   Vá para a aba Network');
-        console.log('   Procure por requisições para http://31.97.241.19:3001');
+        console.log('   Procure por requisições para https://atendeai-backend-production.up.railway.app');
       } else {
         console.log('❌ Frontend não acessível após deploy');
       }
@@ -166,8 +166,8 @@ async function main() {
     console.log('   2. Faça login na sua conta');
     console.log('   3. Selecione o projeto atendeai-lify-admin');
     console.log('   4. Configure as variáveis de ambiente:');
-    console.log('      VITE_WHATSAPP_SERVER_URL=http://31.97.241.19:3001');
-    console.log('      VITE_BACKEND_URL=http://31.97.241.19:3001');
+    console.log('      VITE_WHATSAPP_SERVER_URL=https://atendeai-backend-production.up.railway.app');
+    console.log('      VITE_BACKEND_URL=https://atendeai-backend-production.up.railway.app');
     console.log('   5. Faça upload da pasta dist/');
     console.log('   6. Clique em "Force Deploy"');
     process.exit(1);

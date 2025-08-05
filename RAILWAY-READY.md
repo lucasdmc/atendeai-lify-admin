@@ -14,7 +14,7 @@ O repositório está completamente preparado para deployment no Railway.
 
 ### ✅ **Código Principal**
 - `server.js` - Servidor principal com health check
-- `src/services/ai/enhancedAIService.js` - IA principal
+- `src/services/ai/llmOrchestratorService.js` - IA principal
 - `src/services/clinicContextService.js` - Contextualização
 - `src/config/cardioprime-blumenau.json` - Dados reais da clínica
 - `routes/webhook-contextualized.js` - Webhook WhatsApp

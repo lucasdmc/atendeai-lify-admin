@@ -4,7 +4,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
-const WHATSAPP_SERVER_URL = 'http://31.97.241.19:3001';
+const WHATSAPP_SERVER_URL = 'https://atendeai-backend-production.up.railway.app';
 
 async function testWhatsAppConnection() {
   console.log('🔍 Testando conectividade com servidor WhatsApp...\n');
@@ -68,7 +68,7 @@ async function testWhatsAppConnection() {
   console.log('\n4️⃣ Testando conectividade de rede...');
   
   try {
-    const { stdout } = await execAsync(`ping -c 3 31.97.241.19`);
+    const { stdout } = await execAsync(`ping -c 3 atendeai-backend-production.up.railway.app`);
     console.log('✅ Ping bem-sucedido');
     console.log('📊 Resultado:', stdout);
   } catch (error) {
@@ -78,7 +78,7 @@ async function testWhatsAppConnection() {
   // Teste 5: Verificar porta 3001
   console.log('\n5️⃣ Testando porta 3001...');
   try {
-    const { stdout } = await execAsync(`nc -zv 31.97.241.19 3001`);
+    const { stdout } = await execAsync(`nc -zv atendeai-backend-production.up.railway.app 3001`);
     console.log('✅ Porta 3001 está acessível');
     console.log('📊 Resultado:', stdout);
   } catch (error) {

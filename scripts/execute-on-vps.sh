@@ -10,7 +10,7 @@ cd /root/LifyChatbot-Node-Server
 echo "📝 Atualizando URLs do webhook..."
 
 OLD_URL="https://lify-chatbot-production.up.railway.app/webhook/whatsapp"
-NEW_URL="http://31.97.241.19:3001/webhook/whatsapp"
+NEW_URL="https://atendeai-backend-production.up.railway.app/webhook/whatsapp"
 
 # Fazer backup e atualizar server.js
 cp server.js server.js.backup.$(date +%Y%m%d_%H%M%S)

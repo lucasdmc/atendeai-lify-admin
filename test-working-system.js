@@ -233,7 +233,7 @@ INSTRUÇÕES IMPORTANTES:
         console.log('- VITE_BACKEND_URL:', backendUrl);
         console.log('- LOG_LEVEL:', logLevel);
         
-        if (nodeEnv === 'production' && backendUrl === 'https://atendeai.com.br') {
+        if (nodeEnv === 'production' && backendUrl === 'https://atendeai-backend-production.up.railway.app') {
           console.log('✅ Configuração correta para VPS!');
         } else if (nodeEnv === 'development' && backendUrl === 'http://localhost:3001') {
           console.log('✅ Configuração correta para desenvolvimento!');

@@ -34,7 +34,7 @@ O problema do WhatsApp sem respostas foi **diagnosticado completamente**:
 
 #### 3. **Servidor de Produção:**
 ```bash
-❌ curl -X GET "https://atendeai.com.br/webhook/whatsapp-meta"
+❌ curl -X GET "https://atendeai-backend-production.up.railway.app/webhook/whatsapp-meta"
 ❌ Resposta: Página HTML 404 (WordPress)
 ```
 
@@ -133,7 +133,7 @@ npm start
 ### 🔧 **Ação 3: Testar Webhook**
 ```bash
 # Testar webhook público
-curl -X POST https://atendeai.com.br/webhook/whatsapp-meta -H "Content-Type: application/json" -d '{"test":"message"}'
+curl -X POST https://atendeai-backend-production.up.railway.app/webhook/whatsapp-meta -H "Content-Type: application/json" -d '{"test":"message"}'
 ```
 
 ### 🔧 **Ação 4: Configurar PM2**

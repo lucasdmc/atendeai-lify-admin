@@ -28,7 +28,7 @@ async function updateVPSWithManusFixes() {
     
     const checkFilesCommand = `
       ssh root@api.atendeai.lify.com.br "cd /root/atendeai-lify-backend && 
-      ls -la routes/webhook-contextualized.js src/services/ai/enhancedAIService.js src/services/clinicContextService.js"
+      ls -la routes/webhook-contextualized.js src/services/ai/llmOrchestratorService.js src/services/clinicContextService.js"
     `;
     
     const { stdout: filesCheck } = await execAsync(checkFilesCommand);
@@ -60,7 +60,7 @@ async function updateVPSWithManusFixes() {
 
     console.log('\n🎉 VPS ATUALIZADA COM CORREÇÕES DO MANUS!');
     console.log('✅ Webhook contextualizado ativo');
-    console.log('✅ EnhancedAIService funcionando');
+    console.log('✅ LLMOrchestratorService funcionando');
     console.log('✅ ClinicContextService ativo');
     console.log('✅ Memória de conversas implementada');
     console.log('✅ Contextualização da CardioPrime ativa');

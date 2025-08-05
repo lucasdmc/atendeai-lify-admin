@@ -398,7 +398,7 @@ export default ClinicContextService;
 import express from 'express';
 import { sendWhatsAppTextMessage } from '../services/whatsappMetaService.js';
 import ClinicContextService from '../services/clinicContextService.js';
-import { EnhancedAIService } from '../services/ai/enhancedAIService.js';
+import { LLMOrchestratorService } from '../services/ai/llmOrchestratorService.js';
 
 const router = express.Router();
 
@@ -579,21 +579,15 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
       hasClinicData: !!clinic
     });
 
-    // 3. Processar com sistema avançado
-    const enhancedAI = new EnhancedAIService();
-    const aiResult = await enhancedAI.processMessage(
-      messageText,
-      phoneNumber,
-      clinic?.id || 'default',
-      {
-        systemPrompt: systemPrompt,
-        clinicContext: contextualization,
-        enableRAG: true,
-        enableMemory: true,
-        enablePersonalization: true,
-        enableIntentRecognition: true
-      }
-    );
+    // 3. Processar com LLMOrchestratorService
+    const request = {
+      phoneNumber: phoneNumber,
+      message: messageText,
+      conversationId: `test-${Date.now()}`,
+      userId: phoneNumber
+    };
+    
+    const aiResult = await LLMOrchestratorService.processMessage(request);
 
     console.log('✅ [Contextualizado] Resposta gerada com contexto completo', {
       success: aiResult.success,

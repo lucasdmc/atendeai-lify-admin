@@ -13,7 +13,7 @@ async function syncAgentConnectionStatus() {
     const agentId = '36e62010-e74a-4eaa-b1f7-4037d4721b81';
     
     console.log('📡 Verificando status do agente:', agentId);
-    const statusResponse = await fetch(`http://31.97.241.19:3001/api/whatsapp/status/${agentId}`);
+    const statusResponse = await fetch(`https://atendeai-backend-production.up.railway.app/api/whatsapp/status/${agentId}`);
     const statusData = await statusResponse.json();
     
     console.log('📊 Status do servidor:', statusData);

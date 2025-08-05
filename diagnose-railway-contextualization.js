@@ -103,37 +103,33 @@ async function diagnoseRailwayContextualization() {
       console.error('❌ Erro na geração de prompt:', error.message);
     }
 
-    // 5. Testar EnhancedAIService
-    console.log('\n📋 5. Testando EnhancedAIService...');
+    // 5. Testar LLMOrchestratorService
+    console.log('\n📋 5. Testando LLMOrchestratorService...');
     try {
-      const { EnhancedAIService } = await import('./src/services/ai/enhancedAIService.js');
-      const enhancedAI = new EnhancedAIService();
+      const { LLMOrchestratorService } = await import('./src/services/ai/llmOrchestratorService.js');
+      
       const testMessage = 'Olá, gostaria de saber sobre consultas de cardiologia';
       const testPhoneNumber = '5511999999999';
       
-      const result = await enhancedAI.processMessage(
-        testMessage,
-        testPhoneNumber,
-        'cardioprime_blumenau_2024',
-        {
-          systemPrompt: 'Você é Dr. Carlos, assistente virtual da CardioPrime Blumenau.',
-          enableRAG: true,
-          enableMemory: true,
-          enablePersonalization: true,
-          enableIntentRecognition: true
-        }
-      );
+      const request = {
+        phoneNumber: testPhoneNumber,
+        message: testMessage,
+        conversationId: `test-${Date.now()}`,
+        userId: testPhoneNumber
+      };
 
-      if (result.success) {
-        console.log('✅ EnhancedAIService funcionando');
+      const result = await LLMOrchestratorService.processMessage(request);
+
+      if (result.response) {
+        console.log('✅ LLMOrchestratorService funcionando');
         console.log(`   - Resposta gerada: ${result.response?.substring(0, 100)}...`);
-        console.log(`   - Intent: ${result.intent || 'N/A'}`);
-        console.log(`   - Confidence: ${result.confidence || 'N/A'}`);
+        console.log(`   - Intent: ${result.intent?.name || 'N/A'}`);
+        console.log(`   - Confidence: ${result.intent?.confidence || 'N/A'}`);
       } else {
-        console.error('❌ EnhancedAIService falhou:', result.error);
+        console.error('❌ LLMOrchestratorService falhou:', result.error);
       }
     } catch (error) {
-      console.error('❌ Erro no EnhancedAIService:', error.message);
+      console.error('❌ Erro no LLMOrchestratorService:', error.message);
     }
 
     // 6. Testar webhook completo

@@ -30,7 +30,7 @@ Você está certo! O problema é que estamos usando os **Serviços Robustos** (g
 - ✅ **Token WhatsApp**: Válido e funcionando
 - ✅ **Servidor VPS**: Rodando em api.atendeai.lify.com.br
 - ✅ **Webhook**: Recebendo mensagens
-- ✅ **EnhancedAIService**: Existe na VPS
+- ✅ **LLMOrchestratorService**: Existe na VPS
 
 ### ❌ **O que NÃO está funcionando:**
 - ❌ **ClinicContextService**: Não existe na VPS

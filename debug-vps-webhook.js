@@ -6,7 +6,7 @@ import https from 'https';
 import http from 'http';
 
 // Configurações da VPS
-const VPS_URL = 'https://atendeai.com.br';
+const VPS_URL = 'https://atendeai-backend-production.up.railway.app';
 
 async function debugVPSWebhook() {
   console.log('🔍 DEBUGANDO WEBHOOK NA VPS');

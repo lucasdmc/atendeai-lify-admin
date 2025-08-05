@@ -9,7 +9,7 @@ async function testWhatsAppFlow() {
     // 1. Testar conectividade com VPS
     console.log('1️⃣ Testando conectividade com VPS...');
     try {
-      const pingResult = execSync('ping -c 1 31.97.241.19', { encoding: 'utf8' });
+      const pingResult = execSync('ping -c 1 atendeai-backend-production.up.railway.app', { encoding: 'utf8' });
       console.log('✅ VPS online');
     } catch (error) {
       console.log('❌ VPS offline');
@@ -19,7 +19,7 @@ async function testWhatsAppFlow() {
     // 2. Testar servidor WhatsApp
     console.log('\n2️⃣ Testando servidor WhatsApp...');
     try {
-      const healthResult = execSync('curl -s http://31.97.241.19:3001/health', { encoding: 'utf8' });
+      const healthResult = execSync('curl -s https://atendeai-backend-production.up.railway.app/health', { encoding: 'utf8' });
       const health = JSON.parse(healthResult);
       console.log('✅ Servidor WhatsApp:', health.status);
       console.log('   Uptime:', Math.round(health.uptime / 60), 'minutos');
@@ -31,7 +31,7 @@ async function testWhatsAppFlow() {
     // 3. Testar geração de QR Code
     console.log('\n3️⃣ Testando geração de QR Code...');
     try {
-      const qrResult = execSync(`curl -s -X POST http://31.97.241.19:3001/api/whatsapp/generate-qr \
+      const qrResult = execSync(`curl -s -X POST https://atendeai-backend-production.up.railway.app/api/whatsapp/generate-qr \
         -H "Content-Type: application/json" \
         -d '{"agentId":"8aae1bc7-07b7-40ba-9ff3-e13fc32caa0b"}'`, { encoding: 'utf8' });
       const qrData = JSON.parse(qrResult);

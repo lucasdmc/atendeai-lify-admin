@@ -4,7 +4,7 @@ echo "🔍 Verificando status do WhatsApp..."
 echo "===================================="
 
 # Configurações
-VPS_HOST="31.97.241.19"
+VPS_HOST="atendeai-backend-production.up.railway.app"
 SUPABASE_URL="https://niakqdolcdwxtrkbqmdi.supabase.co"
 SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxODI1NTksImV4cCI6MjA2NTc1ODU1OX0.90ihAk2geP1JoHIvMj_pxeoMe6dwRwH-rBbJwbFeomw"
 

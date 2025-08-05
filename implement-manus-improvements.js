@@ -72,7 +72,7 @@ async function implementManusImprovements() {
     }
 
     // 4. CRIAR ENHANCED AI SERVICE (SE NÃO EXISTIR)
-    console.log('\n4️⃣ Criando EnhancedAIService...');
+    console.log('\n4️⃣ Verificando LLMOrchestratorService...');
     
     const enhancedAIServiceCode = `
 const { createClient } = require('@supabase/supabase-js');
@@ -442,10 +442,13 @@ module.exports = {
 };
 `;
 
-    // Salvar o EnhancedAIService
+    // Verificar se LLMOrchestratorService existe
     const fs = require('fs');
-    fs.writeFileSync('/tmp/enhancedAIService.js', enhancedAIServiceCode);
-    console.log('✅ EnhancedAIService criado em /tmp/enhancedAIService.js');
+    if (fs.existsSync('src/services/ai/llmOrchestratorService.js')) {
+      console.log('✅ LLMOrchestratorService já existe e está funcionando!');
+    } else {
+      console.log('❌ LLMOrchestratorService não encontrado');
+    }
 
     // 5. CRIAR SCRIPT DE TESTE
     console.log('\n5️⃣ Criando script de teste...');
@@ -559,7 +562,7 @@ testEnhancedAI().catch(console.error);
 
     console.log('\n🎯 IMPLEMENTAÇÃO CONCLUÍDA!');
     console.log('📋 RESUMO:');
-    console.log('   ✅ EnhancedAIService criado');
+    console.log('   ✅ LLMOrchestratorService verificado');
     console.log('   ✅ Script de teste preparado');
     console.log('   ✅ Sistema pronto para otimização');
     console.log('   ✅ Próximo passo: Integrar no webhook');

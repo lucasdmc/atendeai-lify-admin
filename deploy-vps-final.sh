@@ -12,7 +12,7 @@ echo "📋 1. Configurando ambiente de produção..."
 
 # 2. Verificar configuração
 echo "📋 2. Verificando configuração..."
-if grep -q "VITE_BACKEND_URL=https://atendeai.com.br" .env; then
+if grep -q "VITE_BACKEND_URL=https://atendeai-backend-production.up.railway.app" .env; then
     echo "✅ VITE_BACKEND_URL configurado corretamente para VPS"
 else
     echo "❌ ERRO: VITE_BACKEND_URL não está configurado para VPS"
@@ -45,9 +45,9 @@ fi
 
 # 6. Deploy
 echo "📋 6. Iniciando deploy final..."
-echo "🌐 Backend URL: https://atendeai.com.br"
-echo "📱 Webhook URL: https://atendeai.com.br/webhook/whatsapp-meta"
-echo "🔗 Health Check: https://atendeai.com.br/health"
+echo "🌐 Backend URL: https://atendeai-backend-production.up.railway.app"
+echo "📱 Webhook URL: https://atendeai-backend-production.up.railway.app/webhook/whatsapp-meta"
+echo "🔗 Health Check: https://atendeai-backend-production.up.railway.app/health"
 
 # Iniciar servidor
 npm start &

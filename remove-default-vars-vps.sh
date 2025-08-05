@@ -5,7 +5,7 @@ echo "======================================"
 
 # 1. Conectar na VPS e fazer backup
 echo "📋 1. Conectando na VPS e fazendo backup..."
-ssh root@31.97.241.19 << 'EOF'
+ssh root@atendeai-backend-production.up.railway.app << 'EOF'
 
 # Navegar para o diretório da aplicação
 cd /root/atendeai-lify-admin || cd /home/ubuntu/atendeai-lify-admin
@@ -30,7 +30,7 @@ EOF
 
 # 2. Remover variáveis do arquivo .env na VPS
 echo "📋 2. Removendo variáveis do .env..."
-ssh root@31.97.241.19 << 'EOF'
+ssh root@atendeai-backend-production.up.railway.app << 'EOF'
 
 cd /root/atendeai-lify-admin || cd /home/ubuntu/atendeai-lify-admin
 
@@ -58,7 +58,7 @@ EOF
 
 # 3. Atualizar arquivo routes/webhook.js na VPS
 echo "📋 3. Atualizando routes/webhook.js..."
-ssh root@31.97.241.19 << 'EOF'
+ssh root@atendeai-backend-production.up.railway.app << 'EOF'
 
 cd /root/atendeai-lify-admin || cd /home/ubuntu/atendeai-lify-admin
 
@@ -81,7 +81,7 @@ EOF
 
 # 4. Reiniciar o servidor na VPS
 echo "📋 4. Reiniciando servidor..."
-ssh root@31.97.241.19 << 'EOF'
+ssh root@atendeai-backend-production.up.railway.app << 'EOF'
 
 cd /root/atendeai-lify-admin || cd /home/ubuntu/atendeai-lify-admin
 
@@ -102,7 +102,7 @@ EOF
 
 # 5. Testar se está funcionando
 echo "📋 5. Testando funcionamento..."
-ssh root@31.97.241.19 << 'EOF'
+ssh root@atendeai-backend-production.up.railway.app << 'EOF'
 
 cd /root/atendeai-lify-admin || cd /home/ubuntu/atendeai-lify-admin
 

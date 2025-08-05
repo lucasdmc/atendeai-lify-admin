@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # Script de Deploy para VPS de Produção
-# VPS: atendeai.server.com.br (31.97.241.19)
+# VPS: atendeai.server.com.br (atendeai-backend-production.up.railway.app)
 
 echo "🚀 Iniciando deploy na VPS de produção..."
 
 # Configurações da VPS
 VPS_HOST="atendeai.server.com.br"
-VPS_IP="31.97.241.19"
+VPS_IP="atendeai-backend-production.up.railway.app"
 VPS_USER="root"
 VPS_PORT="22"
 

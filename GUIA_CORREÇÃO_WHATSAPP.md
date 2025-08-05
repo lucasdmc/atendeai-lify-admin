@@ -24,7 +24,7 @@ O token do WhatsApp Meta expirou, causando a falta de respostas no WhatsApp.
 1. **Vá em**: "WhatsApp > Webhooks"
 2. **Clique em**: "Configure"
 3. **Configure**:
-   - **URL do Webhook**: `https://atendeai.com.br/webhook/whatsapp-meta`
+   - **URL do Webhook**: `https://atendeai-backend-production.up.railway.app/webhook/whatsapp-meta`
    - **Verify Token**: Crie um token de verificação (ex: `atendeai_verify_2024`)
    - **Selecione**: `messages`, `message_deliveries`
 
@@ -45,7 +45,7 @@ WHATSAPP_META_ACCESS_TOKEN=EAAS... (seu novo token)
 WHATSAPP_META_PHONE_NUMBER_ID=698766983327246
 
 # Webhook URL
-WEBHOOK_URL=https://atendeai.com.br/webhook/whatsapp-meta
+WEBHOOK_URL=https://atendeai-backend-production.up.railway.app/webhook/whatsapp-meta
 ```
 
 ### 🧪 **4. TESTAR CORREÇÃO**
@@ -128,8 +128,8 @@ node scripts/health-check-simple.js
 
 ### URLs Importantes:
 - **Meta Developers**: https://developers.facebook.com/apps/
-- **Webhook URL**: https://atendeai.com.br/webhook/whatsapp-meta
-- **Health Check**: https://atendeai.com.br/health
+- **Webhook URL**: https://atendeai-backend-production.up.railway.app/webhook/whatsapp-meta
+- **Health Check**: https://atendeai-backend-production.up.railway.app/health
 
 ## 🎯 **RESULTADO ESPERADO**
 

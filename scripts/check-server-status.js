@@ -7,7 +7,7 @@ console.log('🔍 Verificando status do servidor...\n');
 function checkServerStatus() {
   try {
     console.log('1. Testando conectividade básica...');
-    const pingResult = execSync('ping -c 3 31.97.241.19', { encoding: 'utf8' });
+    const pingResult = execSync('ping -c 3 atendeai-backend-production.up.railway.app', { encoding: 'utf8' });
     console.log('✅ Servidor responde ao ping');
     console.log(pingResult);
   } catch (error) {
@@ -17,7 +17,7 @@ function checkServerStatus() {
 
   try {
     console.log('\n2. Testando porta 3001...');
-    const curlResult = execSync('curl -s --connect-timeout 10 http://31.97.241.19:3001/health', { encoding: 'utf8' });
+    const curlResult = execSync('curl -s --connect-timeout 10 https://atendeai-backend-production.up.railway.app/health', { encoding: 'utf8' });
     console.log('✅ Servidor responde na porta 3001');
     console.log('   Resposta:', curlResult);
   } catch (error) {
@@ -27,7 +27,7 @@ function checkServerStatus() {
 
   try {
     console.log('\n3. Testando SSH...');
-    const sshResult = execSync('ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@31.97.241.19 "echo OK"', { encoding: 'utf8' });
+    const sshResult = execSync('ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@atendeai-backend-production.up.railway.app "echo OK"', { encoding: 'utf8' });
     console.log('✅ SSH funcionando');
     console.log('   Resposta:', sshResult);
   } catch (error) {

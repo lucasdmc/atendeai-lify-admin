@@ -19,7 +19,7 @@ src/services/apiClient.ts
 src/services/authService.ts
 src/services/contextualizacaoService.ts
 src/services/userService.ts
-src/services/aiChatService.ts
+# aiChatService.ts removido
 src/routes/ai-routes.ts
 
 # Frontend build files
