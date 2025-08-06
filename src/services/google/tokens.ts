@@ -77,7 +77,7 @@ export class GoogleTokenManager {
 
     console.log('Saving tokens for user:', user.id);
 
-    // Salvar tokens diretamente no Supabase
+    // Usar upsert com onConflict para evitar duplicatas
     const { error } = await supabase
       .from('google_calendar_tokens')
       .upsert({
@@ -88,6 +88,8 @@ export class GoogleTokenManager {
         scope: tokens.scope,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_id' // Especificar campo de conflito para evitar duplicatas
       });
 
     if (error) {

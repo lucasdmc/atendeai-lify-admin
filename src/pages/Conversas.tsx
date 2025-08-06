@@ -17,6 +17,7 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/hooks/useAuth';
 import { useClinic } from '@/contexts/ClinicContext';
+import { useConversation } from '@/contexts/ConversationContext';
 
 // Função JavaScript para formatar número de telefone
 const formatPhoneNumber = (phoneNumber: string): string => {
@@ -67,19 +68,31 @@ interface Conversation {
 }
 
 const Conversas = () => {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [filteredConversations, setFilteredConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const navigate = useNavigate();
   const { conversationId } = useParams();
   const { user, userProfile, userRole } = useAuth();
   const { selectedClinicId } = useClinic();
+  
+  // Usar o contexto de conversas
+  const { 
+    conversations, 
+    selectedConversation, 
+    setSelectedConversation, 
+    markConversationAsRead,
+    unreadCount 
+  } = useConversation();
 
   useEffect(() => {
-    fetchConversations();
-  }, [selectedClinicId]);
+    // Simular loading inicial
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const filtered = conversations.filter(conversation => {
@@ -96,160 +109,14 @@ const Conversas = () => {
       const conversation = conversations.find(c => c.id === conversationId);
       setSelectedConversation(conversation || null);
     }
-  }, [conversationId, conversations]);
+  }, [conversationId, conversations, setSelectedConversation]);
 
-  const fetchConversations = async () => {
-    try {
-      console.log('🔄 Buscando conversas...');
-      console.log('🏥 Clínica selecionada:', selectedClinicId);
-      console.log('👤 Role do usuário:', userRole);
-      
-      let data;
-      let error;
-      
-      // Se o usuário é admin_lify ou suporte_lify e tem clínica selecionada
-      if ((userRole === 'admin_lify' || userRole === 'suporte_lify') && selectedClinicId) {
-        console.log('🔍 Buscando conversas da clínica:', selectedClinicId);
-        
-        // Buscar conversas diretamente por clinic_id
-        const { data: clinicConversations, error: convError } = await supabase
-          .from('whatsapp_conversations')
-          .select(`
-            id,
-            phone_number,
-            formatted_phone_number,
-            country_code,
-            name,
-            updated_at,
-            last_message_preview,
-            unread_count
-          `)
-          .eq('clinic_id', selectedClinicId)
-          .order('updated_at', { ascending: false });
-        
-        if (convError) throw convError;
-        
-        data = clinicConversations || [];
-        console.log('📊 Conversas da clínica encontradas:', data.length);
-      } else {
-        // Para usuários normais ou quando não há clínica selecionada, usar conversas gerais
-        console.log('🔍 Buscando conversas gerais...');
-        
-        const { data: generalConversations, error: generalError } = await supabase
-          .from('whatsapp_conversations')
-          .select(`
-            id,
-            phone_number,
-            formatted_phone_number,
-            country_code,
-            name,
-            updated_at,
-            last_message_preview,
-            unread_count
-          `)
-          .order('updated_at', { ascending: false });
-        
-        if (generalError) throw generalError;
-        data = generalConversations;
-      }
-      
-      if (error) throw error;
-      
-      console.log('📊 Conversas encontradas:', data?.length || 0);
-      if (data && data.length > 0) {
-        console.log('📝 Primeira conversa:', data[0]);
-      }
-      
-      // Para cada conversa, buscar a contagem real de mensagens, a última mensagem e o nome do usuário
-      const conversationsWithDetails = await Promise.all(
-        (data || []).map(async (conv) => {
-          let count = 0;
-          let lastMessage = null;
-          
-          // Buscar mensagens gerais (única tabela agora)
-          const { count: messageCount } = await supabase
-            .from('whatsapp_messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('conversation_id', conv.id);
-          
-          const { data: generalLastMessage } = await supabase
-            .from('whatsapp_messages')
-            .select('content, message_type, timestamp')
-            .eq('conversation_id', conv.id)
-            .order('timestamp', { ascending: false })
-            .limit(1)
-            .single();
-          
-          count = messageCount || 0;
-          lastMessage = generalLastMessage;
-          
-          // Buscar nome do usuário na tabela conversation_memory
-          let userName = conv.name; // Usar o nome da conversa como fallback
-          try {
-            const { data: memoryData } = await supabase
-              .from('conversation_memory')
-              .select('user_name')
-              .eq('phone_number', conv.phone_number)
-              .not('user_name', 'is', null)
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .single();
-            
-            if (memoryData?.user_name) {
-              // Tentar fazer parse do user_name se for JSON
-              try {
-                if (typeof memoryData.user_name === 'string' && memoryData.user_name.startsWith('{')) {
-                  const parsedName = JSON.parse(memoryData.user_name);
-                  userName = parsedName.name || memoryData.user_name;
-                } else {
-                  userName = memoryData.user_name;
-                }
-              } catch (parseError) {
-                // Se falhar o parse, usar como string direta
-                userName = memoryData.user_name;
-              }
-              
-              console.log(`👤 Nome encontrado para ${conv.phone_number}: ${userName}`);
-            }
-          } catch (memoryError) {
-            console.log(`📝 Nenhum nome encontrado na memória para ${conv.phone_number}`);
-          }
-          
-          return {
-            ...conv,
-            name: userName, // Atualizar o nome com o valor da memória
-            message_count: count || 0,
-            last_message_preview: lastMessage?.content || conv.last_message_preview,
-            last_message_type: lastMessage?.message_type,
-            updated_at: conv.updated_at || new Date().toISOString()
-          };
-        })
-      );
-
-      // Formatar números de telefone localmente (sem atualizar o banco)
-      for (const conv of conversationsWithDetails) {
-        if (!conv.formatted_phone_number) {
-          try {
-            const formattedNumber = formatPhoneNumber(conv.phone_number);
-            const countryCode = extractCountryCode(conv.phone_number);
-            
-            conv.formatted_phone_number = formattedNumber;
-            conv.country_code = countryCode;
-          } catch (formatError) {
-            console.error('Error formatting phone number:', formatError);
-          }
-        }
-      }
-      
-      setConversations(conversationsWithDetails);
-    } catch (error) {
-      console.error('Error fetching conversations:', error);
-    } finally {
-      setLoading(false);
+  const openConversation = async (conversation: Conversation) => {
+    // Marcar como lida se tiver mensagens não lidas
+    if (conversation.unread_count && conversation.unread_count > 0) {
+      await markConversationAsRead(conversation.id);
     }
-  };
-
-  const openConversation = (conversation: Conversation) => {
+    
     setSelectedConversation(conversation);
   };
 
@@ -316,7 +183,7 @@ const Conversas = () => {
               {conversations.length} conversa{conversations.length !== 1 ? 's' : ''}
             </span>
             <span className="text-gray-600">
-              {conversations.filter(c => c.unread_count && c.unread_count > 0).length} não lida{conversations.filter(c => c.unread_count && c.unread_count > 0).length !== 1 ? 's' : ''}
+              {unreadCount} não lida{unreadCount !== 1 ? 's' : ''}
             </span>
           </div>
         </div>
@@ -344,8 +211,6 @@ const Conversas = () => {
         </ScrollArea>
       </div>
 
-
-      
       {/* Área Principal - Chat */}
       <ChatArea conversation={selectedConversation} />
     </div>

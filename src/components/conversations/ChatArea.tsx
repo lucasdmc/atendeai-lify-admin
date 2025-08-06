@@ -18,6 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getDisplayName } from '@/utils/conversationUtils';
 import { getAvatarUrl, generateColorsFromName } from '@/utils/avatarUtils';
+import { useConversation } from '@/contexts/ConversationContext';
 
 interface Message {
   id: string;
@@ -52,6 +53,8 @@ const ChatArea: React.FC<ChatAreaProps> = ({ conversation }) => {
   const [contactAvatar, setContactAvatar] = useState<string>('');
   const [avatarError, setAvatarError] = useState(false);
   
+  const { markConversationAsRead } = useConversation();
+  
   const displayName = conversation ? getDisplayName(conversation) : '';
   const colors = generateColorsFromName(displayName);
 
@@ -78,8 +81,13 @@ const ChatArea: React.FC<ChatAreaProps> = ({ conversation }) => {
   useEffect(() => {
     if (conversation) {
       fetchMessages();
+      
+      // Marcar como lida automaticamente quando a conversa for aberta
+      if (conversation.unread_count && conversation.unread_count > 0) {
+        markConversationAsRead(conversation.id);
+      }
     }
-  }, [conversation]);
+  }, [conversation, markConversationAsRead]);
 
   const fetchMessages = async () => {
     if (!conversation) return;

@@ -67,35 +67,38 @@ const WhatsAppStyleConversation: React.FC<WhatsAppStyleConversationProps> = ({
     }
   };
 
+  const hasUnreadMessages = conversation.unread_count && conversation.unread_count > 0;
+
   return (
     <div
       className={cn(
-        "flex items-center p-3 cursor-pointer transition-all duration-200 hover:bg-gray-50",
-        isSelected && "bg-blue-50 border-r-2 border-blue-500"
+        "flex items-center p-3 cursor-pointer transition-all duration-200 hover:bg-gray-50 border-b border-gray-100 last:border-b-0",
+        isSelected && "bg-blue-50 border-r-2 border-blue-500",
+        hasUnreadMessages && !isSelected && "bg-gray-50"
       )}
       onClick={onClick}
     >
-                        {/* Avatar com indicador de status */}
-                  <div className="relative mr-3">
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage 
-                        src={avatarUrl} 
-                        onError={() => setAvatarError(true)}
-                      />
-                      <AvatarFallback 
-                        className="font-semibold"
-                        style={{
-                          backgroundColor: colors.backgroundColor,
-                          color: colors.textColor
-                        }}
-                      >
-                        {displayName.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-        
+      {/* Avatar com indicador de status */}
+      <div className="relative mr-3 flex-shrink-0">
+        <Avatar className="h-12 w-12">
+          <AvatarImage 
+            src={avatarUrl} 
+            onError={() => setAvatarError(true)}
+          />
+          <AvatarFallback 
+            className="font-semibold"
+            style={{
+              backgroundColor: colors.backgroundColor,
+              color: colors.textColor
+            }}
+          >
+            {displayName.charAt(0).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+
         {/* Indicador de mensagens não lidas */}
-        {conversation.unread_count && conversation.unread_count > 0 && (
-          <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-green-500 text-white border-2 border-white">
+        {hasUnreadMessages && (
+          <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-green-500 text-white border-2 border-white font-medium">
             {conversation.unread_count > 99 ? '99+' : conversation.unread_count}
           </Badge>
         )}
@@ -107,27 +110,36 @@ const WhatsAppStyleConversation: React.FC<WhatsAppStyleConversationProps> = ({
       {/* Informações da conversa */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-1">
-          <h3 className="font-semibold text-gray-900 truncate">
+          <h3 className={cn(
+            "font-semibold truncate",
+            hasUnreadMessages ? "text-gray-900" : "text-gray-700"
+          )}>
             {displayName}
           </h3>
-          <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
+          <span className={cn(
+            "text-xs flex-shrink-0 ml-2",
+            hasUnreadMessages ? "text-gray-500" : "text-gray-400"
+          )}>
             {formatTime(conversation.updated_at)}
           </span>
         </div>
         
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1 flex-1">
+          <div className="flex items-center gap-1 flex-1 min-w-0">
             {conversation.last_message_type === 'sent' && (
-              <span className="text-xs text-gray-400">✓</span>
+              <span className="text-xs text-gray-400 flex-shrink-0">✓</span>
             )}
-            <p className="text-sm text-gray-600 truncate">
+            <p className={cn(
+              "text-sm truncate",
+              hasUnreadMessages ? "text-gray-900 font-medium" : "text-gray-600"
+            )}>
               {conversation.last_message_preview || formatPhoneNumber(conversation)}
             </p>
           </div>
           
           {/* Indicadores de status */}
-          <div className="flex items-center gap-1 ml-2">
-            {conversation.unread_count && conversation.unread_count > 0 && (
+          <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+            {hasUnreadMessages && (
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
             )}
           </div>

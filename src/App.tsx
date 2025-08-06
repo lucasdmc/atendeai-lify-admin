@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,23 +7,23 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingOptimized } from "@/components/ui/loading-optimized";
 import { ClinicProvider } from "@/contexts/ClinicContext";
+import { ConversationProvider } from "@/contexts/ConversationContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
-// Lazy loading para melhorar performance
-const Auth = lazy(() => import("./pages/Auth"));
-const Layout = lazy(() => import("./components/Layout"));
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const Conversas = lazy(() => import("./pages/Conversas"));
-const ConversaIndividual = lazy(() => import("./pages/ConversaIndividual"));
-const Contextualizar = lazy(() => import("./pages/Contextualizar"));
-const GestaoUsuarios = lazy(() => import("./pages/GestaoUsuarios"));
-const Agendamentos = lazy(() => import("./pages/Agendamentos"));
-const Clinicas = lazy(() => import("./pages/Clinicas"));
-const AIDashboard = lazy(() => import("./pages/AIDashboard"));
-
-const WhatsAppAITest = lazy(() => import("./pages/WhatsAppAITest"));
-const Index = lazy(() => import("./pages/Index"));
-const NotFound = lazy(() => import("./pages/NotFound"));
+// Importações diretas para resolver problema de carregamento
+import Auth from "./pages/Auth";
+import Layout from "./components/Layout";
+import Dashboard from "./pages/Dashboard";
+import Conversas from "./pages/Conversas";
+import ConversaIndividual from "./pages/ConversaIndividual";
+import Contextualizar from "./pages/Contextualizar";
+import GestaoUsuarios from "./pages/GestaoUsuarios";
+import Agendamentos from "./pages/Agendamentos";
+import Clinicas from "./pages/Clinicas";
+import AIDashboard from "./pages/AIDashboard";
+import WhatsAppAITest from "./pages/WhatsAppAITest";
+import Index from "./pages/Index";
+import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,7 +31,7 @@ const queryClient = new QueryClient({
       retry: 1,
       refetchOnWindowFocus: false,
       staleTime: 5 * 60 * 1000, // 5 minutos
-      cacheTime: 10 * 60 * 1000, // 10 minutos
+      gcTime: 10 * 60 * 1000, // 10 minutos (substituído cacheTime por gcTime)
     },
     mutations: {
       retry: 1,
@@ -39,12 +39,7 @@ const queryClient = new QueryClient({
   },
 });
 
-// Componente de loading otimizado para páginas
-const PageLoader = () => (
-  <div className="flex items-center justify-center min-h-screen">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-  </div>
-);
+
 
 const App = () => {
   const { session, loading } = useAuth();
@@ -78,11 +73,11 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <ClinicProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <ErrorBoundary>
-              <Suspense fallback={<PageLoader />}>
+          <ConversationProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <ErrorBoundary>
                 <Routes>
                 {!session ? (
                   <>
@@ -171,9 +166,9 @@ const App = () => {
                   </>
                 )}
               </Routes>
-            </Suspense>
             </ErrorBoundary>
           </BrowserRouter>
+            </ConversationProvider>
         </ClinicProvider>
       </TooltipProvider>
     </QueryClientProvider>

@@ -26,5 +26,27 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+  },
+  optimizeDeps: {
+    force: true, // Força recompilação das dependências
+    include: [
+      'react',
+      'react-dom',
+      'recharts',
+      '@radix-ui/react-tabs',
+      '@radix-ui/react-switch',
+      'lucide-react'
+    ]
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          ui: ['@radix-ui/react-tabs', '@radix-ui/react-switch'],
+          charts: ['recharts']
+        }
+      }
+    }
   }
 }))

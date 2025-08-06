@@ -901,13 +901,179 @@ DIRETRIZES FUNDAMENTAIS:
           personalizedGreeting = initialGreeting.replace('Como posso ajudá-lo hoje?', `Como posso ajudá-lo hoje, ${userProfile.name}?`);
         }
         
-        return personalizedGreeting + "\n\n" + response;
+        // 1. Verificar se já tem saudação na resposta do LLM
+        const hasGreeting = response.includes('Olá! Sou o') || 
+                           response.includes('assistente virtual') ||
+                           response.includes('Como posso ajudá-lo') ||
+                           response.includes('Em que posso ajudar') ||
+                           response.includes('Como posso cuidar');
+        
+        console.log('🔍 Verificando duplicação de saudação:', hasGreeting ? 'ENCONTRADA' : 'NÃO ENCONTRADA');
+        
+        if (hasGreeting) {
+          // 2. Remover saudações duplicadas da resposta
+          const cleanResponse = this.removeGreetingPatterns(response);
+          console.log('🧹 Saudação duplicada removida da resposta');
+          return personalizedGreeting + "\n\n" + cleanResponse;
+        } else {
+          // Não tem saudação, adicionar normalmente
+          return personalizedGreeting + "\n\n" + response;
+        }
       }
 
-      return response;
+      // Para todas as respostas (primeira conversa ou não), verificar duplicações gerais
+      const cleanedResponse = this.removeDuplicateContent(response);
+      if (cleanedResponse !== response) {
+        console.log('🧹 Conteúdo duplicado removido da resposta');
+      }
+
+      // Verificar se há duplicações reais que precisam ser tratadas
+      if (this.hasRealDuplications(cleanedResponse)) {
+        console.log('⚠️ Duplicações reais detectadas, aplicando limpeza adicional');
+        return this.removeGreetingPatterns(cleanedResponse);
+      }
+
+      return cleanedResponse;
     } catch (error) {
       console.error('❌ Erro ao aplicar lógica de resposta:', error);
       return response;
     }
+  }
+
+  /**
+   * Remove padrões de saudação duplicados da resposta
+   */
+  static removeGreetingPatterns(text) {
+    const patterns = [
+      /Olá! Sou o .*?assistente virtual.*?Como posso ajudá-lo hoje\?/gi,
+      /Olá! Sou o .*?assistente virtual.*?Em que posso ajudar/gi,
+      /Olá! Sou o .*?assistente virtual.*?Como posso cuidar/gi,
+      /Olá! Sou o .*?assistente virtual.*?Como posso ajudá-lo/gi,
+      /Olá! Sou o .*?assistente virtual.*?Em que posso ajudá-lo/gi,
+      /Olá! Sou o .*?assistente virtual.*?Como posso ajudar/gi,
+      // Padrões mais específicos para o caso real
+      /Olá! Sou o Cardio, assistente virtual da CardioPrime\. Em que posso ajudar você hoje\?/gi,
+      /Olá! Sou o Cardio, assistente virtual da CardioPrime\. Como posso cuidar da sua saúde cardiovascular hoje\?/gi,
+      /Olá! Sou o Cardio, assistente virtual da CardioPrime\. Como posso ajudá-lo hoje\?/gi
+    ];
+    
+    let cleanText = text;
+    patterns.forEach(pattern => {
+      cleanText = cleanText.replace(pattern, '');
+    });
+    
+    // Limpar espaços extras e quebras de linha duplicadas
+    cleanText = cleanText.replace(/\n\s*\n/g, '\n\n').trim();
+    
+    // Remover frases soltas que podem ter ficado
+    cleanText = cleanText.replace(/^você hoje\?\s*/gi, '');
+    cleanText = cleanText.replace(/^Em que posso ajudar\s*/gi, '');
+    cleanText = cleanText.replace(/^Como posso ajudá-lo\s*/gi, '');
+    
+    return cleanText;
+  }
+
+  /**
+   * Remove conteúdo duplicado de forma geral da resposta
+   */
+  static removeDuplicateContent(text) {
+    // Dividir o texto em frases
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    
+    // Array para armazenar frases únicas
+    const uniqueSentences = [];
+    const seenPhrases = new Set();
+    
+    for (const sentence of sentences) {
+      const cleanSentence = sentence.trim();
+      if (cleanSentence.length === 0) continue;
+      
+      // Normalizar a frase para comparação (remover espaços extras, converter para minúsculas)
+      const normalizedSentence = cleanSentence.toLowerCase().replace(/\s+/g, ' ').trim();
+      
+      // Verificar se a frase já foi vista (com tolerância para pequenas variações)
+      const isDuplicate = Array.from(seenPhrases).some(seen => {
+        const similarity = this.calculateSimilarity(normalizedSentence, seen);
+        return similarity > 0.9; // Aumentar para 90% de similaridade para ser mais rigoroso
+      });
+      
+      if (!isDuplicate) {
+        uniqueSentences.push(cleanSentence);
+        seenPhrases.add(normalizedSentence);
+      }
+    }
+    
+    // Reconstruir o texto sem duplicações
+    let result = uniqueSentences.join('. ');
+    
+    // Garantir que termina com pontuação
+    if (result && !result.match(/[.!?]$/)) {
+      result += '.';
+    }
+    
+    // Limpar espaços extras e quebras de linha
+    result = result.replace(/\s+/g, ' ').trim();
+    
+    return result;
+  }
+
+  /**
+   * Calcula a similaridade entre duas strings usando algoritmo de similaridade de Jaccard
+   */
+  static calculateSimilarity(str1, str2) {
+    if (str1 === str2) return 1.0;
+    if (str1.length === 0 || str2.length === 0) return 0.0;
+    
+    // Dividir em palavras
+    const words1 = new Set(str1.split(/\s+/));
+    const words2 = new Set(str2.split(/\s+/));
+    
+    // Filtrar palavras muito comuns que não indicam duplicação
+    const commonWords = new Set(['a', 'o', 'e', 'de', 'da', 'do', 'em', 'para', 'com', 'que', 'se', 'não', 'é', 'são', 'tem', 'está', 'pode', 'posso', 'te', 'você', 'nossa', 'nossos', 'sua', 'seus']);
+    
+    const filteredWords1 = new Set([...words1].filter(word => !commonWords.has(word.toLowerCase())));
+    const filteredWords2 = new Set([...words2].filter(word => !commonWords.has(word.toLowerCase())));
+    
+    // Se após filtrar não há palavras significativas, usar comparação original
+    if (filteredWords1.size === 0 && filteredWords2.size === 0) {
+      const intersection = new Set([...words1].filter(x => words2.has(x)));
+      const union = new Set([...words1, ...words2]);
+      return intersection.size / union.size;
+    }
+    
+    // Calcular interseção e união das palavras filtradas
+    const intersection = new Set([...filteredWords1].filter(x => filteredWords2.has(x)));
+    const union = new Set([...filteredWords1, ...filteredWords2]);
+    
+    return intersection.size / union.size;
+  }
+
+  /**
+   * Detecta se há duplicações reais no texto (não apenas palavras comuns repetidas)
+   */
+  static hasRealDuplications(text) {
+    // Padrões de duplicações reais que queremos detectar
+    const duplicationPatterns = [
+      /Olá! Sou o .*?assistente virtual.*?Como posso ajudá-lo hoje\?/gi,
+      /Olá! Sou o .*?assistente virtual.*?Em que posso ajudar/gi,
+      /Olá! Sou o .*?assistente virtual.*?Como posso cuidar/gi,
+      /Olá! Sou o .*?assistente virtual.*?Como posso ajudá-lo/gi,
+      /Olá! Sou o .*?assistente virtual.*?Em que posso ajudá-lo/gi,
+      /Olá! Sou o .*?assistente virtual.*?Como posso ajudar/gi,
+      // Padrões mais específicos para o caso real
+      /Olá! Sou o Cardio, assistente virtual da CardioPrime\. Em que posso ajudar você hoje\?/gi,
+      /Olá! Sou o Cardio, assistente virtual da CardioPrime\. Como posso cuidar da sua saúde cardiovascular hoje\?/gi,
+      /Olá! Sou o Cardio, assistente virtual da CardioPrime\. Como posso ajudá-lo hoje\?/gi
+    ];
+    
+    // Verificar se há padrões de duplicação
+    for (const pattern of duplicationPatterns) {
+      const matches = text.match(pattern);
+      if (matches && matches.length > 1) {
+        return true;
+      }
+    }
+    
+    return false;
   }
 } 

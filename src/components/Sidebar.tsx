@@ -2,6 +2,7 @@ import { useState, memo, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocation, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { 
   LayoutDashboard, 
   MessageSquare, 
@@ -19,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { hasPermission } from '@/components/users/UserRoleUtils';
 import { useClinic } from '@/contexts/ClinicContext';
 import { useSidebar } from '@/contexts/SidebarContext';
+// import { useConversation } from '@/contexts/ConversationContext';
 
 // Interface estendida para incluir configuração WhatsApp
 interface ClinicWithWhatsApp {
@@ -55,7 +57,8 @@ const menuItems = [
     title: 'Conversas',
     icon: MessageSquare,
     href: '/conversas',
-    permission: 'conversas'
+    permission: 'conversas',
+    showBadge: true // Indicar que este item pode ter badge
   },
 
   {
@@ -95,6 +98,8 @@ const Sidebar = memo(() => {
   const { isCollapsed, setIsCollapsed } = useSidebar();
   const { userRole, loading } = useAuth();
   const { selectedClinic } = useClinic();
+  // const { unreadCount } = useConversation();
+  const unreadCount = 0; // Temporariamente desabilitado para resolver erro
   const location = useLocation();
 
   // Filtrar itens do menu baseado nas permissões do usuário e configuração da clínica
@@ -104,8 +109,6 @@ const Sidebar = memo(() => {
       if (!hasPermission(userRole, item.permission)) {
         return false;
       }
-
-
 
       return true;
     });
@@ -166,6 +169,7 @@ const Sidebar = memo(() => {
             {filteredMenuItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.href;
+              // const showBadge = item.showBadge && unreadCount > 0;
               
               return (
                 <Link
@@ -173,7 +177,7 @@ const Sidebar = memo(() => {
                   to={item.href}
                   onClick={() => setIsOpen(false)}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative",
                     isCollapsed ? "justify-center px-2" : "",
                     isActive
                       ? "bg-gradient-to-r from-orange-100 to-pink-100 text-orange-600 border border-orange-200"
@@ -181,8 +185,34 @@ const Sidebar = memo(() => {
                   )}
                   title={isCollapsed ? item.title : undefined}
                 >
-                  <Icon className="h-5 w-5" />
-                  {!isCollapsed && item.title}
+                  <div className="relative">
+                    <Icon className="h-5 w-5" />
+                    {/* Temporariamente desabilitado
+                    {showBadge && (
+                      <Badge 
+                        variant="destructive" 
+                        className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+                      >
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </Badge>
+                    )}
+                    */}
+                  </div>
+                  {!isCollapsed && (
+                    <div className="flex items-center justify-between flex-1">
+                      <span>{item.title}</span>
+                      {/* Temporariamente desabilitado
+                      {showBadge && (
+                        <Badge 
+                          variant="destructive" 
+                          className="ml-auto h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+                        >
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </Badge>
+                      )}
+                      */}
+                    </div>
+                  )}
                 </Link>
               );
             })}
@@ -208,6 +238,13 @@ const Sidebar = memo(() => {
               <div className="text-xs text-gray-600 mt-2">
                 <div>Role: {userRole || 'N/A'}</div>
                 <div>Módulos: {filteredMenuItems.length}</div>
+                {/* Temporariamente desabilitado
+                {unreadCount > 0 && (
+                  <div className="text-orange-600 font-medium">
+                    {unreadCount} não lida{unreadCount !== 1 ? 's' : ''}
+                  </div>
+                )}
+                */}
               </div>
             )}
           </div>
