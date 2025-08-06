@@ -309,7 +309,7 @@ export class ConfidenceService {
 
     const recentMessages = conversationHistory
       .filter(msg => msg.role === 'user')
-      .slice(-3); // Últimas 3 mensagens do usuário
+      .slice(-15); // Últimas 15 mensagens do usuário
 
     let emotionalScore = 0.8;
 

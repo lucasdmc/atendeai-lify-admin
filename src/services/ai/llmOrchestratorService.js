@@ -265,7 +265,7 @@ INFORMAÇÕES DA CLÍNICA:
 
     // Adicionar histórico relevante
     if (memory.history && memory.history.length > 0) {
-      const recentHistory = memory.history.slice(-6);
+      const recentHistory = memory.history.slice(-15);
       console.log('  - Usando últimas:', recentHistory.length, 'mensagens');
       
       recentHistory.forEach((h, index) => {
