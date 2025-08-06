@@ -5,18 +5,20 @@ import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, 
   MessageSquare, 
-  QrCode,
   Users, 
   Sparkles,
   Menu,
   X,
   Calendar,
   Building2,
-  Bot
+  Bot,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { hasPermission } from '@/components/users/UserRoleUtils';
 import { useClinic } from '@/contexts/ClinicContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 
 // Interface estendida para incluir configuração WhatsApp
 interface ClinicWithWhatsApp {
@@ -55,12 +57,7 @@ const menuItems = [
     href: '/conversas',
     permission: 'conversas'
   },
-  {
-    title: 'Conectar WhatsApp',
-    icon: QrCode,
-    href: '/conectar-whatsapp',
-    permission: 'conectar_whatsapp'
-  },
+
   {
     title: 'Agendamentos',
     icon: Calendar,
@@ -95,6 +92,7 @@ const menuItems = [
 
 const Sidebar = memo(() => {
   const [isOpen, setIsOpen] = useState(false);
+  const { isCollapsed, setIsCollapsed } = useSidebar();
   const { userRole, loading } = useAuth();
   const { selectedClinic } = useClinic();
   const location = useLocation();
@@ -107,20 +105,7 @@ const Sidebar = memo(() => {
         return false;
       }
 
-      // Se for o item "Conectar WhatsApp", verificar configuração da clínica
-      if (item.href === '/conectar-whatsapp') {
-        // Se não há clínica selecionada, mostrar (para admin_lify)
-        if (!selectedClinic) {
-          return true;
-        }
 
-        // Se a clínica está configurada para Meta API, não mostrar
-        const clinicWithWhatsApp = selectedClinic as ClinicWithWhatsApp;
-        const integrationType = clinicWithWhatsApp?.whatsapp_integration_type;
-        if (integrationType === 'meta_api') {
-          return false;
-        }
-      }
 
       return true;
     });
@@ -152,23 +137,32 @@ const Sidebar = memo(() => {
 
       {/* Sidebar */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0",
+        "fixed inset-y-0 left-0 z-40 bg-white shadow-lg transform transition-all duration-300 ease-in-out lg:translate-x-0",
+        isCollapsed ? "w-16" : "w-64",
         isOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center gap-2 p-6 border-b">
+          <div className={cn(
+            "flex items-center gap-2 p-6 border-b",
+            isCollapsed ? "justify-center p-4" : ""
+          )}>
             <Sparkles className="h-8 w-8 text-orange-500" />
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-transparent">
-                Lify
-              </h1>
-              <p className="text-xs text-gray-600">AtendeAÍ</p>
-            </div>
+            {!isCollapsed && (
+              <div>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-transparent">
+                  Lify
+                </h1>
+                <p className="text-xs text-gray-600">AtendeAÍ</p>
+              </div>
+            )}
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-2">
+          <nav className={cn(
+            "flex-1 space-y-2",
+            isCollapsed ? "p-2" : "p-4"
+          )}>
             {filteredMenuItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.href;
@@ -180,24 +174,42 @@ const Sidebar = memo(() => {
                   onClick={() => setIsOpen(false)}
                   className={cn(
                     "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                    isCollapsed ? "justify-center px-2" : "",
                     isActive
                       ? "bg-gradient-to-r from-orange-100 to-pink-100 text-orange-600 border border-orange-200"
                       : "text-gray-600 hover:bg-gray-100"
                   )}
+                  title={isCollapsed ? item.title : undefined}
                 >
                   <Icon className="h-5 w-5" />
-                  {item.title}
+                  {!isCollapsed && item.title}
                 </Link>
               );
             })}
           </nav>
 
-          {/* User info */}
-          <div className="p-4 border-t bg-gray-50">
-            <div className="text-xs text-gray-600">
-              <div>Role: {userRole || 'N/A'}</div>
-              <div>Módulos: {filteredMenuItems.length}</div>
-            </div>
+          {/* Collapse/Expand Button */}
+          <div className={cn(
+            "p-4 border-t bg-gray-50",
+            isCollapsed ? "p-2" : ""
+          )}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-full"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              title={isCollapsed ? "Expandir menu" : "Recuar menu"}
+            >
+              {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            </Button>
+            
+            {/* User info - only show when not collapsed */}
+            {!isCollapsed && (
+              <div className="text-xs text-gray-600 mt-2">
+                <div>Role: {userRole || 'N/A'}</div>
+                <div>Módulos: {filteredMenuItems.length}</div>
+              </div>
+            )}
           </div>
         </div>
       </div>

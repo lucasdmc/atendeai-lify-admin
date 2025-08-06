@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import { SidebarProvider, useSidebar } from '@/contexts/SidebarContext';
 
 interface LayoutProps {
   children: ReactNode;
@@ -24,14 +25,27 @@ const Layout = ({ children }: LayoutProps) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Sidebar />
-      <div className="lg:ml-64">
-        <Header />
-        <main className="p-6">
-          {children}
-        </main>
+    <SidebarProvider>
+      <div className="min-h-screen bg-gray-50">
+        <Sidebar />
+        <MainContent>
+          <Header />
+          <main className="p-6">
+            {children}
+          </main>
+        </MainContent>
       </div>
+    </SidebarProvider>
+  );
+};
+
+// Componente separado para o conteúdo principal que usa o contexto
+const MainContent = ({ children }: { children: ReactNode }) => {
+  const { isCollapsed } = useSidebar();
+  
+  return (
+    <div className={isCollapsed ? "lg:ml-16" : "lg:ml-64"}>
+      {children}
     </div>
   );
 };

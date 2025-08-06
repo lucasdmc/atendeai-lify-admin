@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { config } from '@/config/environment';
+import { config } from '@/config/frontend-config';
 
 // Interfaces
 export interface ApiResponse<T = any> {
@@ -16,7 +16,7 @@ export interface ApiError {
 }
 
 // Configuração do cliente
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || config.whatsapp.serverUrl;
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || config.backend.url;
 
 class ApiClient {
   private client: AxiosInstance;
@@ -277,4 +277,4 @@ const apiClient = new ApiClient();
 
 export default apiClient;
 export { ApiClient };
-export type { ApiResponse, ApiError }; 
+// Export types 

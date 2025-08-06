@@ -35,31 +35,31 @@ export interface AIConfig {
 // Configuração padrão
 export const defaultAIConfig: AIConfig = {
   openai: {
-    apiKey: process.env.OPENAI_API_KEY || '',
-    organization: process.env.OPENAI_ORG_ID,
-    baseURL: process.env.OPENAI_BASE_URL,
+    apiKey: import.meta.env.VITE_OPENAI_API_KEY || '',
+    organization: import.meta.env.VITE_OPENAI_ORG_ID,
+    baseURL: import.meta.env.VITE_OPENAI_BASE_URL,
   },
   anthropic: {
-    apiKey: process.env.ANTHROPIC_API_KEY || '',
-    baseURL: process.env.ANTHROPIC_BASE_URL,
+    apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY || '',
+    baseURL: import.meta.env.VITE_ANTHROPIC_BASE_URL,
   },
   google: {
-    apiKey: process.env.GOOGLE_API_KEY || '',
-    projectId: process.env.GOOGLE_PROJECT_ID || '',
+    apiKey: import.meta.env.VITE_GOOGLE_API_KEY || '',
+    projectId: import.meta.env.VITE_GOOGLE_PROJECT_ID || '',
   },
   azure: {
-    apiKey: process.env.AZURE_OPENAI_API_KEY || '',
-    endpoint: process.env.AZURE_OPENAI_ENDPOINT || '',
-    deploymentName: process.env.AZURE_OPENAI_DEPLOYMENT_NAME || '',
+    apiKey: import.meta.env.VITE_AZURE_OPENAI_API_KEY || '',
+    endpoint: import.meta.env.VITE_AZURE_OPENAI_ENDPOINT || '',
+    deploymentName: import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT_NAME || '',
   },
   whisper: {
-    apiKey: process.env.OPENAI_API_KEY || '', // Usa mesma chave do OpenAI
+    apiKey: import.meta.env.VITE_OPENAI_API_KEY || '', // Usa mesma chave do OpenAI
   },
   tts: {
-    apiKey: process.env.OPENAI_API_KEY || '', // Usa mesma chave do OpenAI
+    apiKey: import.meta.env.VITE_OPENAI_API_KEY || '', // Usa mesma chave do OpenAI
   },
   embeddings: {
-    apiKey: process.env.OPENAI_API_KEY || '', // Usa mesma chave do OpenAI
+    apiKey: import.meta.env.VITE_OPENAI_API_KEY || '', // Usa mesma chave do OpenAI
   },
 };
 

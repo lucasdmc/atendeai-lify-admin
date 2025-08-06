@@ -1,6 +1,6 @@
-import { config } from '@/config/environment';
+import { supabase } from '@/integrations/supabase/client';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || config.whatsapp.serverUrl;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co';
 
 export interface CreateUserData {
   name: string;
@@ -30,30 +30,35 @@ export interface Clinic {
 
 class UserService {
   /**
-   * Listar usuários via backend (sem autenticação para teste)
+   * Listar usuários via Supabase
    */
   async listUsers(): Promise<{ success: boolean; users?: User[]; error?: string }> {
     try {
-      console.log('🔄 Listando usuários via backend...');
+      console.log('🔄 Listando usuários via Supabase...');
       
-      const response = await fetch(`${BACKEND_URL}/api/users`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const { data: users, error } = await supabase
+        .from('user_profiles')
+        .select(`
+          user_id,
+          name,
+          email,
+          role,
+          status,
+          created_at,
+          clinic_id,
+          clinics(name)
+        `)
+        .order('created_at', { ascending: false });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        console.error('❌ Erro do backend:', data);
-        throw new Error(data.error || 'Erro ao listar usuários');
+      if (error) {
+        console.error('❌ Erro do Supabase:', error);
+        throw new Error(error.message || 'Erro ao listar usuários');
       }
 
-      console.log('✅ Usuários carregados do backend:', data.users);
+      console.log('✅ Usuários carregados do Supabase:', users);
       
       // Mapear para o formato esperado
-      const mappedUsers: User[] = data.users.map((user: any) => ({
+      const mappedUsers: User[] = users.map((user: any) => ({
         id: user.user_id,
         name: user.name,
         email: user.email,
@@ -74,16 +79,17 @@ class UserService {
   }
 
   /**
-   * Criar usuário via backend (sem autenticação para teste)
+   * Criar usuário via Supabase Edge Function
    */
   async createUser(userData: CreateUserData): Promise<{ success: boolean; user?: User; error?: string }> {
     try {
-      console.log('🔄 Criando usuário via backend...');
+      console.log('🔄 Criando usuário via Supabase Edge Function...');
       
-      const response = await fetch(`${BACKEND_URL}/api/users/create`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/create-user-auth`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
         },
         body: JSON.stringify(userData)
       });
@@ -91,11 +97,11 @@ class UserService {
       const data = await response.json();
 
       if (!response.ok) {
-        console.error('❌ Erro do backend:', data);
+        console.error('❌ Erro da Edge Function:', data);
         throw new Error(data.error || 'Erro ao criar usuário');
       }
 
-      console.log('✅ Usuário criado no backend:', data.user);
+      console.log('✅ Usuário criado via Edge Function:', data.user);
       
       const mappedUser: User = {
         id: data.user.user_id,
@@ -118,29 +124,25 @@ class UserService {
   }
 
   /**
-   * Listar clínicas via backend (sem autenticação para teste)
+   * Listar clínicas via Supabase
    */
   async listClinics(): Promise<{ success: boolean; clinics?: Clinic[]; error?: string }> {
     try {
-      console.log('🔄 Listando clínicas via backend...');
+      console.log('🔄 Listando clínicas via Supabase...');
       
-      const response = await fetch(`${BACKEND_URL}/api/clinics`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const { data: clinics, error } = await supabase
+        .from('clinics')
+        .select('id, name')
+        .order('name', { ascending: true });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        console.error('❌ Erro do backend:', data);
-        throw new Error(data.error || 'Erro ao listar clínicas');
+      if (error) {
+        console.error('❌ Erro do Supabase:', error);
+        throw new Error(error.message || 'Erro ao listar clínicas');
       }
 
-      console.log('✅ Clínicas carregadas do backend:', data.clinics);
+      console.log('✅ Clínicas carregadas do Supabase:', clinics);
       
-      const mappedClinics: Clinic[] = data.clinics.map((clinic: any) => ({
+      const mappedClinics: Clinic[] = clinics.map((clinic: any) => ({
         id: clinic.id,
         name: clinic.name
       }));

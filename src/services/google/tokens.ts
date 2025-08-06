@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { config } from '@/config/environment';
+import { config } from '@/config/frontend-config';
 
 export interface CalendarToken {
   access_token: string;
@@ -11,17 +11,18 @@ export interface CalendarToken {
 export class GoogleTokenManager {
   async exchangeCodeForTokens(code: string): Promise<CalendarToken> {
     console.log('=== TOKEN EXCHANGE PROCESS ===');
-    console.log('Exchanging authorization code for tokens via Backend...');
+    console.log('Exchanging authorization code for tokens via Supabase Edge Function...');
     
     const redirectUri = config.urls.redirectUri;
     console.log('Using redirect URI for token exchange:', redirectUri);
     
     try {
-      // Usar o novo backend para trocar o código por tokens
-      const response = await fetch(`${config.backend.url}/api/auth/google/exchange-code`, {
+      // Usar a Edge Function do Supabase para trocar o código por tokens
+      const response = await fetch(`${config.supabase.url}/functions/v1/google-user-auth`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${config.supabase.anonKey}`
         },
         body: JSON.stringify({
           code,
@@ -32,11 +33,7 @@ export class GoogleTokenManager {
       const data = await response.json();
 
       if (!response.ok) {
-        console.error('Backend error:', data);
-        throw new Error(data.error || 'Failed to exchange code for tokens');
-      }
-
-      if (!data.success) {
+        console.error('Supabase Edge Function error:', data);
         throw new Error(data.error || 'Failed to exchange code for tokens');
       }
 
@@ -71,7 +68,7 @@ export class GoogleTokenManager {
   }
 
   async saveTokens(tokens: CalendarToken): Promise<void> {
-    console.log('Saving tokens to database via Backend...');
+    console.log('Saving tokens to database via Supabase...');
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       console.error('No authenticated user found when saving tokens');
@@ -80,29 +77,25 @@ export class GoogleTokenManager {
 
     console.log('Saving tokens for user:', user.id);
 
-    // Usar o novo backend para salvar tokens
-    const response = await fetch(`${config.backend.url}/api/auth/google/save-tokens`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        userId: user.id,
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        expiresAt: tokens.expires_at,
-        scope: tokens.scope
-      })
-    });
+    // Salvar tokens diretamente no Supabase
+    const { error } = await supabase
+      .from('google_calendar_tokens')
+      .upsert({
+        user_id: user.id,
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_at: tokens.expires_at,
+        scope: tokens.scope,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error('Error saving tokens to backend:', data);
-      throw new Error(data.error || 'Failed to save tokens');
+    if (error) {
+      console.error('Error saving tokens to Supabase:', error);
+      throw new Error(error.message || 'Failed to save tokens');
     }
 
-    console.log('Tokens saved successfully via Backend');
+    console.log('Tokens saved successfully via Supabase');
   }
 
   async getStoredTokens(): Promise<CalendarToken | null> {
@@ -115,32 +108,29 @@ export class GoogleTokenManager {
     console.log('Fetching stored tokens for user:', user.id);
 
     try {
-      // Usar o novo backend para obter tokens
-      const response = await fetch(`${config.backend.url}/api/auth/google/tokens/${user.id}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      // Buscar tokens diretamente do Supabase
+      const { data, error } = await supabase
+        .from('google_calendar_tokens')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        console.log('Error fetching stored tokens:', data);
+      if (error) {
+        console.log('Error fetching stored tokens:', error);
         return null;
       }
 
-      if (!data.success || !data.tokens) {
+      if (!data) {
         console.log('No stored tokens found');
         return null;
       }
 
       console.log('Stored tokens found successfully');
       return {
-        access_token: data.tokens.access_token,
-        refresh_token: data.tokens.refresh_token || '',
-        expires_at: data.tokens.expires_at,
-        scope: data.tokens.scope || '',
+        access_token: data.access_token,
+        refresh_token: data.refresh_token || '',
+        expires_at: data.expires_at,
+        scope: data.scope || '',
       };
     } catch (error) {
       console.error('Unexpected error getting stored tokens:', error);
@@ -149,23 +139,25 @@ export class GoogleTokenManager {
   }
 
   async refreshTokens(refreshToken: string): Promise<CalendarToken> {
-    console.log('Refreshing access token via Backend...');
+    console.log('Refreshing access token via Google API...');
     
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       throw new Error('User not authenticated');
     }
 
-    // Usar o novo backend para renovar tokens
-    const response = await fetch(`${config.backend.url}/api/auth/google/refresh-tokens`, {
+    // Renovar tokens diretamente via Google API
+    const response = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: JSON.stringify({
-        userId: user.id,
-        refreshToken
-      })
+      body: new URLSearchParams({
+        client_id: config.google.clientId,
+        client_secret: '', // Client secret não deve estar no frontend
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token',
+      }),
     });
 
     const data = await response.json();
@@ -177,10 +169,13 @@ export class GoogleTokenManager {
 
     console.log('Token refresh successful');
     
+    // Calcular nova data de expiração
+    const expiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString();
+    
     return {
       access_token: data.access_token,
-      refresh_token: data.refresh_token,
-      expires_at: data.expires_at,
+      refresh_token: data.refresh_token || refreshToken, // Manter o refresh token original se não for fornecido
+      expires_at: expiresAt,
       scope: data.scope,
     };
   }

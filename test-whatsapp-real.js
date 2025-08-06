@@ -57,7 +57,7 @@ console.log('');
 console.log('📋 3. Testando processamento com serviços robustos...');
 
 try {
-  const { LLMOrchestratorService } = await import('./src/services/ai/llmOrchestratorService.ts');
+  const { LLMOrchestratorService } = await import('./src/services/ai/llmOrchestratorService.js');
   
   const testRequest = {
     phoneNumber: '5547997192447', // Seu número pessoal

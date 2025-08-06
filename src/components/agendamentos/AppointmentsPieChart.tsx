@@ -1,5 +1,5 @@
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { ChartPie, TrendingUp, BarChart3 } from 'lucide-react';
+import { PieChart as LucidePieChart, TrendingUp, BarChart3 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import ChartTooltip from './ChartTooltip';
 import ChartLegend from './ChartLegend';
@@ -24,7 +24,7 @@ const AppointmentsPieChart = ({ data }: AppointmentsPieChartProps) => {
         <CardHeader className="pb-3 px-6 pt-4 relative z-10">
           <CardTitle className="flex items-center gap-3 text-gray-900">
             <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg">
-              <ChartPie className="h-5 w-5 text-white" />
+              <LucidePieChart className="h-5 w-5 text-white" />
             </div>
             <div>
               <span className="text-lg font-bold">Distribuição de Eventos</span>
@@ -35,7 +35,7 @@ const AppointmentsPieChart = ({ data }: AppointmentsPieChartProps) => {
         <CardContent className="px-6 pb-6 relative z-10">
           <div className="text-center py-8">
             <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center border-4 border-blue-200/50 shadow-lg">
-              <ChartPie className="h-10 w-10 text-blue-600" />
+              <LucidePieChart className="h-10 w-10 text-blue-600" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum evento encontrado</h3>
             <p className="text-sm text-gray-600 mb-3">Crie seu primeiro agendamento para ver as estatísticas</p>
@@ -57,7 +57,7 @@ const AppointmentsPieChart = ({ data }: AppointmentsPieChartProps) => {
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-3 text-gray-900">
             <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg">
-              <ChartPie className="h-5 w-5 text-white" />
+              <LucidePieChart className="h-5 w-5 text-white" />
             </div>
             <div>
               <span className="text-lg font-bold">Distribuição de Eventos</span>

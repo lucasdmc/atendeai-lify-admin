@@ -56,9 +56,16 @@ const ConversationCard: React.FC<ConversationCardProps> = ({
               {conversation.message_count} mensagens
             </Badge>
           </div>
-          <p className="text-sm text-gray-600 font-mono">
-            {conversation.formatted_phone_number || conversation.phone_number}
-          </p>
+          {/* Exibir apenas o número se o displayName já contém nome + número */}
+          {displayName.includes('(') && displayName.includes(')') ? (
+            <p className="text-xs text-gray-500 mt-1">
+              Nome salvo na conversa
+            </p>
+          ) : (
+            <p className="text-sm text-gray-600 font-mono">
+              {conversation.formatted_phone_number || conversation.phone_number}
+            </p>
+          )}
           {conversation.last_message_preview && (
             <p className="text-xs text-gray-500 mt-1 truncate max-w-xs">
               {conversation.last_message_preview}

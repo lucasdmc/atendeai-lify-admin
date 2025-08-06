@@ -779,6 +779,30 @@ DIRETRIZES FUNDAMENTAIS:
       const today = new Date();
       const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       
+      // Primeiro, verificar se há registros antigos que precisam ser atualizados
+      const { data: existingRecord } = await supabase
+        .from('conversation_memory')
+        .select('last_interaction')
+        .eq('phone_number', phoneNumber)
+        .single();
+
+      // Se há um registro antigo (de dias anteriores), atualizar para hoje
+      if (existingRecord && existingRecord.last_interaction) {
+        const recordDate = new Date(existingRecord.last_interaction);
+        if (recordDate < startOfDay) {
+          console.log('🔄 Atualizando registro antigo para hoje...');
+          
+          await supabase
+            .from('conversation_memory')
+            .update({
+              last_interaction: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('phone_number', phoneNumber);
+        }
+      }
+      
+      // Agora verificar se há interações hoje
       const { data } = await supabase
         .from('conversation_memory')
         .select('last_interaction')

@@ -18,7 +18,7 @@ console.log('==========================================');
 console.log('📋 1. Testando importação dos serviços robustos...');
 
 try {
-  const { LLMOrchestratorService } = await import('./src/services/ai/llmOrchestratorService.ts');
+  const { LLMOrchestratorService } = await import('./src/services/ai/llmOrchestratorService.js');
   console.log('✅ LLMOrchestratorService importado com sucesso');
   
   const { IntentRecognitionService } = await import('./src/services/ai/intentRecognitionService.ts');
@@ -40,7 +40,7 @@ console.log('');
 console.log('📋 2. Testando processamento de mensagem...');
 
 try {
-  const { LLMOrchestratorService } = await import('./src/services/ai/llmOrchestratorService.ts');
+  const { LLMOrchestratorService } = await import('./src/services/ai/llmOrchestratorService.js');
   
   const testRequest = {
     phoneNumber: '5511999999999',

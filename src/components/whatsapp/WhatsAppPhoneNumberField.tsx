@@ -212,14 +212,7 @@ export const WhatsAppPhoneNumberField = ({
         </Alert>
       )}
 
-      {integrationType === 'meta_api' && (
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Para Baileys, o número é opcional e será definido automaticamente após a conexão.
-          </AlertDescription>
-        </Alert>
-      )}
+
     </div>
   );
 }; 

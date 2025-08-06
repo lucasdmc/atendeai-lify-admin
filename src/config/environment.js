@@ -62,9 +62,24 @@ export function isDevelopment() {
   return process.env.NODE_ENV === 'development';
 }
 
+// Configuração para o frontend
+export const config = {
+  google: {
+    clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
+    scopes: 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email'
+  },
+  urls: {
+    redirectUri: import.meta.env.VITE_GOOGLE_REDIRECT_URI || 'http://localhost:8080/agendamentos'
+  },
+  backend: {
+    url: import.meta.env.VITE_BACKEND_URL || 'https://atendeai-lify-backend-production.up.railway.app'
+  }
+};
+
 export default {
   validateEnvironment,
   getEnvironmentConfig,
   isProduction,
-  isDevelopment
+  isDevelopment,
+  config
 };

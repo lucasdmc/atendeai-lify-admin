@@ -15,7 +15,6 @@ const Layout = lazy(() => import("./components/Layout"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Conversas = lazy(() => import("./pages/Conversas"));
 const ConversaIndividual = lazy(() => import("./pages/ConversaIndividual"));
-const ConectarWhatsApp = lazy(() => import("./pages/ConectarWhatsApp"));
 const Contextualizar = lazy(() => import("./pages/Contextualizar"));
 const GestaoUsuarios = lazy(() => import("./pages/GestaoUsuarios"));
 const Agendamentos = lazy(() => import("./pages/Agendamentos"));
@@ -119,14 +118,7 @@ const App = () => {
                         </Layout>
                       }
                     />
-                    <Route
-                      path="/conectar-whatsapp"
-                      element={
-                        <Layout>
-                          <ConectarWhatsApp />
-                        </Layout>
-                      }
-                    />
+
                     <Route
                       path="/clinicas"
                       element={

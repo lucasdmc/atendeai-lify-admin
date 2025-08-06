@@ -47,6 +47,37 @@ export const getDisplayName = (conversation: Conversation | null | undefined) =>
   return phoneToDisplay || 'Contato Desconhecido';
 };
 
+export const formatPhoneNumber = (conversation: Conversation | null | undefined) => {
+  if (!conversation) {
+    return '';
+  }
+
+  const phoneToDisplay = conversation.formatted_phone_number || conversation.phone_number;
+  
+  if (!phoneToDisplay) {
+    return '';
+  }
+
+  // Se o número contém @s.whatsapp.net, remover
+  let cleanNumber = phoneToDisplay;
+  if (phoneToDisplay.includes('@s.whatsapp.net')) {
+    cleanNumber = phoneToDisplay.replace('@s.whatsapp.net', '');
+  }
+  
+  // Formatar o número se necessário
+  if (cleanNumber.startsWith('55') && cleanNumber.length >= 12) {
+    // Formato brasileiro
+    const countryCode = cleanNumber.substring(0, 2);
+    const areaCode = cleanNumber.substring(2, 4);
+    const number = cleanNumber.substring(4);
+    return `+${countryCode} (${areaCode}) ${number.substring(0, 5)}-${number.substring(5)}`;
+  } else if (!cleanNumber.startsWith('+')) {
+    return `+${cleanNumber}`;
+  }
+  
+  return cleanNumber;
+};
+
 export const formatMessageTime = (timestamp: string | null | undefined) => {
   if (!timestamp) {
     return '';

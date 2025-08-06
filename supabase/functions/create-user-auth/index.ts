@@ -90,7 +90,6 @@ serve(async (req) => {
     const { error: profileError } = await supabaseClient
       .from('user_profiles')
       .insert({
-        id: userId,
         user_id: userId,
         email: email.trim().toLowerCase(),
         name: name,

@@ -1,5 +1,5 @@
 import { GoogleOAuthConfig } from './types';
-import { config } from '@/config/environment';
+import { config } from '@/config/frontend-config';
 
 export class GoogleAuthManager {
   private getRedirectUri(): string {

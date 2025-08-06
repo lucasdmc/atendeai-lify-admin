@@ -21,7 +21,6 @@ export { AdvancedFeaturesService } from './sprint4-advanced-features';
 export { EmotionDetectionService } from './emotionDetectionService';
 export { AdvancedPromptService } from './advancedPromptService';
 export { ConfidenceService } from './confidenceService';
-export { ContextualizedChatService } from './contextualizedChatService';
 export { SystemPromptGenerator } from './systemPromptGenerator';
 
 // Exportar tipos
