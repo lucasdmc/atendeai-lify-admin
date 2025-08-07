@@ -410,8 +410,7 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
       messageLength: messageText.length 
     });
 
-    // Sistema de agendamento via WhatsApp será implementado em versão futura
-    // Por enquanto, usamos apenas o LLMOrchestrator para todas as mensagens
+    // 1. Primeiro, detectar intenção usando LLMOrchestrator
     const { LLMOrchestratorService } = await import('../services/llmOrchestratorService.js');
     
     const request = {
@@ -421,20 +420,93 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
       userId: phoneNumber
     };
 
-    console.log('[Webhook-Final] Chamando LLMOrchestratorService...');
-    const response = await LLMOrchestratorService.processMessage(request);
+    console.log('[Webhook-Final] Chamando LLMOrchestratorService para detecção de intenção...');
+    const llmResponse = await LLMOrchestratorService.processMessage(request);
 
-    console.log('✅ [Webhook-Final] Resposta gerada:', {
-      response: response.response,
-      intent: response.intent?.name,
-      confidence: response.intent?.confidence
+    console.log('✅ [Webhook-Final] Intenção detectada:', {
+      intent: llmResponse.intent?.name,
+      confidence: llmResponse.intent?.confidence
+    });
+
+    // 2. Verificar se é intenção de agendamento
+    if (llmResponse.intent?.name?.startsWith('APPOINTMENT_')) {
+      console.log('📅 [Webhook-Final] Intenção de agendamento detectada, iniciando fluxo de agendamento...');
+      
+      try {
+        // Buscar clínica pelo número do WhatsApp
+        const { data: clinicData, error: clinicError } = await supabase
+          .from('clinic_whatsapp_numbers')
+          .select('clinic_id')
+          .eq('whatsapp_number', config.phoneNumberId || process.env.WHATSAPP_META_PHONE_NUMBER_ID)
+          .eq('is_active', true)
+          .single();
+
+        if (clinicError || !clinicData) {
+          console.error('[Webhook-Final] Clínica não encontrada para agendamento');
+          return {
+            success: true,
+            response: 'Desculpe, não consegui identificar a clínica. Por favor, entre em contato diretamente.',
+            intent: llmResponse.intent,
+            confidence: llmResponse.intent?.confidence || 0.8
+          };
+        }
+
+        const clinicId = clinicData.clinic_id;
+        console.log('[Webhook-Final] Clínica encontrada para agendamento:', clinicId);
+
+        // Importar e usar AppointmentConversationService
+        const { AppointmentConversationService } = await import('../services/appointmentConversationService.js');
+        
+        const appointmentResult = await AppointmentConversationService.processMessage(
+          messageText,
+          phoneNumber,
+          clinicId
+        );
+
+        console.log('✅ [Webhook-Final] Resposta do agendamento gerada:', {
+          response: appointmentResult.message,
+          step: appointmentResult.nextStep,
+          requiresInput: appointmentResult.requiresInput
+        });
+
+        return {
+          success: true,
+          response: appointmentResult.message,
+          intent: llmResponse.intent,
+          confidence: llmResponse.intent?.confidence || 0.8,
+          appointmentStep: appointmentResult.nextStep,
+          requiresAction: appointmentResult.requiresInput
+        };
+
+      } catch (appointmentError) {
+        console.error('💥 [Webhook-Final] Erro no processamento de agendamento:', appointmentError);
+        
+        // Fallback para resposta genérica de agendamento
+        return {
+          success: true,
+          response: 'Entendi que você quer agendar uma consulta! Por favor, me informe:\n\n' +
+                   '📝 Seu nome completo\n' +
+                   '📞 Seu telefone (se diferente deste)\n' +
+                   '🏥 Qual especialidade você precisa\n' +
+                   '📅 Qual data você prefere',
+          intent: llmResponse.intent,
+          confidence: llmResponse.intent?.confidence || 0.8
+        };
+      }
+    }
+
+    // 3. Para outras intenções, usar resposta normal do LLMOrchestrator
+    console.log('✅ [Webhook-Final] Resposta normal gerada:', {
+      response: llmResponse.response,
+      intent: llmResponse.intent?.name,
+      confidence: llmResponse.intent?.confidence
     });
 
     return {
       success: true,
-      response: response.response,
-      intent: response.intent,
-      confidence: response.intent?.confidence || 0.8
+      response: llmResponse.response,
+      intent: llmResponse.intent,
+      confidence: llmResponse.intent?.confidence || 0.8
     };
 
   } catch (error) {
