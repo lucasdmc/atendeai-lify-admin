@@ -72,6 +72,12 @@ export class LLMOrchestratorService {
       let response = completion.choices[0]?.message?.content || 'Desculpe, não consegui gerar uma resposta.';
 
       // Aplicar lógica de saudação e horário
+      console.log('🔍 [DEBUG] ANTES de applyResponseLogic:', {
+        isWithinBusinessHours,
+        type: typeof isWithinBusinessHours,
+        isFirstConversationOfDay,
+        hasClinicContext: !!clinicContext
+      });
       response = await this.applyResponseLogic(response, clinicContext, isFirstConversationOfDay, isWithinBusinessHours, memory.userProfile);
 
       // Salvar na memória
