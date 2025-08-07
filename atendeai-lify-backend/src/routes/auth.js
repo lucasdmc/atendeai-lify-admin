@@ -1,7 +1,6 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const AuthService = require('../services/authService');
 
 const router = express.Router();
 
@@ -26,48 +25,18 @@ router.post('/login', [
   try {
     const { email, password } = req.body;
 
-    // TODO: Implementar verificação no banco de dados
-    // Por enquanto, retornamos um mock
-    const mockUser = {
-      id: 1,
-      email: 'admin@atendeai.com',
-      name: 'Administrador',
-      role: 'admin'
-    };
-
-    // TODO: Verificar senha com bcrypt.compare()
-    if (email !== mockUser.email || password !== '123456') {
-      return res.status(401).json({
-        error: 'Credenciais inválidas'
-      });
-    }
-
-    // Gerar JWT token
-    const token = jwt.sign(
-      { 
-        userId: mockUser.id,
-        email: mockUser.email,
-        role: mockUser.role
-      },
-      process.env.JWT_SECRET || 'fallback-secret',
-      { expiresIn: '24h' }
-    );
+    const result = await AuthService.login(email, password);
 
     res.json({
       message: 'Login realizado com sucesso',
-      user: {
-        id: mockUser.id,
-        email: mockUser.email,
-        name: mockUser.name,
-        role: mockUser.role
-      },
-      token
+      user: result.user,
+      token: result.token
     });
 
   } catch (error) {
     console.error('Erro no login:', error);
-    res.status(500).json({
-      error: 'Erro interno do servidor'
+    res.status(401).json({
+      error: error.message || 'Credenciais inválidas'
     });
   }
 });
@@ -82,34 +51,18 @@ router.post('/register', [
   try {
     const { name, email, password } = req.body;
 
-    // TODO: Verificar se usuário já existe
-    // TODO: Hash da senha com bcrypt
-    // TODO: Salvar no banco de dados
-
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    // Mock de resposta
-    const newUser = {
-      id: 2,
-      name,
-      email,
-      role: 'user'
-    };
+    const result = await AuthService.register({ name, email, password });
 
     res.status(201).json({
       message: 'Usuário criado com sucesso',
-      user: {
-        id: newUser.id,
-        name: newUser.name,
-        email: newUser.email,
-        role: newUser.role
-      }
+      user: result.user,
+      token: result.token
     });
 
   } catch (error) {
     console.error('Erro no registro:', error);
-    res.status(500).json({
-      error: 'Erro interno do servidor'
+    res.status(400).json({
+      error: error.message || 'Erro interno do servidor'
     });
   }
 });
@@ -163,18 +116,10 @@ router.get('/me', async (req, res) => {
     }
 
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
-
-    // TODO: Buscar usuário no banco de dados
-    const mockUser = {
-      id: decoded.userId,
-      email: decoded.email,
-      name: 'Administrador',
-      role: decoded.role
-    };
+    const user = await AuthService.verifyToken(token);
 
     res.json({
-      user: mockUser
+      user: user
     });
 
   } catch (error) {

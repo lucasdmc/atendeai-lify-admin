@@ -1,5 +1,6 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
+const AppointmentService = require('../services/appointmentService');
 
 const router = express.Router();
 
@@ -20,41 +21,26 @@ router.get('/', async (req, res) => {
   try {
     const { clinicId, status, date } = req.query;
 
-    // TODO: Implementar busca no banco de dados com filtros
-    const mockAppointments = [
-      {
-        id: 1,
-        patientName: 'João Silva',
-        patientPhone: '(11) 99999-9999',
-        patientEmail: 'joao@email.com',
-        clinicId: 1,
-        clinicName: 'Clínica ESADI',
-        date: '2024-01-15',
-        time: '14:00',
-        duration: 60,
-        status: 'confirmed',
-        notes: 'Consulta de rotina',
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 2,
-        patientName: 'Maria Santos',
-        patientPhone: '(11) 88888-8888',
-        patientEmail: 'maria@email.com',
-        clinicId: 1,
-        clinicName: 'Clínica ESADI',
-        date: '2024-01-16',
-        time: '10:00',
-        duration: 30,
-        status: 'pending',
-        notes: 'Primeira consulta',
-        createdAt: new Date().toISOString()
-      }
-    ];
+    let appointments;
+    
+    if (clinicId) {
+      appointments = await AppointmentService.getAppointmentsByClinic(clinicId);
+    } else {
+      appointments = await AppointmentService.getAllAppointments();
+    }
+
+    // Aplicar filtros adicionais se necessário
+    if (status) {
+      appointments = appointments.filter(apt => apt.status === status);
+    }
+    
+    if (date) {
+      appointments = appointments.filter(apt => apt.date === date);
+    }
 
     res.json({
-      appointments: mockAppointments,
-      total: mockAppointments.length
+      appointments: appointments,
+      total: appointments.length
     });
 
   } catch (error) {
@@ -70,30 +56,16 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // TODO: Implementar busca no banco de dados
-    const mockAppointment = {
-      id: parseInt(id),
-      patientName: 'João Silva',
-      patientPhone: '(11) 99999-9999',
-      patientEmail: 'joao@email.com',
-      clinicId: 1,
-      clinicName: 'Clínica ESADI',
-      date: '2024-01-15',
-      time: '14:00',
-      duration: 60,
-      status: 'confirmed',
-      notes: 'Consulta de rotina',
-      createdAt: new Date().toISOString()
-    };
+    const appointment = await AppointmentService.getAppointmentById(id);
 
-    if (!mockAppointment) {
+    if (!appointment) {
       return res.status(404).json({
         error: 'Agendamento não encontrado'
       });
     }
 
     res.json({
-      appointment: mockAppointment
+      appointment: appointment
     });
 
   } catch (error) {
@@ -129,22 +101,17 @@ router.post('/', [
       notes 
     } = req.body;
 
-    // TODO: Implementar criação no banco de dados
-    // TODO: Verificar disponibilidade do horário
-    const newAppointment = {
-      id: 3,
-      patientName,
-      patientPhone,
-      patientEmail,
-      clinicId,
-      clinicName: 'Clínica ESADI',
+    const newAppointment = await AppointmentService.createAppointment({
+      patient_name: patientName,
+      patient_phone: patientPhone,
+      patient_email: patientEmail,
+      clinic_id: clinicId,
       date,
       time,
       duration,
       status,
-      notes: notes || '',
-      createdAt: new Date().toISOString()
-    };
+      notes: notes || ''
+    });
 
     res.status(201).json({
       message: 'Agendamento criado com sucesso',
@@ -183,21 +150,17 @@ router.put('/:id', [
       notes 
     } = req.body;
 
-    // TODO: Implementar atualização no banco de dados
-    const updatedAppointment = {
-      id: parseInt(id),
-      patientName: patientName || 'João Silva',
-      patientPhone: patientPhone || '(11) 99999-9999',
-      patientEmail: patientEmail || 'joao@email.com',
-      clinicId: 1,
-      clinicName: 'Clínica ESADI',
-      date: date || '2024-01-15',
-      time: time || '14:00',
-      duration: duration || 60,
-      status: status || 'confirmed',
-      notes: notes || 'Consulta de rotina',
-      updatedAt: new Date().toISOString()
-    };
+    const updates = {};
+    if (patientName) updates.patient_name = patientName;
+    if (patientPhone) updates.patient_phone = patientPhone;
+    if (patientEmail) updates.patient_email = patientEmail;
+    if (date) updates.date = date;
+    if (time) updates.time = time;
+    if (duration) updates.duration = duration;
+    if (status) updates.status = status;
+    if (notes !== undefined) updates.notes = notes;
+
+    const updatedAppointment = await AppointmentService.updateAppointment(id, updates);
 
     res.json({
       message: 'Agendamento atualizado com sucesso',
@@ -217,8 +180,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // TODO: Implementar exclusão no banco de dados
-    // Verificar se agendamento existe antes de deletar
+    await AppointmentService.deleteAppointment(id);
 
     res.json({
       message: 'Agendamento deletado com sucesso'

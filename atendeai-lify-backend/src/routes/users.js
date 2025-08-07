@@ -1,5 +1,6 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
+const UserService = require('../services/userService');
 
 const router = express.Router();
 
@@ -18,27 +19,11 @@ const handleValidationErrors = (req, res, next) => {
 // GET /api/users
 router.get('/', async (req, res) => {
   try {
-    // TODO: Implementar busca no banco de dados
-    const mockUsers = [
-      {
-        id: 1,
-        name: 'Administrador',
-        email: 'admin@atendeai.com',
-        role: 'admin',
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 2,
-        name: 'Usuário Teste',
-        email: 'user@atendeai.com',
-        role: 'user',
-        createdAt: new Date().toISOString()
-      }
-    ];
-
+    const users = await UserService.getAllUsers();
+    
     res.json({
-      users: mockUsers,
-      total: mockUsers.length
+      users: users,
+      total: users.length
     });
 
   } catch (error) {
@@ -54,23 +39,16 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // TODO: Implementar busca no banco de dados
-    const mockUser = {
-      id: parseInt(id),
-      name: 'Administrador',
-      email: 'admin@atendeai.com',
-      role: 'admin',
-      createdAt: new Date().toISOString()
-    };
+    const user = await UserService.getUserById(id);
 
-    if (!mockUser) {
+    if (!user) {
       return res.status(404).json({
         error: 'Usuário não encontrado'
       });
     }
 
     res.json({
-      user: mockUser
+      user: user
     });
 
   } catch (error) {
@@ -92,14 +70,12 @@ router.put('/:id', [
     const { id } = req.params;
     const { name, email, role } = req.body;
 
-    // TODO: Implementar atualização no banco de dados
-    const updatedUser = {
-      id: parseInt(id),
-      name: name || 'Administrador',
-      email: email || 'admin@atendeai.com',
-      role: role || 'admin',
-      updatedAt: new Date().toISOString()
-    };
+    const updates = {};
+    if (name) updates.name = name;
+    if (email) updates.email = email;
+    if (role) updates.role = role;
+
+    const updatedUser = await UserService.updateUser(id, updates);
 
     res.json({
       message: 'Usuário atualizado com sucesso',
@@ -119,8 +95,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // TODO: Implementar exclusão no banco de dados
-    // Verificar se usuário existe antes de deletar
+    await UserService.deleteUser(id);
 
     res.json({
       message: 'Usuário deletado com sucesso'

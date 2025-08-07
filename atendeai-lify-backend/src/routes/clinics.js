@@ -1,5 +1,6 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
+const ClinicService = require('../services/clinicService');
 
 const router = express.Router();
 
@@ -18,31 +19,11 @@ const handleValidationErrors = (req, res, next) => {
 // GET /api/clinics
 router.get('/', async (req, res) => {
   try {
-    // TODO: Implementar busca no banco de dados
-    const mockClinics = [
-      {
-        id: 1,
-        name: 'Clínica ESADI',
-        address: 'Rua das Flores, 123',
-        phone: '(11) 99999-9999',
-        email: 'contato@esadi.com.br',
-        status: 'active',
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 2,
-        name: 'Clínica Teste',
-        address: 'Av. Principal, 456',
-        phone: '(11) 88888-8888',
-        email: 'contato@teste.com.br',
-        status: 'active',
-        createdAt: new Date().toISOString()
-      }
-    ];
-
+    const clinics = await ClinicService.getAllClinics();
+    
     res.json({
-      clinics: mockClinics,
-      total: mockClinics.length
+      clinics: clinics,
+      total: clinics.length
     });
 
   } catch (error) {
@@ -58,25 +39,16 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // TODO: Implementar busca no banco de dados
-    const mockClinic = {
-      id: parseInt(id),
-      name: 'Clínica ESADI',
-      address: 'Rua das Flores, 123',
-      phone: '(11) 99999-9999',
-      email: 'contato@esadi.com.br',
-      status: 'active',
-      createdAt: new Date().toISOString()
-    };
+    const clinic = await ClinicService.getClinicById(id);
 
-    if (!mockClinic) {
+    if (!clinic) {
       return res.status(404).json({
         error: 'Clínica não encontrada'
       });
     }
 
     res.json({
-      clinic: mockClinic
+      clinic: clinic
     });
 
   } catch (error) {
@@ -98,16 +70,13 @@ router.post('/', [
   try {
     const { name, address, phone, email } = req.body;
 
-    // TODO: Implementar criação no banco de dados
-    const newClinic = {
-      id: 3,
+    const newClinic = await ClinicService.createClinic({
       name,
       address,
       phone,
       email,
-      status: 'active',
-      createdAt: new Date().toISOString()
-    };
+      status: 'active'
+    });
 
     res.status(201).json({
       message: 'Clínica criada com sucesso',
@@ -135,16 +104,14 @@ router.put('/:id', [
     const { id } = req.params;
     const { name, address, phone, email, status } = req.body;
 
-    // TODO: Implementar atualização no banco de dados
-    const updatedClinic = {
-      id: parseInt(id),
-      name: name || 'Clínica ESADI',
-      address: address || 'Rua das Flores, 123',
-      phone: phone || '(11) 99999-9999',
-      email: email || 'contato@esadi.com.br',
-      status: status || 'active',
-      updatedAt: new Date().toISOString()
-    };
+    const updates = {};
+    if (name) updates.name = name;
+    if (address) updates.address = address;
+    if (phone) updates.phone = phone;
+    if (email) updates.email = email;
+    if (status) updates.status = status;
+
+    const updatedClinic = await ClinicService.updateClinic(id, updates);
 
     res.json({
       message: 'Clínica atualizada com sucesso',
@@ -164,8 +131,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // TODO: Implementar exclusão no banco de dados
-    // Verificar se clínica existe antes de deletar
+    await ClinicService.deleteClinic(id);
 
     res.json({
       message: 'Clínica deletada com sucesso'
