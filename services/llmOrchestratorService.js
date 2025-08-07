@@ -10,7 +10,7 @@ dotenv.config();
 
 // Configuração do Supabase
 const supabaseUrl = process.env.SUPABASE_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co';
-const supabaseKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxODI1NTksImV4cCI6MjA2NTc1ODU1OX0.90ihAk2geP1JoHIvMj_pxeoMe6dwRwH-rBbJwbFeomw';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDE4MjU1OSwiZXhwIjoyMDY1NzU4NTU5fQ.SY8A3ReAs_D7SFBp99PpSe8rpm1hbWMv4b2q-c_VS5M';
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -326,9 +326,24 @@ Return a JSON with: { "intent": "INTENT_NAME", "confidence": 0.0-1.0, "entities"
 
       let intentData;
       try {
-        intentData = JSON.parse(response);
+        // Limpar a resposta removendo markdown e extraindo apenas o JSON
+        let cleanResponse = response;
+        
+        // Remover ```json e ``` se presentes
+        cleanResponse = cleanResponse.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+        
+        // Se ainda não for JSON válido, tentar extrair JSON do texto
+        if (!cleanResponse.trim().startsWith('{')) {
+          const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            cleanResponse = jsonMatch[0];
+          }
+        }
+        
+        intentData = JSON.parse(cleanResponse.trim());
       } catch (parseError) {
         console.error('❌ [LLMOrchestrator] Erro ao fazer parse da resposta:', parseError);
+        console.error('❌ [LLMOrchestrator] Resposta original:', response);
         return this.fallbackIntentRecognition(message);
       }
 
@@ -449,11 +464,44 @@ Return a JSON with: { "intent": "INTENT_NAME", "confidence": 0.0-1.0, "entities"
         // ✅ BUSCA DINÂMICA - Buscar clínica específica pelo telefone
         console.log(`🔍 [LLMOrchestrator] Buscando clínica por WhatsApp: ${phoneNumber}`);
         
-        const { data: clinicData, error } = await supabase
+        // Tentar buscar com e sem o '+' para compatibilidade
+        let clinicData, error;
+        
+        // Primeira tentativa: buscar exatamente como fornecido
+        const result1 = await supabase
           .from('clinics')
           .select('*')
           .eq('whatsapp_phone', phoneNumber)
           .single();
+        
+        if (result1.error) {
+          // Segunda tentativa: adicionar '+' se não tiver
+          const phoneWithPlus = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
+          const result2 = await supabase
+            .from('clinics')
+            .select('*')
+            .eq('whatsapp_phone', phoneWithPlus)
+            .single();
+          
+          if (result2.error) {
+            // Terceira tentativa: remover '+' se tiver
+            const phoneWithoutPlus = phoneNumber.startsWith('+') ? phoneNumber.substring(1) : phoneNumber;
+            const result3 = await supabase
+              .from('clinics')
+              .select('*')
+              .eq('whatsapp_phone', phoneWithoutPlus)
+              .single();
+            
+            clinicData = result3.data;
+            error = result3.error;
+          } else {
+            clinicData = result2.data;
+            error = result2.error;
+          }
+        } else {
+          clinicData = result1.data;
+          error = result1.error;
+        }
 
         if (error) {
           console.log(`⚠️ [LLMOrchestrator] Clínica não encontrada para WhatsApp: ${phoneNumber}`);
@@ -935,22 +983,38 @@ DIRETRIZES FUNDAMENTAIS:
    */
   static isWithinBusinessHours(clinicContext) {
     try {
+      console.log('🔍 [DEBUG] Verificando horário de funcionamento...');
+      console.log('🔍 [DEBUG] clinicContext.workingHours:', clinicContext.workingHours);
+      
       if (!clinicContext.workingHours) {
+        console.log('⚠️ [DEBUG] Sem horários configurados, assumindo aberto');
         return true; // Se não há horário configurado, assume que está aberto
       }
 
+      // Usar timezone do Brasil para garantir consistência
       const now = new Date();
-      const currentDay = this.getDayOfWeek(now.getDay());
-      const currentTime = now.getHours() * 100 + now.getMinutes(); // Formato HHMM
+      const brazilTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
+      const currentDay = this.getDayOfWeek(brazilTime.getDay());
+      const currentTime = brazilTime.getHours() * 100 + brazilTime.getMinutes(); // Formato HHMM
+
+      console.log('🔍 [DEBUG] Data atual:', now.toLocaleString());
+      console.log('🔍 [DEBUG] Dia da semana:', currentDay);
+      console.log('🔍 [DEBUG] Horário atual (HHMM):', currentTime);
 
       const todaySchedule = clinicContext.workingHours[currentDay];
+      console.log('🔍 [DEBUG] Horário para hoje:', todaySchedule);
       
       if (!todaySchedule || !todaySchedule.abertura || !todaySchedule.fechamento) {
+        console.log('❌ [DEBUG] Sem horário configurado para hoje, considerando fechado');
         return false; // Fechado se não há horário configurado
       }
 
       const openingTime = this.parseTime(todaySchedule.abertura);
       const closingTime = this.parseTime(todaySchedule.fechamento);
+
+      console.log('🔍 [DEBUG] Horário de abertura (HHMM):', openingTime);
+      console.log('🔍 [DEBUG] Horário de fechamento (HHMM):', closingTime);
+      console.log('🔍 [DEBUG] Está dentro do horário?', currentTime >= openingTime && currentTime <= closingTime);
 
       return currentTime >= openingTime && currentTime <= closingTime;
     } catch (error) {
@@ -996,6 +1060,9 @@ DIRETRIZES FUNDAMENTAIS:
           'No momento estamos fora do horário de atendimento. Retornaremos seu contato no próximo horário comercial.';
         
         console.log('🕒 Aplicando mensagem fora do horário');
+        console.log('🔍 [DEBUG] Valor de isWithinBusinessHours:', isWithinBusinessHours);
+        console.log('🔍 [DEBUG] NODE_ENV:', process.env.NODE_ENV);
+        console.log('🔍 [DEBUG] Mensagem fora do horário:', outOfHoursMessage);
         return outOfHoursMessage;
       }
 

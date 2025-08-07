@@ -9,7 +9,7 @@ import axios from 'axios';
  * @returns {Promise<any>} - Resposta da API Meta
  */
 async function sendWhatsAppTextMessage({ accessToken, phoneNumberId, to, text }) {
-  const url = `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`;
+  const url = `https://graph.facebook.com/v23.0/${phoneNumberId}/messages`;
   const payload = {
     messaging_product: 'whatsapp',
     to,
@@ -20,8 +20,27 @@ async function sendWhatsAppTextMessage({ accessToken, phoneNumberId, to, text })
     'Authorization': `Bearer ${accessToken}`,
     'Content-Type': 'application/json'
   };
-  const response = await axios.post(url, payload, { headers });
-  return response.data;
+  
+  try {
+    console.log('[WhatsAppMetaService] Enviando mensagem:', {
+      url,
+      to,
+      textLength: text.length,
+      hasAccessToken: !!accessToken,
+      hasPhoneNumberId: !!phoneNumberId
+    });
+    
+    const response = await axios.post(url, payload, { headers });
+    console.log('[WhatsAppMetaService] Mensagem enviada com sucesso:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('[WhatsAppMetaService] Erro ao enviar mensagem:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
+    throw error;
+  }
 }
 
 /**
@@ -34,7 +53,7 @@ async function sendWhatsAppTextMessage({ accessToken, phoneNumberId, to, text })
  * @param {string} caption - (opcional) legenda
  */
 async function sendWhatsAppMediaMessage({ accessToken, phoneNumberId, to, mediaId, type, caption }) {
-  const url = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
+  const url = `https://graph.facebook.com/v23.0/${phoneNumberId}/messages`;
   const payload = {
     messaging_product: 'whatsapp',
     to,

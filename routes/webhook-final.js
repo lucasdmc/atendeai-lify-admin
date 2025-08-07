@@ -302,77 +302,85 @@ async function saveConversationToDatabase(fromNumber, toNumber, content, whatsap
     console.log('[Webhook-Final] Salvando conversa:', { fromNumber, toNumber, content });
     
     // CORREÇÃO: Usar o número real do telefone, não o ID da Meta
-    // Se toNumber é o ID da Meta, precisamos buscar o número real
-    let realToNumber = toNumber;
-    
-    // Se toNumber parece ser um ID da Meta (números longos), buscar o número real
+    // Se toNumber é o ID da Meta (números longos), buscar o número real
     if (toNumber && toNumber.length > 10 && !toNumber.startsWith('+')) {
       console.log('[Webhook-Final] toNumber parece ser ID da Meta, buscando número real...');
-      // Por enquanto, usar fallback para DEFAULT_CLINIC_ID
-      const defaultClinicId = process.env.DEFAULT_CLINIC_ID;
-      if (defaultClinicId) {
-        console.log('[Webhook-Final] Usando DEFAULT_CLINIC_ID para conversa:', defaultClinicId);
-        
-        // Criar ou atualizar conversa usando DEFAULT_CLINIC_ID
-        const { data: conversationData, error: conversationError } = await supabase
-          .from('whatsapp_conversations_improved')
-          .upsert({
-            clinic_id: defaultClinicId,
-            patient_phone_number: fromNumber,
-            clinic_whatsapp_number: toNumber, // Manter o ID da Meta como identificador
-            last_message_preview: content,
-            unread_count: 1,
-            last_message_at: new Date().toISOString()
-          }, {
-            onConflict: 'clinic_id,patient_phone_number,clinic_whatsapp_number',
-            ignoreDuplicates: false
-          })
-          .select()
-          .single();
+      
+      // Buscar clínica baseada no número do WhatsApp
+      const { data: clinicData, error: clinicError } = await supabase
+        .from('clinic_whatsapp_numbers')
+        .select('clinic_id')
+        .eq('whatsapp_number', toNumber)
+        .eq('is_active', true)
+        .single();
 
-        if (conversationError) {
-          console.error('[Webhook-Final] Erro ao criar/atualizar conversa:', conversationError);
-          return null;
-        }
-
-        // Salvar mensagem recebida
-        const { data: messageData, error: messageError } = await supabase
-          .from('whatsapp_messages_improved')
-          .insert({
-            conversation_id: conversationData.id,
-            sender_phone: fromNumber,
-            receiver_phone: toNumber,
-            content: content,
-            message_type: 'received',
-            whatsapp_message_id: whatsappMessageId
-          })
-          .select()
-          .single();
-
-        if (messageError) {
-          console.error('[Webhook-Final] Erro ao salvar mensagem:', messageError);
-          return null;
-        }
-
-        console.log('[Webhook-Final] Conversa salva com sucesso:', {
-          conversationId: conversationData.id,
-          messageId: messageData.id
-        });
-
-        return conversationData.id;
+      if (clinicError || !clinicData) {
+        console.error('[Webhook-Final] Clínica não encontrada para o número:', toNumber);
+        return null;
       }
+
+      const clinicId = clinicData.clinic_id;
+      console.log('[Webhook-Final] Clínica encontrada para conversa:', clinicId);
+      
+      // Criar ou atualizar conversa usando clinic_id correto
+      const { data: conversationData, error: conversationError } = await supabase
+        .from('whatsapp_conversations_improved')
+        .upsert({
+          clinic_id: clinicId,
+          patient_phone_number: fromNumber,
+          clinic_whatsapp_number: toNumber, // Manter o ID da Meta como identificador
+          last_message_preview: content,
+          unread_count: 1,
+          last_message_at: new Date().toISOString()
+        }, {
+          onConflict: 'clinic_id,patient_phone_number,clinic_whatsapp_number',
+          ignoreDuplicates: false
+        })
+        .select()
+        .single();
+
+      if (conversationError) {
+        console.error('[Webhook-Final] Erro ao criar/atualizar conversa:', conversationError);
+        return null;
+      }
+
+      // Salvar mensagem recebida
+      const { data: messageData, error: messageError } = await supabase
+        .from('whatsapp_messages_improved')
+        .insert({
+          conversation_id: conversationData.id,
+          sender_phone: fromNumber,
+          receiver_phone: toNumber,
+          content: content,
+          message_type: 'received',
+          whatsapp_message_id: whatsappMessageId
+        })
+        .select()
+        .single();
+
+      if (messageError) {
+        console.error('[Webhook-Final] Erro ao salvar mensagem:', messageError);
+        return null;
+      }
+
+      console.log('[Webhook-Final] Conversa salva com sucesso:', {
+        conversationId: conversationData.id,
+        messageId: messageData.id
+      });
+
+      return conversationData.id;
     }
     
     // Busca normal se temos o número real
     const { data: clinicData, error: clinicError } = await supabase
       .from('whatsapp_connections')
       .select('clinic_id')
-      .eq('phone_number', realToNumber)
+      .eq('phone_number', toNumber)
       .eq('is_active', true)
       .single();
 
     if (clinicError || !clinicData) {
-      console.error('[Webhook-Final] Clínica não encontrada para o número:', realToNumber);
+      console.error('[Webhook-Final] Clínica não encontrada para o número:', toNumber);
       return null;
     }
 
@@ -384,7 +392,7 @@ async function saveConversationToDatabase(fromNumber, toNumber, content, whatsap
       .upsert({
         clinic_id: clinicId,
         patient_phone_number: fromNumber,
-        clinic_whatsapp_number: realToNumber,
+        clinic_whatsapp_number: toNumber,
         last_message_preview: content,
         unread_count: 1,
         last_message_at: new Date().toISOString()
@@ -406,7 +414,7 @@ async function saveConversationToDatabase(fromNumber, toNumber, content, whatsap
       .insert({
         conversation_id: conversationData.id,
         sender_phone: fromNumber,
-        receiver_phone: realToNumber,
+        receiver_phone: toNumber,
         content: content,
         message_type: 'received',
         whatsapp_message_id: whatsappMessageId
