@@ -213,10 +213,16 @@ async function processWhatsAppWebhookFinal(webhookData, whatsappConfig) {
             if (aiResult.success) {
               // 3. SALVAR RESPOSTA NO BANCO DE DADOS
               console.log('[Webhook-Final] Salvando resposta no banco...');
+              console.log('[Webhook-Final] Parâmetros da resposta:', {
+                conversationId,
+                senderPhone: toNumber, // Número do chatbot (quem ENVIA)
+                receiverPhone: message.from, // Número do paciente (quem RECEBE)
+                content: aiResult.response
+              });
               await saveResponseToDatabase(
                 conversationId,
-                message.from,
-                toNumber,
+                toNumber, // Número do chatbot (quem ENVIA)
+                message.from, // Número do paciente (quem RECEBE)
                 aiResult.response,
                 'sent',
                 null
