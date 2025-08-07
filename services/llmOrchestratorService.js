@@ -1022,6 +1022,7 @@ DIRETRIZES FUNDAMENTAIS:
       return currentTime >= openingTime && currentTime <= closingTime;
     } catch (error) {
       console.error('❌ Erro ao verificar horário de funcionamento:', error);
+      console.error('❌ Stack trace:', error.stack);
       return true; // Por segurança, assume que está aberto
     }
   }
