@@ -57,15 +57,16 @@ export class LLMOrchestratorService {
         workingHoursKeys: Object.keys(clinicContext.workingHours || {})
       });
       console.log('🔍 [DEBUG] ANTES de chamar isWithinBusinessHours');
+      let isWithinBusinessHours;
       try {
-        const isWithinBusinessHours = this.isWithinBusinessHours(clinicContext);
+        isWithinBusinessHours = this.isWithinBusinessHours(clinicContext);
         console.log('🔍 [DEBUG] DEPOIS de chamar isWithinBusinessHours');
         console.log('🕒 Dentro do horário de funcionamento:', isWithinBusinessHours);
         console.log('🕒 Tipo do resultado:', typeof isWithinBusinessHours);
       } catch (error) {
         console.error('❌ [DEBUG] Erro ao chamar isWithinBusinessHours:', error);
         console.error('❌ [DEBUG] Stack trace:', error.stack);
-        const isWithinBusinessHours = true; // Fallback
+        isWithinBusinessHours = true; // Fallback
       }
       
       // Preparar prompt do sistema com perfil do usuário
