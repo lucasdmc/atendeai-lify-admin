@@ -56,7 +56,9 @@ export class LLMOrchestratorService {
         hasWorkingHours: !!clinicContext.workingHours,
         workingHoursKeys: Object.keys(clinicContext.workingHours || {})
       });
+      console.log('🔍 [DEBUG] ANTES de chamar isWithinBusinessHours');
       const isWithinBusinessHours = this.isWithinBusinessHours(clinicContext);
+      console.log('🔍 [DEBUG] DEPOIS de chamar isWithinBusinessHours');
       console.log('🕒 Dentro do horário de funcionamento:', isWithinBusinessHours);
       console.log('🕒 Tipo do resultado:', typeof isWithinBusinessHours);
       
