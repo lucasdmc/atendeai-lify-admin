@@ -1,7 +1,7 @@
 // src/services/ai/conversationMemoryService.ts
 
 import { supabase } from '@/integrations/supabase/client';
-import { Intent } from './intentRecognitionService';
+import { Intent } from './types';
 
 export interface ConversationTurn {
   role: 'user' | 'assistant';

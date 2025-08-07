@@ -1,4 +1,4 @@
-import { Intent } from './intentRecognitionService';
+import { Intent } from './types';
 import { AppointmentService } from '../appointmentService';
 // import { supabase } from '@/integrations/supabase/client';
 

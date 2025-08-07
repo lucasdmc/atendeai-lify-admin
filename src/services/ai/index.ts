@@ -1,7 +1,7 @@
 // Exportações dos serviços AI robustos
 export { LLMOrchestratorService } from './llmOrchestratorService';
-export { AIOrchestrator } from './ai-orchestrator';
-export { IntentRecognitionService } from './intentRecognitionService';
+
+export { Intent, IntentContext } from './types';
 export { RAGEngineService } from './ragEngineService';
 export { ConversationMemoryService } from './conversationMemoryService';
 export { PersonalizationService } from './personalizationService';
@@ -50,20 +50,17 @@ export type {
   VoiceResponse
 } from './sprint4-advanced-features';
 
-export type {
-  AIRequest,
-  AIResponse
-} from './ai-orchestrator';
+
 
 // Re-export para facilitar importação
 export * from './sprint1-medical-validation';
 export * from './sprint2-model-ensemble';
 export * from './sprint3-cache-streaming';
 export * from './sprint4-advanced-features';
-export * from './ai-orchestrator';
+
 export * from './llmOrchestratorService';
 export * from './conversationMemoryService';
 export * from './ragEngineService';
 export * from './personalizationService';
-export * from './intentRecognitionService';
+export * from './types';
 export * from './toolCallingService'; 

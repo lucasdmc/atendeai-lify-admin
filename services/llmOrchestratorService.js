@@ -40,8 +40,9 @@ export class LLMOrchestratorService {
         await this.saveUserName(phoneNumber, extractedName);
       }
       
-      // Detectar intenção básica
-      const intent = await this.detectIntent(message);
+      // Detectar intenção avançada com histórico e contexto
+      const conversationHistory = memory.history || [];
+      const intent = await this.detectIntent(message, conversationHistory, clinicContext);
       
       // Buscar contexto da clínica (contextualização dinâmica)
       const clinicContext = await this.getClinicContext(phoneNumber);
@@ -273,60 +274,170 @@ export class LLMOrchestratorService {
     }
   }
 
-  static async detectIntent(message) {
+  static async detectIntent(message, conversationHistory = [], clinicContext = {}) {
     try {
-      const prompt = `Analise a mensagem e classifique a intenção principal.
+      console.log('🎯 [LLMOrchestrator] Detectando intenção avançada:', { 
+        messageLength: message.length,
+        historyLength: conversationHistory.length,
+        hasClinicContext: !!clinicContext
+      });
 
-Mensagem: "${message}"
+      const prompt = `You are an intent recognition system for a medical clinic's WhatsApp chatbot.
+Analyze the user message and conversation history to identify the intent.
 
-Classifique em uma das seguintes categorias:
-- GREETING: Saudações, olá, bom dia, etc.
-- APPOINTMENT: Agendamento, consulta, marcação, etc.
-- INFORMATION: Informações sobre serviços, horários, localização, etc.
-- SUPPORT: Ajuda, suporte, problemas, etc.
-- GOODBYE: Despedidas, tchau, até logo, etc.
+Available intents:
+- APPOINTMENT_CREATE: User wants to schedule an appointment
+- APPOINTMENT_RESCHEDULE: User wants to change an existing appointment
+- APPOINTMENT_CANCEL: User wants to cancel an appointment
+- APPOINTMENT_LIST: User wants to see their appointments
+- INFO_HOURS: Asking about clinic hours
+- INFO_LOCATION: Asking about clinic address/location
+- INFO_SERVICES: Asking about available services/specialties
+- INFO_DOCTORS: Asking about doctors/professionals
+- INFO_PRICES: Asking about prices/insurance
+- INFO_GENERAL: General information questions
+- GREETING: Greeting messages
+- FAREWELL: Goodbye messages
+- HUMAN_HANDOFF: User wants to speak with a human
+- UNCLEAR: Intent is not clear
 
-Responda apenas com o nome da categoria.`;
+Extract entities like: dates, times, doctor names, services, symptoms, etc.
+
+Current message: "${message}"
+
+Conversation history:
+${conversationHistory.map(h => `${h.role}: ${h.content}`).join('\n')}
+
+Clinic context:
+- Services: ${JSON.stringify(clinicContext.services || [])}
+- Doctors: ${JSON.stringify(clinicContext.professionals || [])}
+
+Return a JSON with: { "intent": "INTENT_NAME", "confidence": 0.0-1.0, "entities": {}, "reasoning": "brief explanation" }`;
 
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.1,
-        max_tokens: 50,
+        max_tokens: 200,
       });
 
-      const intentName = completion.choices[0]?.message?.content?.trim() || 'GREETING';
+      const response = completion.choices[0]?.message?.content;
+      console.log('🤖 [LLMOrchestrator] Resposta do LLM:', response);
+
+      let intentData;
+      try {
+        intentData = JSON.parse(response);
+      } catch (parseError) {
+        console.error('❌ [LLMOrchestrator] Erro ao fazer parse da resposta:', parseError);
+        return this.fallbackIntentRecognition(message);
+      }
+
+      console.log('✅ [LLMOrchestrator] Intenção detectada:', {
+        intent: intentData.intent,
+        confidence: intentData.confidence,
+        entities: intentData.entities,
+        reasoning: intentData.reasoning
+      });
 
       return {
-        name: intentName,
-        confidence: 0.8,
-        entities: {},
-        requiresAction: false,
-        category: this.getCategoryFromIntent(intentName)
+        name: intentData.intent,
+        confidence: intentData.confidence || 0.8,
+        entities: intentData.entities || {},
+        requiresAction: this.isAppointmentIntent(intentData.intent),
+        category: this.mapIntentToCategory(intentData.intent)
       };
 
     } catch (error) {
-      console.error('Error detecting intent:', error);
-      return {
-        name: 'GREETING',
-        confidence: 0.5,
-        entities: {},
-        requiresAction: false,
-        category: 'general'
-      };
+      console.error('❌ [LLMOrchestrator] Erro na detecção de intenção:', error);
+      return this.fallbackIntentRecognition(message);
     }
   }
 
-  static getCategoryFromIntent(intentName) {
-    const categories = {
-      'GREETING': 'general',
-      'APPOINTMENT': 'appointment',
-      'INFORMATION': 'information',
-      'SUPPORT': 'support',
-      'GOODBYE': 'general'
+  static fallbackIntentRecognition(message) {
+    console.log('🔄 [LLMOrchestrator] Usando fallback para detecção de intenção');
+    
+    const lowerMessage = message.toLowerCase();
+    
+    // Detecção por palavras-chave
+    if (this.containsAppointmentKeywords(lowerMessage)) {
+      return {
+        name: 'APPOINTMENT_CREATE',
+        confidence: 0.6,
+        entities: {},
+        requiresAction: true,
+        category: 'appointment'
+      };
+    }
+    
+    if (this.containsInfoKeywords(lowerMessage)) {
+      return {
+        name: 'INFO_GENERAL',
+        confidence: 0.6,
+        entities: {},
+        requiresAction: false,
+        category: 'information'
+      };
+    }
+    
+    if (this.containsGreetingKeywords(lowerMessage)) {
+      return {
+        name: 'GREETING',
+        confidence: 0.8,
+        entities: {},
+        requiresAction: false,
+        category: 'conversation'
+      };
+    }
+    
+    return {
+      name: 'UNCLEAR',
+      confidence: 0.3,
+      entities: {},
+      requiresAction: false,
+      category: 'conversation'
     };
-    return categories[intentName] || 'general';
   }
+
+  static containsAppointmentKeywords(message) {
+    const keywords = [
+      'agendar', 'agendamento', 'consulta', 'marcar',
+      'remarcar', 'reagendar', 'cancelar', 'desmarcar',
+      'horário', 'disponibilidade', 'agenda'
+    ];
+    return keywords.some(k => message.includes(k));
+  }
+
+  static containsInfoKeywords(message) {
+    const keywords = [
+      'endereço', 'localização', 'onde fica', 'como chegar',
+      'horário', 'funciona', 'abre', 'fecha',
+      'preço', 'valor', 'quanto custa', 'convênio',
+      'médico', 'doutor', 'especialista', 'atende'
+    ];
+    return keywords.some(k => message.includes(k));
+  }
+
+  static containsGreetingKeywords(message) {
+    const keywords = [
+      'oi', 'olá', 'bom dia', 'boa tarde', 'boa noite',
+      'hello', 'hi', 'hey'
+    ];
+    return keywords.some(k => message.includes(k));
+  }
+
+  static isAppointmentIntent(intentName) {
+    return intentName && intentName.startsWith('APPOINTMENT_');
+  }
+
+  static mapIntentToCategory(intentName) {
+    if (intentName && intentName.startsWith('APPOINTMENT_')) return 'appointment';
+    if (intentName && intentName.startsWith('INFO_')) return 'information';
+    if (['GREETING', 'FAREWELL', 'UNCLEAR'].includes(intentName)) return 'conversation';
+    if (intentName === 'HUMAN_HANDOFF') return 'support';
+    return 'conversation';
+  }
+
+
 
   static async getClinicContext(phoneNumber = null) {
     try {
