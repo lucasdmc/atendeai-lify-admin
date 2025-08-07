@@ -52,8 +52,13 @@ export class LLMOrchestratorService {
       console.log('📅 Primeira conversa do dia:', isFirstConversationOfDay);
       
       // Verificar horário de funcionamento
+      console.log('🔍 [DEBUG] Chamando isWithinBusinessHours com clinicContext:', {
+        hasWorkingHours: !!clinicContext.workingHours,
+        workingHoursKeys: Object.keys(clinicContext.workingHours || {})
+      });
       const isWithinBusinessHours = this.isWithinBusinessHours(clinicContext);
       console.log('🕒 Dentro do horário de funcionamento:', isWithinBusinessHours);
+      console.log('🕒 Tipo do resultado:', typeof isWithinBusinessHours);
       
       // Preparar prompt do sistema com perfil do usuário
       const systemPrompt = this.prepareSystemPrompt(clinicContext, memory.userProfile);
