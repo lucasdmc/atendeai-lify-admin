@@ -6,7 +6,6 @@ dotenv.config();
 
 const whatsappRoutes = await import('./routes/whatsapp.js');
 const webhookRoutes = await import('./routes/webhook.js');
-const webhookTestRoutes = await import('./routes/webhook-test-working.js');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -17,7 +16,6 @@ app.use(express.json());
 // Rotas do WhatsApp
 app.use('/api/whatsapp', whatsappRoutes.default);
 app.use('/webhook', webhookRoutes.default);
-app.use('/webhook-test', webhookTestRoutes.default);
 
 // Rota de teste para verificar se o servidor está funcionando
 app.get('/', (req, res) => {
@@ -26,7 +24,6 @@ app.get('/', (req, res) => {
     message: 'atendeai-lify-backend rodando com webhook robusto', 
     endpoints: [
       '/webhook/whatsapp-meta', 
-      '/webhook-test/whatsapp-test',
       '/api/whatsapp/send-message',
       '/health',
       '/api/ai/process'

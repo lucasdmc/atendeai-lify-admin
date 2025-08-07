@@ -186,9 +186,10 @@ async function processWhatsAppWebhookFinal(webhookData, whatsappConfig) {
             // 1. SALVAR CONVERSA NO BANCO DE DADOS
             console.log('[Webhook-Final] Salvando conversa no banco...');
             
-            // CORREÇÃO CRÍTICA: Extrair número de destino corretamente
-            const toNumber = change.value.metadata?.phone_number_id || whatsappConfig.phoneNumberId;
+            // CORREÇÃO CRÍTICA: Extrair número de destino corretamente da estrutura da Meta
+            const toNumber = change.value.metadata?.display_phone_number || whatsappConfig.phoneNumberId;
             console.log('[Webhook-Final] Número de destino extraído:', toNumber);
+            console.log('[Webhook-Final] Metadata completa:', change.value.metadata);
             
             const conversationId = await saveConversationToDatabase(
               message.from,
@@ -334,7 +335,19 @@ async function saveConversationToDatabase(fromNumber, toNumber, content, whatsap
  */
 async function saveResponseToDatabase(conversationId, fromNumber, toNumber, content, messageType, whatsappMessageId) {
   try {
-    console.log('[Webhook-Final] Salvando resposta:', { conversationId, content });
+    console.log('[Webhook-Final] Salvando resposta:', { 
+      conversationId, 
+      fromNumber, 
+      toNumber, 
+      content: content.substring(0, 100) + '...',
+      messageType 
+    });
+    
+    // Verificar se conversationId é válido
+    if (!conversationId) {
+      console.error('[Webhook-Final] conversationId é null, não é possível salvar resposta');
+      return null;
+    }
     
     const { data: result, error } = await supabase
       .from('whatsapp_messages_improved')
