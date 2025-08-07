@@ -72,12 +72,6 @@ export class LLMOrchestratorService {
       let response = completion.choices[0]?.message?.content || 'Desculpe, não consegui gerar uma resposta.';
 
       // Aplicar lógica de saudação e horário
-      console.log('🔍 [DEBUG] ANTES de applyResponseLogic:', {
-        isWithinBusinessHours,
-        type: typeof isWithinBusinessHours,
-        isFirstConversationOfDay,
-        hasClinicContext: !!clinicContext
-      });
       response = await this.applyResponseLogic(response, clinicContext, isFirstConversationOfDay, isWithinBusinessHours, memory.userProfile);
 
       // Salvar na memória
@@ -470,12 +464,10 @@ Return a JSON with: { "intent": "INTENT_NAME", "confidence": 0.0-1.0, "entities"
         // ✅ BUSCA DINÂMICA - Buscar clínica específica pelo telefone
         console.log(`🔍 [LLMOrchestrator] Buscando clínica por WhatsApp: ${phoneNumber}`);
         
-        // Adicionar '+' se não tiver para compatibilidade com o banco
-        const phoneWithPlus = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
         const { data: clinicData, error } = await supabase
           .from('clinics')
           .select('*')
-          .eq('whatsapp_phone', phoneWithPlus)
+          .eq('whatsapp_phone', phoneNumber)
           .single();
 
         if (error) {
@@ -1019,9 +1011,6 @@ DIRETRIZES FUNDAMENTAIS:
           'No momento estamos fora do horário de atendimento. Retornaremos seu contato no próximo horário comercial.';
         
         console.log('🕒 Aplicando mensagem fora do horário');
-        console.log('🔍 [DEBUG] Valor de isWithinBusinessHours:', isWithinBusinessHours);
-        console.log('🔍 [DEBUG] NODE_ENV:', process.env.NODE_ENV);
-        console.log('🔍 [DEBUG] Mensagem fora do horário:', outOfHoursMessage);
         return outOfHoursMessage;
       }
 
