@@ -464,44 +464,11 @@ Return a JSON with: { "intent": "INTENT_NAME", "confidence": 0.0-1.0, "entities"
         // ✅ BUSCA DINÂMICA - Buscar clínica específica pelo telefone
         console.log(`🔍 [LLMOrchestrator] Buscando clínica por WhatsApp: ${phoneNumber}`);
         
-        // Tentar buscar com e sem o '+' para compatibilidade
-        let clinicData, error;
-        
-        // Primeira tentativa: buscar exatamente como fornecido
-        const result1 = await supabase
+        const { data: clinicData, error } = await supabase
           .from('clinics')
           .select('*')
           .eq('whatsapp_phone', phoneNumber)
           .single();
-        
-        if (result1.error) {
-          // Segunda tentativa: adicionar '+' se não tiver
-          const phoneWithPlus = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
-          const result2 = await supabase
-            .from('clinics')
-            .select('*')
-            .eq('whatsapp_phone', phoneWithPlus)
-            .single();
-          
-          if (result2.error) {
-            // Terceira tentativa: remover '+' se tiver
-            const phoneWithoutPlus = phoneNumber.startsWith('+') ? phoneNumber.substring(1) : phoneNumber;
-            const result3 = await supabase
-              .from('clinics')
-              .select('*')
-              .eq('whatsapp_phone', phoneWithoutPlus)
-              .single();
-            
-            clinicData = result3.data;
-            error = result3.error;
-          } else {
-            clinicData = result2.data;
-            error = result2.error;
-          }
-        } else {
-          clinicData = result1.data;
-          error = result1.error;
-        }
 
         if (error) {
           console.log(`⚠️ [LLMOrchestrator] Clínica não encontrada para WhatsApp: ${phoneNumber}`);
