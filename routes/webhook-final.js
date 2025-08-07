@@ -176,15 +176,22 @@ async function processWhatsAppWebhookFinal(webhookData, whatsappConfig) {
 
             // 1. SALVAR CONVERSA NO BANCO DE DADOS
             console.log('[Webhook-Final] Salvando conversa no banco...');
+            
+            // CORREÇÃO CRÍTICA: Extrair número de destino corretamente
+            const toNumber = change.value.metadata?.phone_number_id || whatsappConfig.phoneNumberId;
+            console.log('[Webhook-Final] Número de destino extraído:', toNumber);
+            
             const conversationId = await saveConversationToDatabase(
               message.from,
-              message.to || whatsappConfig.phoneNumberId,
+              toNumber,
               messageText,
               message.id
             );
 
             if (conversationId) {
               console.log('[Webhook-Final] Conversa salva com ID:', conversationId);
+            } else {
+              console.error('[Webhook-Final] Falha ao salvar conversa, mas continuando processamento');
             }
 
             // 2. Processar com CONTEXTUALIZAÇÃO COMPLETA
@@ -200,7 +207,7 @@ async function processWhatsAppWebhookFinal(webhookData, whatsappConfig) {
               await saveResponseToDatabase(
                 conversationId,
                 message.from,
-                message.to || whatsappConfig.phoneNumberId,
+                toNumber,
                 aiResult.response,
                 'sent',
                 null
@@ -242,20 +249,64 @@ async function saveConversationToDatabase(fromNumber, toNumber, content, whatsap
   try {
     console.log('[Webhook-Final] Salvando conversa:', { fromNumber, toNumber, content });
     
-    const { data: result, error } = await supabase.rpc('process_incoming_message', {
-      p_from_number: fromNumber,
-      p_to_number: toNumber,
-      p_content: content,
-      p_whatsapp_message_id: whatsappMessageId
-    });
+    // Primeiro, encontrar a clínica pelo número do WhatsApp
+    const { data: clinicData, error: clinicError } = await supabase
+      .from('clinic_whatsapp_numbers')
+      .select('clinic_id')
+      .eq('whatsapp_number', toNumber)
+      .eq('is_active', true)
+      .single();
 
-    if (error) {
-      console.error('[Webhook-Final] Erro ao salvar conversa:', error);
+    if (clinicError || !clinicData) {
+      console.error('[Webhook-Final] Clínica não encontrada para o número:', toNumber);
       return null;
     }
 
-    console.log('[Webhook-Final] Conversa salva com sucesso, ID:', result);
-    return result;
+    const clinicId = clinicData.clinic_id;
+
+    // Criar ou atualizar conversa
+    const { data: conversationData, error: conversationError } = await supabase
+      .from('whatsapp_conversations_improved')
+      .upsert({
+        clinic_id: clinicId,
+        patient_phone_number: fromNumber,
+        clinic_whatsapp_number: toNumber,
+        last_message_preview: content,
+        unread_count: 1,
+        last_message_at: new Date().toISOString()
+      }, {
+        onConflict: 'clinic_id,patient_phone_number,clinic_whatsapp_number',
+        ignoreDuplicates: false
+      })
+      .select()
+      .single();
+
+    if (conversationError) {
+      console.error('[Webhook-Final] Erro ao criar/atualizar conversa:', conversationError);
+      return null;
+    }
+
+    // Salvar mensagem recebida
+    const { data: messageData, error: messageError } = await supabase
+      .from('whatsapp_messages_improved')
+      .insert({
+        conversation_id: conversationData.id,
+        sender_phone: fromNumber,
+        receiver_phone: toNumber,
+        content: content,
+        message_type: 'received',
+        whatsapp_message_id: whatsappMessageId
+      })
+      .select()
+      .single();
+
+    if (messageError) {
+      console.error('[Webhook-Final] Erro ao salvar mensagem:', messageError);
+      return null;
+    }
+
+    console.log('[Webhook-Final] Conversa e mensagem salvas com sucesso, Conversation ID:', conversationData.id);
+    return conversationData.id;
 
   } catch (error) {
     console.error('[Webhook-Final] Erro ao salvar conversa:', error);

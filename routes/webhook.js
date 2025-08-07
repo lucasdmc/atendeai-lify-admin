@@ -141,6 +141,15 @@ async function processWhatsAppWebhookFinal(webhookData, whatsappConfig) {
     console.log('🚨 [Webhook-Final] FUNÇÃO CHAMADA!');
     console.log('🚨 [Webhook-Final] webhookData:', JSON.stringify(webhookData, null, 2));
     
+    // LOG DETALHADO DA ESTRUTURA
+    console.log('[Webhook-Final] Estrutura detalhada:', {
+      hasEntry: !!webhookData.entry,
+      entryLength: webhookData.entry?.length || 0,
+      firstEntry: webhookData.entry?.[0],
+      firstChange: webhookData.entry?.[0]?.changes?.[0],
+      metadata: webhookData.entry?.[0]?.changes?.[0]?.value?.metadata
+    });
+    
     const processed = [];
 
     console.log('[Webhook-Final] Processando entries:', webhookData.entry?.length || 0);
@@ -176,15 +185,22 @@ async function processWhatsAppWebhookFinal(webhookData, whatsappConfig) {
 
             // 1. SALVAR CONVERSA NO BANCO DE DADOS
             console.log('[Webhook-Final] Salvando conversa no banco...');
+            
+            // CORREÇÃO CRÍTICA: Extrair número de destino corretamente
+            const toNumber = change.value.metadata?.phone_number_id || whatsappConfig.phoneNumberId;
+            console.log('[Webhook-Final] Número de destino extraído:', toNumber);
+            
             const conversationId = await saveConversationToDatabase(
               message.from,
-              message.to || whatsappConfig.phoneNumberId,
+              toNumber,
               messageText,
               message.id
             );
 
             if (conversationId) {
               console.log('[Webhook-Final] Conversa salva com ID:', conversationId);
+            } else {
+              console.error('[Webhook-Final] Falha ao salvar conversa, mas continuando processamento');
             }
 
             // 2. Processar com CONTEXTUALIZAÇÃO COMPLETA
@@ -200,7 +216,7 @@ async function processWhatsAppWebhookFinal(webhookData, whatsappConfig) {
               await saveResponseToDatabase(
                 conversationId,
                 message.from,
-                message.to || whatsappConfig.phoneNumberId,
+                toNumber,
                 aiResult.response,
                 'sent',
                 null
