@@ -1000,14 +1000,12 @@ DIRETRIZES FUNDAMENTAIS:
         return true; // Se não há horário configurado, assume que está aberto
       }
 
-      // Usar timezone do Brasil para garantir consistência
+      // Usar data atual (o Railway já está configurado com TZ=America/Sao_Paulo)
       const now = new Date();
-      const brazilTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
-      const currentDay = this.getDayOfWeek(brazilTime.getDay());
-      const currentTime = brazilTime.getHours() * 100 + brazilTime.getMinutes(); // Formato HHMM
+      const currentDay = this.getDayOfWeek(now.getDay());
+      const currentTime = now.getHours() * 100 + now.getMinutes(); // Formato HHMM
 
       console.log('🔍 [DEBUG] Data atual:', now.toLocaleString());
-      console.log('🔍 [DEBUG] Data Brasil:', brazilTime.toLocaleString());
       console.log('🔍 [DEBUG] Dia da semana:', currentDay);
       console.log('🔍 [DEBUG] Horário atual (HHMM):', currentTime);
       console.log('🔍 [DEBUG] NODE_ENV:', process.env.NODE_ENV);
