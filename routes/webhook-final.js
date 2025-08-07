@@ -301,16 +301,78 @@ async function saveConversationToDatabase(fromNumber, toNumber, content, whatsap
   try {
     console.log('[Webhook-Final] Salvando conversa:', { fromNumber, toNumber, content });
     
-    // Primeiro, encontrar a clínica pelo número do WhatsApp
+    // CORREÇÃO: Usar o número real do telefone, não o ID da Meta
+    // Se toNumber é o ID da Meta, precisamos buscar o número real
+    let realToNumber = toNumber;
+    
+    // Se toNumber parece ser um ID da Meta (números longos), buscar o número real
+    if (toNumber && toNumber.length > 10 && !toNumber.startsWith('+')) {
+      console.log('[Webhook-Final] toNumber parece ser ID da Meta, buscando número real...');
+      // Por enquanto, usar fallback para DEFAULT_CLINIC_ID
+      const defaultClinicId = process.env.DEFAULT_CLINIC_ID;
+      if (defaultClinicId) {
+        console.log('[Webhook-Final] Usando DEFAULT_CLINIC_ID para conversa:', defaultClinicId);
+        
+        // Criar ou atualizar conversa usando DEFAULT_CLINIC_ID
+        const { data: conversationData, error: conversationError } = await supabase
+          .from('whatsapp_conversations_improved')
+          .upsert({
+            clinic_id: defaultClinicId,
+            patient_phone_number: fromNumber,
+            clinic_whatsapp_number: toNumber, // Manter o ID da Meta como identificador
+            last_message_preview: content,
+            unread_count: 1,
+            last_message_at: new Date().toISOString()
+          }, {
+            onConflict: 'clinic_id,patient_phone_number,clinic_whatsapp_number',
+            ignoreDuplicates: false
+          })
+          .select()
+          .single();
+
+        if (conversationError) {
+          console.error('[Webhook-Final] Erro ao criar/atualizar conversa:', conversationError);
+          return null;
+        }
+
+        // Salvar mensagem recebida
+        const { data: messageData, error: messageError } = await supabase
+          .from('whatsapp_messages_improved')
+          .insert({
+            conversation_id: conversationData.id,
+            sender_phone: fromNumber,
+            receiver_phone: toNumber,
+            content: content,
+            message_type: 'received',
+            whatsapp_message_id: whatsappMessageId
+          })
+          .select()
+          .single();
+
+        if (messageError) {
+          console.error('[Webhook-Final] Erro ao salvar mensagem:', messageError);
+          return null;
+        }
+
+        console.log('[Webhook-Final] Conversa salva com sucesso:', {
+          conversationId: conversationData.id,
+          messageId: messageData.id
+        });
+
+        return conversationData.id;
+      }
+    }
+    
+    // Busca normal se temos o número real
     const { data: clinicData, error: clinicError } = await supabase
       .from('whatsapp_connections')
       .select('clinic_id')
-      .eq('phone_number', toNumber)
+      .eq('phone_number', realToNumber)
       .eq('is_active', true)
       .single();
 
     if (clinicError || !clinicData) {
-      console.error('[Webhook-Final] Clínica não encontrada para o número:', toNumber);
+      console.error('[Webhook-Final] Clínica não encontrada para o número:', realToNumber);
       return null;
     }
 
@@ -322,7 +384,7 @@ async function saveConversationToDatabase(fromNumber, toNumber, content, whatsap
       .upsert({
         clinic_id: clinicId,
         patient_phone_number: fromNumber,
-        clinic_whatsapp_number: toNumber,
+        clinic_whatsapp_number: realToNumber,
         last_message_preview: content,
         unread_count: 1,
         last_message_at: new Date().toISOString()
@@ -344,7 +406,7 @@ async function saveConversationToDatabase(fromNumber, toNumber, content, whatsap
       .insert({
         conversation_id: conversationData.id,
         sender_phone: fromNumber,
-        receiver_phone: toNumber,
+        receiver_phone: realToNumber,
         content: content,
         message_type: 'received',
         whatsapp_message_id: whatsappMessageId
@@ -437,25 +499,38 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
       console.log('📅 [Webhook-Final] Intenção de agendamento detectada, iniciando fluxo de agendamento...');
       
       try {
-        const phoneNumberId = config.phoneNumberId || process.env.WHATSAPP_META_PHONE_NUMBER_ID;
-        console.log('[Webhook-Final] Buscando clínica para número:', phoneNumberId);
+        // CORREÇÃO: Usar o número real do telefone, não o ID da Meta
+        // O webhook contém o número real em metadata.display_phone_number
+        const realPhoneNumber = webhookData.entry?.[0]?.changes?.[0]?.value?.metadata?.display_phone_number;
+        console.log('[Webhook-Final] Número real do telefone:', realPhoneNumber);
         
-        // Buscar clínica pelo número do WhatsApp
-        const { data: clinicData, error: clinicError } = await supabase
-          .from('whatsapp_connections')
-          .select('clinic_id')
-          .eq('phone_number', phoneNumberId)
-          .eq('is_active', true)
-          .single();
-
-        console.log('[Webhook-Final] Resultado da busca na whatsapp_connections:', { clinicData, clinicError });
-
+        // Se não temos o número real, tentar buscar na tabela clinics
         let clinicId = null;
         
-        if (clinicError || !clinicData) {
-          console.log('[Webhook-Final] Clínica não encontrada na whatsapp_connections, tentando fallback...');
+        if (realPhoneNumber) {
+          console.log('[Webhook-Final] Buscando clínica para número real:', realPhoneNumber);
           
-          // Fallback: buscar diretamente na tabela clinics pelo DEFAULT_CLINIC_ID
+          // Buscar clínica pelo número real do WhatsApp
+          const { data: clinicData, error: clinicError } = await supabase
+            .from('whatsapp_connections')
+            .select('clinic_id')
+            .eq('phone_number', realPhoneNumber)
+            .eq('is_active', true)
+            .single();
+
+          console.log('[Webhook-Final] Resultado da busca na whatsapp_connections:', { clinicData, clinicError });
+
+          if (!clinicError && clinicData) {
+            clinicId = clinicData.clinic_id;
+            console.log('[Webhook-Final] Clínica encontrada na whatsapp_connections:', clinicId);
+          }
+        }
+        
+        // Se não encontrou na whatsapp_connections, tentar fallbacks
+        if (!clinicId) {
+          console.log('[Webhook-Final] Clínica não encontrada na whatsapp_connections, tentando fallbacks...');
+          
+          // Fallback 1: buscar diretamente na tabela clinics pelo DEFAULT_CLINIC_ID
           const defaultClinicId = process.env.DEFAULT_CLINIC_ID;
           if (defaultClinicId) {
             console.log('[Webhook-Final] Usando DEFAULT_CLINIC_ID como fallback:', defaultClinicId);
@@ -472,7 +547,7 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
             }
           }
           
-          // Se ainda não encontrou, tentar buscar pela primeira clínica disponível
+          // Fallback 2: buscar pela primeira clínica disponível
           if (!clinicId) {
             console.log('[Webhook-Final] Tentando buscar primeira clínica disponível...');
             
@@ -487,9 +562,6 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
               console.log('[Webhook-Final] Usando primeira clínica disponível:', clinicId);
             }
           }
-        } else {
-          clinicId = clinicData.clinic_id;
-          console.log('[Webhook-Final] Clínica encontrada na whatsapp_connections:', clinicId);
         }
 
         if (!clinicId) {
