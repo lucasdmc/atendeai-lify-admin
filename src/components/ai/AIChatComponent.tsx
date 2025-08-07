@@ -3,11 +3,11 @@
 // ========================================
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
+import { Send, Loader2 } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { useClinic } from '../../contexts/ClinicContext';
 
@@ -47,7 +47,6 @@ export const AIChatComponent: React.FC<AIChatComponentProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streamingText]);
 
-  // Função para enviar mensagem
   const sendMessage = async () => {
     if (!inputValue.trim() || !selectedClinic?.id) return;
 
@@ -63,7 +62,7 @@ export const AIChatComponent: React.FC<AIChatComponentProps> = ({
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/ai/process', {
+      const response = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -71,21 +70,19 @@ export const AIChatComponent: React.FC<AIChatComponentProps> = ({
         },
         body: JSON.stringify({
           message: inputValue,
-          clinicId: selectedClinic.id,
           userId,
-          sessionId,
+          sessionId: sessionId || 'default-session',
+          clinicId: selectedClinic.id,
           options: {
             enableMedicalValidation: true,
             enableEmotionAnalysis: true,
-            enableProactiveSuggestions: true,
             enableCache: true,
-            enableStreaming: true,
           },
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to send message');
+        throw new Error('Falha na comunicação com a IA');
       }
 
       const data = await response.json();
@@ -93,24 +90,24 @@ export const AIChatComponent: React.FC<AIChatComponentProps> = ({
       if (data.success) {
         const aiMessage: Message = {
           id: (Date.now() + 1).toString(),
-          text: data.data.response,
+          text: data.response,
           isUser: false,
           timestamp: new Date(),
-          confidence: data.data.confidence,
-          modelUsed: data.data.modelUsed,
-          medicalContent: data.data.medicalContent,
-          emotion: data.data.emotion,
+          confidence: data.confidence,
+          modelUsed: data.modelUsed,
+          medicalContent: data.medicalContent,
+          emotion: data.emotion,
         };
 
         setMessages(prev => [...prev, aiMessage]);
       } else {
-        throw new Error(data.error || 'Failed to get response');
+        throw new Error(data.error || 'Erro no processamento');
       }
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('Erro ao enviar mensagem:', error);
       toast({
         title: 'Erro',
-        description: 'Falha ao enviar mensagem. Tente novamente.',
+        description: 'Falha ao processar mensagem. Tente novamente.',
         variant: 'destructive',
       });
     } finally {
@@ -118,16 +115,15 @@ export const AIChatComponent: React.FC<AIChatComponentProps> = ({
     }
   };
 
-  // Função para streaming (simulada)
   const startStreaming = async (text: string) => {
     setIsStreaming(true);
     setStreamingText('');
 
-    // Simular streaming
+    // Simular streaming de texto
     const words = text.split(' ');
     for (let i = 0; i < words.length; i++) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      setStreamingText(prev => prev + (i > 0 ? ' ' : '') + words[i]);
+      await new Promise(resolve => setTimeout(resolve, 50));
+      setStreamingText(prev => prev + (i === 0 ? '' : ' ') + words[i]);
     }
 
     setIsStreaming(false);
@@ -142,38 +138,6 @@ export const AIChatComponent: React.FC<AIChatComponentProps> = ({
     }
   };
 
-  // Função para testar conectividade
-  const testConnection = async () => {
-    try {
-      const response = await fetch('/api/ai/test-connection', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        toast({
-          title: 'Conexão OK',
-          description: 'APIs AI estão funcionando corretamente.',
-        });
-      } else {
-        toast({
-          title: 'Erro de Conexão',
-          description: 'Falha na conexão com as APIs AI.',
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      toast({
-        title: 'Erro',
-        description: 'Falha ao testar conexão.',
-        variant: 'destructive',
-      });
-    }
-  };
-
   return (
     <Card className={`w-full max-w-4xl mx-auto ${className}`}>
       <CardHeader>
@@ -182,13 +146,6 @@ export const AIChatComponent: React.FC<AIChatComponentProps> = ({
             🤖 Chat AI
             <Badge variant="secondary">Beta</Badge>
           </CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={testConnection}
-          >
-            Testar Conexão
-          </Button>
         </div>
       </CardHeader>
       
@@ -262,28 +219,37 @@ export const AIChatComponent: React.FC<AIChatComponentProps> = ({
 
         {/* Área de input */}
         <div className="flex gap-2">
-          <Input
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Digite sua mensagem..."
-            disabled={isLoading}
-            className="flex-1"
-          />
+          <div className="flex-1 relative">
+            <textarea
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Digite sua mensagem..."
+              className="w-full p-3 pr-12 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              rows={3}
+              disabled={isLoading || !selectedClinic?.id}
+            />
+          </div>
+          
           <Button
             onClick={sendMessage}
             disabled={isLoading || !inputValue.trim() || !selectedClinic?.id}
+            className="px-4 py-2"
           >
-            {isLoading ? 'Enviando...' : 'Enviar'}
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
           </Button>
         </div>
 
         {/* Status */}
-        <div className="mt-2 text-xs text-gray-500">
+        <div className="mt-2 text-xs text-gray-500 text-center">
           {selectedClinic ? (
-            <>Clínica: {selectedClinic.name}</>
+            <span>Modo simulação ativo</span>
           ) : (
-            'Selecione uma clínica para começar'
+            <span>Selecione uma clínica para começar</span>
           )}
         </div>
       </CardContent>

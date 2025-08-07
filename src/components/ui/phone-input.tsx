@@ -12,7 +12,7 @@ interface PhoneInputProps {
 export const PhoneInput = ({ 
   value, 
   onChange, 
-  placeholder = "(11) 99999-9999",
+  placeholder = "Digite o telefone",
   disabled = false,
   className = ""
 }: PhoneInputProps) => {

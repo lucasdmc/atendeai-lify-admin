@@ -1,397 +1,177 @@
-import contextualizacaoData from '../data/contextualizacao-esadi.json';
+import contextualizacaoCardioprime from '../data/contextualizacao-cardioprime.json';
+import contextualizacaoEsadi from '../data/contextualizacao-esadi.json';
 
-export interface ContextualizacaoClinica {
-  clinica: {
-    informacoes_basicas: {
-      nome: string;
-      razao_social: string;
-      cnpj: string;
-      especialidade_principal: string;
-      especialidades_secundarias: string[];
-      descricao: string;
-      missao: string;
-      valores: string[];
-      diferenciais: string[];
-    };
-    localizacao: {
-      endereco_principal: {
-        logradouro: string;
-        numero: string;
-        complemento: string;
-        bairro: string;
-        cidade: string;
-        estado: string;
-        cep: string;
-        pais: string;
-        coordenadas: {
-          latitude: number;
-          longitude: number;
-        };
-      };
-    };
-    contatos: {
-      telefone_principal: string;
-      whatsapp: string;
-      email_principal: string;
-      emails_departamentos: {
-        agendamento: string;
-        resultados: string;
-      };
-      website: string;
-    };
-    horario_funcionamento: {
-      [key: string]: { abertura: string | null; fechamento: string | null };
-    };
-  };
-  agente_ia: {
-    configuracao: {
-      nome: string;
-      personalidade: string;
-      tom_comunicacao: string;
-      nivel_formalidade: string;
-      idiomas: string[];
-      saudacao_inicial: string;
-      mensagem_despedida: string;
-      mensagem_fora_horario: string;
-    };
-    comportamento: {
-      proativo: boolean;
-      oferece_sugestoes: boolean;
-      solicita_feedback: boolean;
-      escalacao_automatica: boolean;
-      limite_tentativas: number;
-      contexto_conversa: boolean;
-    };
-  };
-  profissionais: Array<{
-    id: string;
-    nome_completo: string;
-    nome_exibicao: string;
-    crm: string;
-    especialidades: string[];
-    experiencia: string;
-    ativo: boolean;
-    aceita_novos_pacientes: boolean;
-    horarios_disponibilidade: {
-      [key: string]: Array<{ inicio: string; fim: string }>;
-    };
-    tempo_consulta_padrao: number;
-  }>;
-  servicos: {
-    consultas: Array<{
-      id: string;
-      nome: string;
-      descricao: string;
-      especialidade: string;
-      duracao_minutos: number;
-      preco_particular: number;
-      aceita_convenio: boolean;
-      convenios_aceitos: string[];
-      ativo: boolean;
-    }>;
-    exames: Array<{
-      id: string;
-      nome: string;
-      descricao: string;
-      categoria: string;
-      duracao_minutos: number;
-      preco_particular: number;
-      aceita_convenio: boolean;
-      convenios_aceitos: string[];
-      preparacao: {
-        jejum_horas: number;
-        instrucoes_especiais: string;
-      };
-      resultado_prazo_dias: number;
-      ativo: boolean;
-    }>;
-  };
-  convenios: Array<{
-    id: string;
-    nome: string;
-    ativo: boolean;
-    servicos_cobertos: string[];
-    copagamento: boolean;
-    valor_copagamento?: number;
-    autorizacao_necessaria: boolean;
-  }>;
-  formas_pagamento: {
-    dinheiro: boolean;
-    cartao_credito: boolean;
-    cartao_debito: boolean;
-    pix: boolean;
-    parcelamento: {
-      disponivel: boolean;
-      max_parcelas: number;
-      valor_minimo_parcela: number;
-    };
-    desconto_a_vista: {
-      disponivel: boolean;
-      percentual: number;
-    };
-  };
-  politicas: {
-    agendamento: {
-      antecedencia_minima_horas: number;
-      antecedencia_maxima_dias: number;
-      reagendamento_permitido: boolean;
-      cancelamento_antecedencia_horas: number;
-      confirmacao_necessaria: boolean;
-    };
-    atendimento: {
-      tolerancia_atraso_minutos: number;
-      acompanhante_permitido: boolean;
-      documentos_obrigatorios: string[];
-    };
-  };
-  informacoes_adicionais: {
-    parcerias: Array<{
-      nome: string;
-      tipo: string;
-      descricao: string;
-    }>;
-  };
-  metadados: {
-    versao_schema: string;
-    data_criacao: string;
-    status: string;
-  };
+export interface ClinicContext {
+  id: string;
+  name: string;
+  specialty: string;
+  doctors: any[];
+  schedule: any;
+  services: any[];
+  location: any;
+  contact: any;
+  policies: any;
+  assistant: any;
 }
 
-class ContextualizacaoService {
-  private contextualizacao: ContextualizacaoClinica;
-
-  constructor() {
-    this.contextualizacao = contextualizacaoData as ContextualizacaoClinica;
-  }
-
-  /**
-   * Obtém toda a contextualização da clínica
-   */
-  getContextualizacao(): ContextualizacaoClinica {
-    return this.contextualizacao;
-  }
+export class ContextualizacaoService {
+  private static clinicData = {
+    'cardioprime': contextualizacaoCardioprime,
+    'esadi': contextualizacaoEsadi
+  };
 
   /**
-   * Obtém informações básicas da clínica
+   * Obtém contexto de uma clínica por ID
    */
-  getInformacoesBasicas() {
-    return this.contextualizacao.clinica.informacoes_basicas;
-  }
-
-  /**
-   * Obtém informações de localização
-   */
-  getLocalizacao() {
-    return this.contextualizacao.clinica.localizacao;
-  }
-
-  /**
-   * Obtém informações de contato
-   */
-  getContatos() {
-    return this.contextualizacao.clinica.contatos;
-  }
-
-  /**
-   * Obtém horário de funcionamento
-   */
-  getHorarioFuncionamento() {
-    return this.contextualizacao.clinica.horario_funcionamento;
-  }
-
-  /**
-   * Obtém configuração do agente IA
-   */
-  getConfiguracaoAgenteIA() {
-    return this.contextualizacao.agente_ia.configuracao;
-  }
-
-  /**
-   * Obtém comportamento do agente IA
-   */
-  getComportamentoAgenteIA() {
-    return this.contextualizacao.agente_ia.comportamento;
-  }
-
-  /**
-   * Obtém lista de profissionais
-   */
-  getProfissionais() {
-    return this.contextualizacao.profissionais.filter(prof => prof.ativo);
-  }
-
-  /**
-   * Obtém profissional por ID
-   */
-  getProfissionalPorId(id: string) {
-    return this.contextualizacao.profissionais.find(prof => prof.id === id && prof.ativo);
-  }
-
-  /**
-   * Obtém profissionais por especialidade
-   */
-  getProfissionaisPorEspecialidade(especialidade: string) {
-    return this.contextualizacao.profissionais.filter(
-      prof => prof.ativo && prof.especialidades.includes(especialidade)
-    );
-  }
-
-  /**
-   * Obtém lista de consultas
-   */
-  getConsultas() {
-    return this.contextualizacao.servicos.consultas.filter(consulta => consulta.ativo);
-  }
-
-  /**
-   * Obtém lista de exames
-   */
-  getExames() {
-    return this.contextualizacao.servicos.exames.filter(exame => exame.ativo);
-  }
-
-  /**
-   * Obtém exame por ID
-   */
-  getExamePorId(id: string) {
-    return this.contextualizacao.servicos.exames.find(exame => exame.id === id && exame.ativo);
-  }
-
-  /**
-   * Obtém consulta por ID
-   */
-  getConsultaPorId(id: string) {
-    return this.contextualizacao.servicos.consultas.find(consulta => consulta.id === id && consulta.ativo);
-  }
-
-  /**
-   * Obtém lista de convênios ativos
-   */
-  getConvenios() {
-    return this.contextualizacao.convenios.filter(convenio => convenio.ativo);
-  }
-
-  /**
-   * Obtém convênio por nome
-   */
-  getConvenioPorNome(nome: string) {
-    return this.contextualizacao.convenios.find(
-      convenio => convenio.nome.toLowerCase() === nome.toLowerCase() && convenio.ativo
-    );
-  }
-
-  /**
-   * Obtém formas de pagamento
-   */
-  getFormasPagamento() {
-    return this.contextualizacao.formas_pagamento;
-  }
-
-  /**
-   * Obtém políticas de agendamento
-   */
-  getPoliticasAgendamento() {
-    return this.contextualizacao.politicas.agendamento;
-  }
-
-  /**
-   * Obtém políticas de atendimento
-   */
-  getPoliticasAtendimento() {
-    return this.contextualizacao.politicas.atendimento;
-  }
-
-  /**
-   * Verifica se a clínica está aberta no momento atual
-   */
-  isClinicaAberta(): boolean {
-    const agora = new Date();
-    const diaSemana = this.getDiaSemana(agora.getDay());
-    const horario = this.contextualizacao.clinica.horario_funcionamento[diaSemana];
-    
-    if (!horario.abertura || !horario.fechamento) {
-      return false; // Domingo ou dia fechado
-    }
-
-    const horaAtual = agora.getHours() * 60 + agora.getMinutes();
-    const horaAbertura = this.converterHoraParaMinutos(horario.abertura);
-    const horaFechamento = this.converterHoraParaMinutos(horario.fechamento);
-
-    return horaAtual >= horaAbertura && horaAtual <= horaFechamento;
-  }
-
-  /**
-   * Obtém o próximo horário de abertura
-   */
-  getProximoHorarioAbertura(): { dia: string; horario: string } | null {
-    const agora = new Date();
-    // const _diasSemana = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
-    
-    for (let i = 1; i <= 7; i++) {
-      const dataFutura = new Date(agora);
-      dataFutura.setDate(agora.getDate() + i);
+  static async getClinicContext(clinicId: string): Promise<any> {
+    try {
+      // Em produção, isso viria do banco de dados
+      const clinicData = this.clinicData[clinicId as keyof typeof this.clinicData];
       
-      const diaSemana = this.getDiaSemana(dataFutura.getDay());
-      const horario = this.contextualizacao.clinica.horario_funcionamento[diaSemana];
-      
-      if (horario.abertura) {
-        return {
-          dia: diaSemana,
-          horario: horario.abertura
-        };
+      if (!clinicData) {
+        console.log(`Clínica não encontrada: ${clinicId}`);
+        return null;
       }
+
+      return clinicData;
+    } catch (error) {
+      console.error('Erro ao obter contexto da clínica:', error);
+      return null;
     }
-    
-    return null;
   }
 
   /**
-   * Gera contexto para o chatbot
+   * Obtém clínica por número do WhatsApp
    */
-  gerarContextoChatbot(): string {
-    const info = this.contextualizacao.clinica.informacoes_basicas;
-    const contatos = this.contextualizacao.clinica.contatos;
-    const agente = this.contextualizacao.agente_ia.configuracao;
-    
+  static async getClinicByWhatsAppNumber(phoneNumber: string): Promise<ClinicContext | null> {
+    try {
+      // Em produção, isso seria uma consulta ao banco de dados
+      // Por enquanto, retornamos uma clínica padrão
+      const defaultClinic = {
+        id: 'cardioprime',
+        name: 'CardioPrime',
+        specialty: 'Cardiologia',
+        doctors: contextualizacaoCardioprime.profissionais || [],
+        schedule: contextualizacaoCardioprime.clinica.horario_funcionamento,
+        services: contextualizacaoCardioprime.clinica.informacoes_basicas.especialidades_secundarias || [],
+        location: contextualizacaoCardioprime.clinica.localizacao,
+        contact: contextualizacaoCardioprime.clinica.contatos,
+        policies: {
+          cancellation: 'Cancelamentos devem ser feitos com 24h de antecedência',
+          lateness: 'Tolerância de 15 minutos de atraso',
+          payment: 'Aceitamos dinheiro, cartão e PIX',
+          insurance: 'Convênios: Unimed, Bradesco Saúde, SulAmérica',
+          parking: 'Estacionamento gratuito disponível'
+        },
+        assistant: {
+          name: 'Dr. Carlos',
+          personality: 'Acolhedor, profissional e empático',
+          greeting: 'Olá! Sou o Dr. Carlos, assistente virtual da CardioPrime. Como posso ajudar você hoje?',
+          capabilities: [
+            'Informações sobre médicos e especialidades',
+            'Horários de funcionamento',
+            'Serviços oferecidos',
+            'Orientações para agendamento',
+            'Localização e contato'
+          ],
+          limitations: [
+            'Não posso dar conselhos médicos',
+            'Não posso agendar consultas diretamente',
+            'Para emergências, procure atendimento médico imediato'
+          ]
+        }
+      };
+
+      return defaultClinic;
+    } catch (error) {
+      console.error('Erro ao obter clínica por WhatsApp:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Gera prompt do sistema baseado no contexto da clínica
+   */
+  static generateSystemPromptFromContext(context: ClinicContext): string {
     return `
-Você é a ${agente.nome}, assistente virtual da ${info.nome} (${info.razao_social}).
+Você é o ${context.assistant.name}, assistente virtual da ${context.name}.
+
+${context.assistant.personality}
+
+${context.assistant.greeting}
 
 INFORMAÇÕES DA CLÍNICA:
-- Especialidade: ${info.especialidade_principal}
-- Especialidades: ${info.especialidades_secundarias.join(', ')}
-- Descrição: ${info.descricao}
-- Missão: ${info.missao}
+- Nome: ${context.name}
+- Especialidade: ${context.specialty}
+- Endereço: ${context.location.endereco_principal.logradouro}, ${context.location.endereco_principal.numero}, ${context.location.endereco_principal.bairro}, ${context.location.endereco_principal.cidade}/${context.location.endereco_principal.estado}
+- Telefone: ${context.contact.telefone_principal}
+- WhatsApp: ${context.contact.whatsapp}
 
-CONTATOS:
-- Telefone: ${contatos.telefone_principal}
-- WhatsApp: ${contatos.whatsapp}
-- Email: ${contatos.email_principal}
-- Website: ${contatos.website}
+HORÁRIOS DE FUNCIONAMENTO:
+${Object.entries(context.schedule).map(([day, hours]: [string, any]) => {
+  if (hours && hours.abertura && hours.fechamento) {
+    const dayNames: { [key: string]: string } = {
+      segunda: 'Segunda-feira',
+      terca: 'Terça-feira',
+      quarta: 'Quarta-feira',
+      quinta: 'Quinta-feira',
+      sexta: 'Sexta-feira',
+      sabado: 'Sábado',
+      domingo: 'Domingo'
+    };
+    return `${dayNames[day] || day}: ${hours.abertura} às ${hours.fechamento}`;
+  }
+  return null;
+}).filter(Boolean).join('\n')}
 
-ENDEREÇO:
-${this.contextualizacao.clinica.localizacao.endereco_principal.logradouro}, ${this.contextualizacao.clinica.localizacao.endereco_principal.numero}
-${this.contextualizacao.clinica.localizacao.endereco_principal.complemento}
-${this.contextualizacao.clinica.localizacao.endereco_principal.bairro}, ${this.contextualizacao.clinica.localizacao.endereco_principal.cidade} - ${this.contextualizacao.clinica.localizacao.endereco_principal.estado}
-CEP: ${this.contextualizacao.clinica.localizacao.endereco_principal.cep}
+SERVIÇOS OFERECIDOS:
+${context.services.join(', ')}
 
-PERSONALIDADE: ${agente.personalidade}
-TOM DE COMUNICAÇÃO: ${agente.tom_comunicacao}
+MÉDICOS DISPONÍVEIS:
+${context.doctors.map((doctor: any) => 
+  `${doctor.nome_exibicao} - ${doctor.especialidades.join(', ')}`
+).join('\n')}
 
-Sempre responda de forma profissional, acolhedora e especializada em gastroenterologia. Use as informações acima para fornecer respostas precisas sobre a clínica, serviços, agendamentos e orientações médicas.
-    `.trim();
+POLÍTICAS IMPORTANTES:
+${Object.entries(context.policies).map(([key, value]) => `- ${key}: ${value}`).join('\n')}
+
+CAPACIDADES:
+${context.assistant.capabilities.map(cap => `- ${cap}`).join('\n')}
+
+LIMITAÇÕES:
+${context.assistant.limitations.map(lim => `- ${lim}`).join('\n')}
+
+INSTRUÇÕES:
+1. Seja sempre cordial e profissional
+2. Forneça informações precisas sobre a clínica
+3. Se o paciente quiser agendar, oriente sobre o processo
+4. Para emergências, oriente a procurar atendimento médico imediato
+5. Não dê conselhos médicos específicos
+6. Mantenha o tom acolhedor e empático
+`;
   }
 
-  private getDiaSemana(dia: number): string {
-    const dias = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
-    return dias[dia];
+  /**
+   * Obtém horários de funcionamento de uma clínica
+   */
+  static getWorkingHours(clinicId: string): any {
+    const clinicData = this.clinicData[clinicId as keyof typeof this.clinicData];
+    return clinicData?.clinica?.horario_funcionamento || null;
   }
 
-  private converterHoraParaMinutos(hora: string): number {
-    const [horas, minutos] = hora.split(':').map(Number);
-    return horas * 60 + minutos;
+  /**
+   * Obtém profissionais de uma clínica
+   */
+  static getProfessionals(clinicId: string): any[] {
+    const clinicData = this.clinicData[clinicId as keyof typeof this.clinicData];
+    return clinicData?.profissionais || [];
   }
-}
 
-export const contextualizacaoService = new ContextualizacaoService();
-export default contextualizacaoService; 
+  /**
+   * Obtém serviços de uma clínica
+   */
+  static getServices(clinicId: string): string[] {
+    const clinicData = this.clinicData[clinicId as keyof typeof this.clinicData];
+    return clinicData?.clinica?.informacoes_basicas?.especialidades_secundarias || [];
+  }
+} 

@@ -10,10 +10,12 @@ import {
   Smile,
   Mic,
   Check,
-  CheckCheck
+  CheckCheck,
+  Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getDisplayName } from '@/utils/conversationUtils';
@@ -31,40 +33,44 @@ interface Message {
 
 interface Conversation {
   id: string;
-  phone_number: string;
-  formatted_phone_number: string | null;
-  country_code: string | null;
-  name: string | null;
-  updated_at: string | null;
+  patient_phone_number: string;
+  clinic_whatsapp_number: string;
+  patient_name: string | null;
   last_message_preview: string | null;
   unread_count: number | null;
-  message_count?: number;
+  last_message_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  clinic_id: string | null;
 }
 
 interface ChatAreaProps {
-  conversation: Conversation | null;
+  conversation?: Conversation | null;
+  conversationId?: string;
+  isSimulationMode?: boolean;
 }
 
-const ChatArea: React.FC<ChatAreaProps> = ({ conversation }) => {
+const ChatArea: React.FC<ChatAreaProps> = ({ conversation, conversationId, isSimulationMode = false }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [contactAvatar, setContactAvatar] = useState<string>('');
   const [avatarError, setAvatarError] = useState(false);
+  const [currentConversation, setCurrentConversation] = useState<Conversation | null>(conversation || null);
   
   const { markConversationAsRead } = useConversation();
   
-  const displayName = conversation ? getDisplayName(conversation) : '';
+  const displayName = currentConversation ? getDisplayName(currentConversation) : '';
   const colors = generateColorsFromName(displayName);
 
   useEffect(() => {
-    if (conversation) {
+    if (currentConversation) {
       const generateAvatar = async () => {
         try {
           const url = getAvatarUrl({
             name: displayName,
-            phone: conversation.phone_number,
+            phone: currentConversation.patient_phone_number,
             size: 200
           });
           setContactAvatar(url);
@@ -76,39 +82,74 @@ const ChatArea: React.FC<ChatAreaProps> = ({ conversation }) => {
 
       generateAvatar();
     }
-  }, [conversation, displayName]);
+  }, [currentConversation, displayName]);
 
   useEffect(() => {
-    if (conversation) {
+    if (currentConversation) {
       fetchMessages();
       
       // Marcar como lida automaticamente quando a conversa for aberta
-      if (conversation.unread_count && conversation.unread_count > 0) {
-        markConversationAsRead(conversation.id);
+      if (currentConversation.unread_count && currentConversation.unread_count > 0) {
+        markConversationAsRead(currentConversation.id);
       }
     }
-  }, [conversation, markConversationAsRead]);
+  }, [currentConversation, markConversationAsRead]);
+
+  // Se conversationId foi passado, buscar a conversa
+  useEffect(() => {
+    if (conversationId && !currentConversation) {
+      fetchConversation();
+    }
+  }, [conversationId]);
+
+  const fetchConversation = async () => {
+    if (!conversationId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('whatsapp_conversations_improved')
+        .select('*')
+        .eq('id', conversationId)
+        .single();
+
+      if (error) {
+        console.error('Erro ao buscar conversa:', error);
+        return;
+      }
+
+      setCurrentConversation(data);
+    } catch (error) {
+      console.error('Erro ao buscar conversa:', error);
+    }
+  };
 
   const fetchMessages = async () => {
-    if (!conversation) return;
+    if (!currentConversation) return;
     
     setLoading(true);
     try {
+      console.log('🔍 Buscando mensagens para conversa:', currentConversation.id);
+      
       const { data, error } = await supabase
-        .from('whatsapp_messages')
+        .from('whatsapp_messages_improved')
         .select('*')
-        .eq('conversation_id', conversation.id)
-        .order('timestamp', { ascending: true });
+        .eq('conversation_id', currentConversation.id)
+        .order('created_at', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro ao buscar mensagens:', error);
+        throw error;
+      }
+      
+      console.log('✅ Mensagens encontradas:', data?.length || 0);
       
       // Mapear as mensagens para o formato esperado
-      const mappedMessages = (data || []).map(msg => ({
+      const mappedMessages: Message[] = (data || []).map(msg => ({
         id: msg.id,
         conversation_id: msg.conversation_id,
         content: msg.content,
-        sender_type: msg.message_type === 'sent' ? 'user' : 'contact',
-        created_at: msg.timestamp || msg.created_at,
+        sender_type: msg.message_type === 'sent' ? 'user' : 'contact' as const, // sent = clínica envia = user
+        created_at: msg.created_at,
         status: 'sent' // Por enquanto, assumimos que todas as mensagens foram enviadas
       }));
       
@@ -121,31 +162,39 @@ const ChatArea: React.FC<ChatAreaProps> = ({ conversation }) => {
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !conversation) return;
+    if (!newMessage.trim() || !currentConversation) return;
 
     try {
+      console.log('📤 Enviando mensagem para conversa:', currentConversation.id);
+      
       const { data, error } = await supabase
-        .from('whatsapp_messages')
+        .from('whatsapp_messages_improved')
         .insert({
-          conversation_id: conversation.id,
+          conversation_id: currentConversation.id,
+          sender_phone: currentConversation.clinic_whatsapp_number, // Clínica envia
+          receiver_phone: currentConversation.patient_phone_number, // Paciente recebe
           content: newMessage.trim(),
           message_type: 'sent',
-          timestamp: new Date().toISOString(),
           whatsapp_message_id: `local_${Date.now()}`,
           metadata: {}
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro ao enviar mensagem:', error);
+        throw error;
+      }
+
+      console.log('✅ Mensagem enviada com sucesso:', data.id);
 
       // Mapear a mensagem para o formato esperado
-      const mappedMessage = {
+      const mappedMessage: Message = {
         id: data.id,
         conversation_id: data.conversation_id,
         content: data.content,
-        sender_type: 'user',
-        created_at: data.timestamp,
+        sender_type: 'user' as const,
+        created_at: data.created_at,
         status: 'sent'
       };
 
@@ -179,7 +228,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ conversation }) => {
     }
   };
 
-  if (!conversation) {
+  if (!currentConversation) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
@@ -187,10 +236,13 @@ const ChatArea: React.FC<ChatAreaProps> = ({ conversation }) => {
             <Search className="h-8 w-8 text-gray-400" />
           </div>
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            WhatsApp Business
+            {isSimulationMode ? 'Simulador de Atendimento' : 'WhatsApp Business'}
           </h2>
           <p className="text-gray-500 mb-4">
-            Selecione uma conversa para começar a gerenciar
+            {isSimulationMode 
+              ? 'Selecione uma conversa para visualizar as mensagens simuladas'
+              : 'Selecione uma conversa para começar a gerenciar'
+            }
           </p>
         </div>
       </div>
@@ -217,9 +269,17 @@ const ChatArea: React.FC<ChatAreaProps> = ({ conversation }) => {
             </AvatarFallback>
           </Avatar>
           <div>
-            <h2 className="font-semibold text-gray-900">{displayName}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-semibold text-gray-900">{displayName}</h2>
+              {isSimulationMode && (
+                <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 text-xs">
+                  <Eye className="h-3 w-3 mr-1" />
+                  Simulação
+                </Badge>
+              )}
+            </div>
             <p className="text-sm text-gray-500">
-              {conversation.formatted_phone_number}
+              {currentConversation.patient_phone_number}
             </p>
           </div>
         </div>

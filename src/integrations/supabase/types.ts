@@ -291,6 +291,7 @@ export type Database = {
           phone: string | null
           primary_color: string | null
           secondary_color: string | null
+          simulation_mode: boolean | null
           specialties: string[] | null
           timezone: string | null
           updated_at: string | null
@@ -312,6 +313,7 @@ export type Database = {
           phone?: string | null
           primary_color?: string | null
           secondary_color?: string | null
+          simulation_mode?: boolean | null
           specialties?: string[] | null
           timezone?: string | null
           updated_at?: string | null
@@ -333,6 +335,7 @@ export type Database = {
           phone?: string | null
           primary_color?: string | null
           secondary_color?: string | null
+          simulation_mode?: boolean | null
           specialties?: string[] | null
           timezone?: string | null
           updated_at?: string | null

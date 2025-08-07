@@ -59,6 +59,15 @@ const ClinicSelector = () => {
       }
 
       setClinics(data || []);
+      
+      // Se não há clínica selecionada e há clínicas disponíveis, selecionar a primeira
+      if (!selectedClinicId && data && data.length > 0) {
+        setSelectedClinicId(data[0].id);
+        toast({
+          title: "Clínica selecionada",
+          description: `Selecionada automaticamente: ${data[0].name}`,
+        });
+      }
     } catch (error) {
       console.error('Erro ao buscar clínicas:', error);
       toast({
@@ -73,9 +82,10 @@ const ClinicSelector = () => {
 
   const handleClinicChange = (clinicId: string) => {
     setSelectedClinicId(clinicId);
+    const selectedClinic = clinics.find(c => c.id === clinicId);
     toast({
       title: "Clínica alterada",
-      description: `Alterado para: ${clinics.find(c => c.id === clinicId)?.name}`,
+      description: `Alterado para: ${selectedClinic?.name || 'Clínica desconhecida'}`,
     });
   };
 
@@ -90,6 +100,27 @@ const ClinicSelector = () => {
       <div className="flex items-center space-x-2 px-3 py-2">
         <Building2 className="h-4 w-4 text-muted-foreground" />
         <span className="text-sm text-muted-foreground">Carregando...</span>
+      </div>
+    );
+  }
+
+  // Se não há clínicas disponíveis
+  if (clinics.length === 0) {
+    return (
+      <div className="flex items-center space-x-2 px-3 py-2">
+        <Building2 className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm text-muted-foreground">Nenhuma clínica disponível</span>
+      </div>
+    );
+  }
+
+  // Se não há clínica selecionada mas há clínicas disponíveis, selecionar a primeira
+  if (!selectedClinicId && clinics.length > 0) {
+    // Isso será tratado no useEffect do fetchClinics
+    return (
+      <div className="flex items-center space-x-2 px-3 py-2">
+        <Building2 className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm text-muted-foreground">Selecionando clínica...</span>
       </div>
     );
   }

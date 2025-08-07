@@ -1,41 +1,47 @@
-
 // ========================================
-// WEBHOOK COM CONTEXTUALIZAÇÃO COMPLETA
+// WEBHOOK FINAL - TODAS AS FUNCIONALIDADES CONSOLIDADAS
 // ========================================
 
 import express from 'express';
 import { sendWhatsAppTextMessage } from '../services/whatsappMetaService.js';
+import { createClient } from '@supabase/supabase-js';
 
 const router = express.Router();
+
+// Configuração do Supabase
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDE4MjU1OSwiZXhwIjoyMDY1NzU4NTU5fQ.SY8A3ReAs_D7SFBp99PpSe8rpm1hbWMv4b2q-c_VS5M'
+);
 
 // Webhook para verificação (GET) e receber mensagens (POST)
 router.get('/whatsapp-meta', async (req, res) => {
   try {
-    console.log('[Webhook-Contextualizado] Verificação GET recebida:', {
+    console.log('[Webhook-Final] Verificação GET recebida:', {
       query: req.query,
       headers: req.headers
     });
 
     // Verificar se é um desafio de verificação
     if (req.query['hub.mode'] === 'subscribe' && req.query['hub.challenge']) {
-      console.log('[Webhook-Contextualizado] Respondendo ao desafio de verificação GET');
+      console.log('[Webhook-Final] Respondendo ao desafio de verificação GET');
       
       // Verificar o token de verificação
       const verifyToken = req.query['hub.verify_token'];
       const expectedToken = process.env.WEBHOOK_VERIFY_TOKEN || 'atendeai-lify-backend';
       
       if (verifyToken !== expectedToken) {
-        console.error('[Webhook-Contextualizado] Token de verificação inválido:', verifyToken);
+        console.error('[Webhook-Final] Token de verificação inválido:', verifyToken);
         return res.status(403).send('Forbidden');
       }
       
-      console.log('[Webhook-Contextualizado] Token de verificação válido (GET)');
+      console.log('[Webhook-Final] Token de verificação válido (GET)');
       return res.status(200).send(req.query['hub.challenge']);
     }
 
     return res.status(200).send('OK');
   } catch (error) {
-    console.error('[Webhook-Contextualizado] Erro na verificação GET:', error.message);
+    console.error('[Webhook-Final] Erro na verificação GET:', error.message);
     return res.status(500).send('Internal Server Error');
   }
 });
@@ -43,8 +49,8 @@ router.get('/whatsapp-meta', async (req, res) => {
 // Webhook para receber mensagens do WhatsApp
 router.post('/whatsapp-meta', async (req, res) => {
   try {
-    console.log('🚨 [Webhook-Contextualizado] WEBHOOK CHAMADO!');
-    console.log('[Webhook-Contextualizado] Mensagem recebida:', {
+    console.log('🚨 [Webhook-Final] WEBHOOK FINAL CHAMADO!');
+    console.log('[Webhook-Final] Mensagem recebida:', {
       method: req.method,
       headers: req.headers,
       body: req.body
@@ -52,23 +58,23 @@ router.post('/whatsapp-meta', async (req, res) => {
 
     // Verificar se é um desafio de verificação
     if (req.body.mode === 'subscribe' && req.body['hub.challenge']) {
-      console.log('[Webhook-Contextualizado] Respondendo ao desafio de verificação');
+      console.log('[Webhook-Final] Respondendo ao desafio de verificação');
       
       // Verificar o token de verificação
       const verifyToken = req.body['hub.verify_token'];
       const expectedToken = process.env.WEBHOOK_VERIFY_TOKEN || 'atendeai-lify-backend';
       
       if (verifyToken !== expectedToken) {
-        console.error('[Webhook-Contextualizado] Token de verificação inválido:', verifyToken);
+        console.error('[Webhook-Final] Token de verificação inválido:', verifyToken);
         return res.status(403).send('Forbidden');
       }
       
-      console.log('[Webhook-Contextualizado] Token de verificação válido');
+      console.log('[Webhook-Final] Token de verificação válido');
       return res.status(200).send(req.body['hub.challenge']);
     }
 
     // Processar mensagens
-    console.log('🚨 [Webhook-Contextualizado] Verificando estrutura:', {
+    console.log('🚨 [Webhook-Final] Verificando estrutura:', {
       hasEntry: !!req.body.entry,
       entryLength: req.body.entry?.length || 0,
       bodyKeys: Object.keys(req.body)
@@ -77,7 +83,7 @@ router.post('/whatsapp-meta', async (req, res) => {
     if (req.body.entry && req.body.entry.length > 0) {
       const webhookData = req.body;
       
-      console.log('[Webhook-Contextualizado] Estrutura do webhook:', JSON.stringify(webhookData, null, 2));
+      console.log('[Webhook-Final] Estrutura do webhook:', JSON.stringify(webhookData, null, 2));
       
       // Configuração do WhatsApp
       const whatsappConfig = {
@@ -85,26 +91,26 @@ router.post('/whatsapp-meta', async (req, res) => {
         phoneNumberId: process.env.WHATSAPP_META_PHONE_NUMBER_ID
       };
 
-      console.log('[Webhook-Contextualizado] Configuração WhatsApp:', {
+      console.log('[Webhook-Final] Configuração WhatsApp:', {
         hasAccessToken: !!whatsappConfig.accessToken,
         hasPhoneNumberId: !!whatsappConfig.phoneNumberId
       });
 
-      // Processar com CONTEXTUALIZAÇÃO COMPLETA
-      const result = await processWhatsAppWebhookWithContext(
+      // Processar com TODAS AS FUNCIONALIDADES
+      const result = await processWhatsAppWebhookFinal(
         webhookData,
         whatsappConfig
       );
 
       if (result.success) {
-        console.log('[Webhook-Contextualizado] Processamento concluído com sucesso');
+        console.log('[Webhook-Final] Processamento concluído com sucesso');
         return res.status(200).json({ 
           success: true, 
-          message: 'Webhook processado com Contextualização Completa',
+          message: 'Webhook processado com TODAS as funcionalidades',
           processed: result.processed
         });
       } else {
-        console.error('[Webhook-Contextualizado] Erro no processamento:', result.error);
+        console.error('[Webhook-Final] Erro no processamento:', result.error);
         return res.status(500).json({ 
           success: false, 
           error: result.error 
@@ -119,7 +125,7 @@ router.post('/whatsapp-meta', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[Webhook-Contextualizado] Erro geral:', error.message);
+    console.error('[Webhook-Final] Erro geral:', error.message);
     return res.status(500).json({ 
       success: false, 
       error: error.message 
@@ -128,33 +134,33 @@ router.post('/whatsapp-meta', async (req, res) => {
 });
 
 /**
- * Processa webhook com contextualização completa
+ * Processa webhook com TODAS as funcionalidades
  */
-async function processWhatsAppWebhookWithContext(webhookData, whatsappConfig) {
+async function processWhatsAppWebhookFinal(webhookData, whatsappConfig) {
   try {
-    console.log('🚨 [Webhook-Contextualizado] FUNÇÃO CHAMADA!');
-    console.log('🚨 [Webhook-Contextualizado] webhookData:', JSON.stringify(webhookData, null, 2));
+    console.log('🚨 [Webhook-Final] FUNÇÃO CHAMADA!');
+    console.log('🚨 [Webhook-Final] webhookData:', JSON.stringify(webhookData, null, 2));
     
     const processed = [];
 
-    console.log('[Webhook-Contextualizado] Processando entries:', webhookData.entry?.length || 0);
+    console.log('[Webhook-Final] Processando entries:', webhookData.entry?.length || 0);
     
     for (const entry of webhookData.entry) {
-      console.log('[Webhook-Contextualizado] Processando entry:', entry.id);
+      console.log('[Webhook-Final] Processando entry:', entry.id);
       
       for (const change of entry.changes) {
-        console.log('[Webhook-Contextualizado] Processando change:', change.field);
+        console.log('[Webhook-Final] Processando change:', change.field);
         
-        console.log('[Webhook-Contextualizado] Verificando mensagens em change.value:', {
+        console.log('[Webhook-Final] Verificando mensagens em change.value:', {
           hasMessages: !!change.value.messages,
           messagesLength: change.value.messages?.length || 0,
           changeValueKeys: Object.keys(change.value || {})
         });
         
         if (change.value.messages && change.value.messages.length > 0) {
-          console.log('[Webhook-Contextualizado] Encontradas mensagens:', change.value.messages.length);
+          console.log('[Webhook-Final] Encontradas mensagens:', change.value.messages.length);
           for (const message of change.value.messages) {
-            console.log('[Webhook-Contextualizado] Processando mensagem:', {
+            console.log('[Webhook-Final] Processando mensagem:', {
               from: message.from,
               messageType: message.type,
               timestamp: message.timestamp
@@ -164,11 +170,24 @@ async function processWhatsAppWebhookWithContext(webhookData, whatsappConfig) {
             const messageText = message.text?.body || '';
             
             if (!messageText) {
-              console.log('[Webhook-Contextualizado] Mensagem sem texto, ignorando');
+              console.log('[Webhook-Final] Mensagem sem texto, ignorando');
               continue;
             }
 
-            // Processar com contextualização completa
+            // 1. SALVAR CONVERSA NO BANCO DE DADOS
+            console.log('[Webhook-Final] Salvando conversa no banco...');
+            const conversationId = await saveConversationToDatabase(
+              message.from,
+              message.to || whatsappConfig.phoneNumberId,
+              messageText,
+              message.id
+            );
+
+            if (conversationId) {
+              console.log('[Webhook-Final] Conversa salva com ID:', conversationId);
+            }
+
+            // 2. Processar com CONTEXTUALIZAÇÃO COMPLETA
             const aiResult = await processMessageWithCompleteContext(
               messageText, 
               message.from, 
@@ -176,7 +195,18 @@ async function processWhatsAppWebhookWithContext(webhookData, whatsappConfig) {
             );
 
             if (aiResult.success) {
-              // Enviar resposta via WhatsApp
+              // 3. SALVAR RESPOSTA NO BANCO DE DADOS
+              console.log('[Webhook-Final] Salvando resposta no banco...');
+              await saveResponseToDatabase(
+                conversationId,
+                message.from,
+                message.to || whatsappConfig.phoneNumberId,
+                aiResult.response,
+                'sent',
+                null
+              );
+
+              // 4. Enviar resposta via WhatsApp
               await sendAIResponseViaWhatsApp(
                 message.from, 
                 aiResult, 
@@ -187,6 +217,7 @@ async function processWhatsAppWebhookWithContext(webhookData, whatsappConfig) {
                 phoneNumber: message.from,
                 message: messageText,
                 response: aiResult.response,
+                conversationId: conversationId,
                 intent: aiResult.intent,
                 confidence: aiResult.confidence
               });
@@ -199,22 +230,85 @@ async function processWhatsAppWebhookWithContext(webhookData, whatsappConfig) {
     return { success: true, processed };
 
   } catch (error) {
-    console.error('[Webhook-Contextualizado] Erro no processamento:', error);
+    console.error('[Webhook-Final] Erro no processamento:', error);
     return { success: false, error: error.message };
   }
 }
 
 /**
- * Processa mensagem com contextualização completa
+ * Salva conversa no banco de dados
+ */
+async function saveConversationToDatabase(fromNumber, toNumber, content, whatsappMessageId) {
+  try {
+    console.log('[Webhook-Final] Salvando conversa:', { fromNumber, toNumber, content });
+    
+    const { data: result, error } = await supabase.rpc('process_incoming_message', {
+      p_from_number: fromNumber,
+      p_to_number: toNumber,
+      p_content: content,
+      p_whatsapp_message_id: whatsappMessageId
+    });
+
+    if (error) {
+      console.error('[Webhook-Final] Erro ao salvar conversa:', error);
+      return null;
+    }
+
+    console.log('[Webhook-Final] Conversa salva com sucesso, ID:', result);
+    return result;
+
+  } catch (error) {
+    console.error('[Webhook-Final] Erro ao salvar conversa:', error);
+    return null;
+  }
+}
+
+/**
+ * Salva resposta no banco de dados
+ */
+async function saveResponseToDatabase(conversationId, fromNumber, toNumber, content, messageType, whatsappMessageId) {
+  try {
+    console.log('[Webhook-Final] Salvando resposta:', { conversationId, content });
+    
+    const { data: result, error } = await supabase
+      .from('whatsapp_messages_improved')
+      .insert({
+        conversation_id: conversationId,
+        sender_phone: fromNumber,
+        receiver_phone: toNumber,
+        content: content,
+        message_type: messageType,
+        whatsapp_message_id: whatsappMessageId
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[Webhook-Final] Erro ao salvar resposta:', error);
+      return null;
+    }
+
+    console.log('[Webhook-Final] Resposta salva com sucesso, ID:', result.id);
+    return result.id;
+
+  } catch (error) {
+    console.error('[Webhook-Final] Erro ao salvar resposta:', error);
+    return null;
+  }
+}
+
+/**
+ * Processa mensagem com contextualização completa e agendamento
  */
 async function processMessageWithCompleteContext(messageText, phoneNumber, config) {
   try {
-    console.log('🤖 [Contextualizado] Gerando resposta com LLMOrchestrator', { 
+    console.log('🤖 [Webhook-Final] Gerando resposta inteligente COMPLETA', { 
       phoneNumber, 
       messageLength: messageText.length 
     });
 
-    // Usar LLMOrchestratorService diretamente (versão JavaScript)
+    // Sistema de agendamento via WhatsApp será implementado em versão futura
+    // Por enquanto, usamos apenas o LLMOrchestrator para todas as mensagens
     const { LLMOrchestratorService } = await import('../services/llmOrchestratorService.js');
     
     const request = {
@@ -224,10 +318,10 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
       userId: phoneNumber
     };
 
-    console.log('[Contextualizado] Chamando LLMOrchestratorService...');
+    console.log('[Webhook-Final] Chamando LLMOrchestratorService...');
     const response = await LLMOrchestratorService.processMessage(request);
 
-    console.log('✅ [Contextualizado] Resposta gerada:', {
+    console.log('✅ [Webhook-Final] Resposta gerada:', {
       response: response.response,
       intent: response.intent?.name,
       confidence: response.intent?.confidence
@@ -241,7 +335,7 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
     };
 
   } catch (error) {
-    console.error('💥 [Contextualizado] Erro ao gerar resposta:', error);
+    console.error('💥 [Webhook-Final] Erro ao gerar resposta:', error);
     return {
       success: false,
       response: 'Desculpe, estou com dificuldades técnicas no momento. Por favor, entre em contato pelo telefone.',
@@ -273,7 +367,7 @@ async function sendAIResponseViaWhatsApp(to, aiResponse, config) {
       text: messageText
     });
 
-    console.log('[Contextualizado] Mensagem enviada via WhatsApp:', {
+    console.log('[Webhook-Final] Mensagem enviada via WhatsApp:', {
       to,
       messageLength: messageText.length,
       confidence: aiResponse.confidence,
@@ -281,9 +375,9 @@ async function sendAIResponseViaWhatsApp(to, aiResponse, config) {
     });
 
   } catch (error) {
-    console.error('[Contextualizado] Erro ao enviar mensagem:', error);
+    console.error('[Webhook-Final] Erro ao enviar mensagem:', error);
   }
 }
 
-export { processWhatsAppWebhookWithContext };
-export default router;
+export { processWhatsAppWebhookFinal };
+export default router; 

@@ -56,15 +56,15 @@ const extractCountryCode = (phoneNumber: string): string => {
 
 interface Conversation {
   id: string;
-  phone_number: string;
-  formatted_phone_number: string | null;
-  country_code: string | null;
-  name: string | null;
-  updated_at: string | null;
+  patient_phone_number: string;
+  clinic_whatsapp_number: string;
+  patient_name: string | null;
   last_message_preview: string | null;
   unread_count: number | null;
-  message_count?: number;
-  last_message_type?: string;
+  last_message_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  clinic_id: string | null;
 }
 
 const Conversas = () => {
@@ -98,8 +98,8 @@ const Conversas = () => {
     const filtered = conversations.filter(conversation => {
       const displayName = getDisplayName(conversation);
       return displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        conversation.phone_number.includes(searchTerm) ||
-        (conversation.formatted_phone_number && conversation.formatted_phone_number.includes(searchTerm));
+        conversation.patient_phone_number.includes(searchTerm) ||
+        (conversation.patient_name && conversation.patient_name.includes(searchTerm));
     });
     setFilteredConversations(filtered);
   }, [searchTerm, conversations]);
@@ -148,16 +148,8 @@ const Conversas = () => {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-xl font-semibold text-gray-900">Conversas</h1>
-              {selectedClinicId && (userRole === 'admin_lify' || userRole === 'suporte_lify') && (
-                <p className="text-sm text-gray-500 mt-1">
-                  Clínica selecionada: {selectedClinicId}
-                </p>
-              )}
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm">
-                <Filter className="h-4 w-4" />
-              </Button>
               <Button variant="ghost" size="sm">
                 <MoreVertical className="h-4 w-4" />
               </Button>

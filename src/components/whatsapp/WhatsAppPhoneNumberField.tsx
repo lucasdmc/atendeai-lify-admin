@@ -19,6 +19,8 @@ interface WhatsAppPhoneNumberFieldProps {
   disabled?: boolean;
 }
 
+import { validateMetaPhoneFormat, formatPhoneNumberForMeta } from '../../utils/phoneValidation';
+
 export const WhatsAppPhoneNumberField = ({
   value,
   onChange,
@@ -31,54 +33,45 @@ export const WhatsAppPhoneNumberField = ({
 }: WhatsAppPhoneNumberFieldProps) => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [localValue, setLocalValue] = useState(value);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     setLocalValue(value);
+    // Validar quando o valor externo muda
+    const validation = validateMetaPhoneFormat(value);
+    setValidationError(validation.isValid ? null : validation.error);
   }, [value]);
 
-  const formatPhoneNumber = (input: string): string => {
-    // Remove tudo exceto números
-    const numbers = input.replace(/\D/g, '');
-    
-    // Se não tem números, retorna vazio
-    if (numbers.length === 0) return '';
-    
-    // Se começa com 0, remove
-    const cleanNumbers = numbers.startsWith('0') ? numbers.slice(1) : numbers;
-    
-    // Se tem 11 dígitos (DDD + 9 dígitos), adiciona +55
-    if (cleanNumbers.length === 11) {
-      return `+55${cleanNumbers}`;
-    }
-    
-    // Se já tem código do país, retorna como está
-    if (input.startsWith('+')) {
-      return input;
-    }
-    
-    // Se tem 13 dígitos (código do país + DDD + número), adiciona +
-    if (cleanNumbers.length === 13 && cleanNumbers.startsWith('55')) {
-      return `+${cleanNumbers}`;
-    }
-    
-    // Se tem 12 dígitos (código do país + DDD + número sem 9), adiciona +
-    if (cleanNumbers.length === 12 && cleanNumbers.startsWith('55')) {
-      return `+${cleanNumbers}`;
-    }
-    
-    // Caso padrão, adiciona +55
-    return `+55${cleanNumbers}`;
-  };
+
 
   const handleInputChange = (input: string) => {
-    const formatted = formatPhoneNumber(input);
+    const formatted = formatPhoneNumberForMeta(input);
     setLocalValue(formatted);
-    onChange(formatted);
+    
+    // Validar o formato
+    const validation = validateMetaPhoneFormat(formatted);
+    setValidationError(validation.isValid ? null : validation.error);
+    
+    // Só chama onChange se o formato for válido ou se estiver vazio (para permitir edição)
+    if (validation.isValid || !formatted) {
+      onChange(formatted);
+    }
   };
 
   const handleVerify = async () => {
     if (!localValue || !onVerify) return;
+
+    // Validar antes de verificar
+    const validation = validateMetaPhoneFormat(localValue);
+    if (!validation.isValid) {
+      toast({
+        title: "Formato inválido",
+        description: validation.error,
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsVerifying(true);
     try {
@@ -133,7 +126,8 @@ export const WhatsAppPhoneNumberField = ({
   };
 
   const isRequired = integrationType === 'meta_api';
-  const canVerify = integrationType === 'meta_api' && localValue && !isVerifying;
+  const canVerify = integrationType === 'meta_api' && localValue && !isVerifying && !validationError;
+  const isValidFormat = !validationError && localValue;
 
   return (
     <div className="space-y-4">
@@ -152,7 +146,7 @@ export const WhatsAppPhoneNumberField = ({
             value={localValue}
             onChange={(e) => handleInputChange(e.target.value)}
             disabled={disabled}
-            className="flex-1"
+            className={`flex-1 ${validationError ? 'border-red-500' : isValidFormat ? 'border-green-500' : ''}`}
           />
           {canVerify && (
             <Button
@@ -166,10 +160,18 @@ export const WhatsAppPhoneNumberField = ({
             </Button>
           )}
         </div>
-
-        <p className="text-xs text-gray-600">
-          Formato: +5511999999999 (código do país + DDD + número)
-        </p>
+        
+        {validationError && (
+          <p className="text-xs text-red-600 font-medium">
+            ⚠️ {validationError}
+          </p>
+        )}
+        
+        {isValidFormat && (
+          <p className="text-xs text-green-600 font-medium">
+            ✅ Formato válido para Meta API
+          </p>
+        )}
       </div>
 
       {/* Status da Verificação */}
@@ -203,6 +205,15 @@ export const WhatsAppPhoneNumberField = ({
         </Alert>
       )}
 
+      {validationError && (
+        <Alert variant="destructive">
+          <XCircle className="h-4 w-4" />
+          <AlertDescription>
+            {validationError}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {integrationType === 'meta_api' && localValue && verificationStatus === 'failed' && (
         <Alert variant="destructive">
           <XCircle className="h-4 w-4" />
@@ -211,7 +222,6 @@ export const WhatsAppPhoneNumberField = ({
           </AlertDescription>
         </Alert>
       )}
-
 
     </div>
   );

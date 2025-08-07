@@ -1,19 +1,12 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle 
-} from '@/components/ui/dialog';
-import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { AddressInput } from '@/components/ui/address-input';
-import { PhoneInput } from '@/components/ui/phone-input';
-import { supabase } from '@/integrations/supabase/client';
+import { BrazilianPhoneInput } from '@/components/ui/brazilian-phone-input';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
-import { WhatsAppPhoneNumberField } from '@/components/whatsapp/WhatsAppPhoneNumberField';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CreateClinicModalProps {
   isOpen: boolean;
@@ -21,9 +14,25 @@ interface CreateClinicModalProps {
   onClinicCreated: () => void;
 }
 
-const CreateClinicModal = ({ isOpen, onClose, onClinicCreated }: CreateClinicModalProps) => {
+interface FormData {
+  name: string;
+  address: string;
+  city: string;
+  state: string;
+  phone: string;
+  email: string;
+  website: string;
+  whatsappIntegrationType: 'meta_api' | 'none';
+  whatsappPhoneNumber: string;
+}
+
+export const CreateClinicModal: React.FC<CreateClinicModalProps> = ({
+  isOpen,
+  onClose,
+  onClinicCreated
+}) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     address: '',
     city: '',
@@ -31,53 +40,37 @@ const CreateClinicModal = ({ isOpen, onClose, onClinicCreated }: CreateClinicMod
     phone: '',
     email: '',
     website: '',
-    whatsappIntegrationType: 'meta_api' as 'meta_api',
+    whatsappIntegrationType: 'meta_api',
     whatsappPhoneNumber: ''
   });
-  const { toast } = useToast();
-  const { user, userRole, userPermissions } = useAuth();
 
-  const handleInputChange = (field: string, value: string | 'meta_api') => {
+  const { toast } = useToast();
+
+  const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleCreateClinic = async () => {
+  const handleCreateClinic = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     if (!formData.name.trim()) {
       toast({
         title: "Erro",
-        description: "O nome da clínica é obrigatório.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validação para Meta API
-    if (formData.whatsappIntegrationType === 'meta_api' && !formData.whatsappPhoneNumber.trim()) {
-      toast({
-        title: "Erro",
-        description: "Número de telefone WhatsApp é obrigatório para integração com Meta API.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!userPermissions.includes('clinicas') && userRole !== 'admin_lify') {
-      toast({
-        title: "Erro de Permissão",
-        description: "Você não tem permissão para criar clínicas. Entre em contato com o administrador.",
+        description: "Nome da clínica é obrigatório.",
         variant: "destructive",
       });
       return;
     }
 
     setIsLoading(true);
+
     try {
       const clinicData = {
         name: formData.name,
         address: formData.address || null,
         phone: formData.phone || null,
         email: formData.email || null,
-        created_by: user?.id || '',
+        created_by: (await supabase.auth.getUser()).data.user?.id || '',
         timezone: 'America/Sao_Paulo',
         language: 'pt-BR',
         whatsapp_integration_type: formData.whatsappIntegrationType,
@@ -163,10 +156,10 @@ const CreateClinicModal = ({ isOpen, onClose, onClinicCreated }: CreateClinicMod
             </div>
             <div>
               <label className="text-sm font-medium">Telefone</label>
-              <PhoneInput
+              <BrazilianPhoneInput
                 value={formData.phone}
                 onChange={(value) => handleInputChange('phone', value)}
-                placeholder="(11) 99999-9999"
+                placeholder="Digite o telefone"
               />
             </div>
           </div>
@@ -191,7 +184,7 @@ const CreateClinicModal = ({ isOpen, onClose, onClinicCreated }: CreateClinicMod
               <Input
                 value={formData.city}
                 onChange={(e) => handleInputChange('city', e.target.value)}
-                placeholder="São Paulo"
+                placeholder="Cidade"
               />
             </div>
             <div>
@@ -199,8 +192,7 @@ const CreateClinicModal = ({ isOpen, onClose, onClinicCreated }: CreateClinicMod
               <Input
                 value={formData.state}
                 onChange={(e) => handleInputChange('state', e.target.value)}
-                placeholder="SP"
-                maxLength={2}
+                placeholder="Estado"
               />
             </div>
           </div>
@@ -211,57 +203,50 @@ const CreateClinicModal = ({ isOpen, onClose, onClinicCreated }: CreateClinicMod
               type="url"
               value={formData.website}
               onChange={(e) => handleInputChange('website', e.target.value)}
-              placeholder="https://www.clinica.com"
+              placeholder="https://clinica.com"
             />
           </div>
 
-          <div className="space-y-3">
-            <label className="text-sm font-medium">Integração WhatsApp</label>
-            <div className="flex items-center space-x-3">
-              <Switch
-                id="whatsapp-integration"
-                checked={formData.whatsappIntegrationType === 'meta_api'}
-                onCheckedChange={(checked) => 
-                  handleInputChange('whatsappIntegrationType', 'meta_api')
-                }
-              />
-              <div className="flex-1">
-                <label htmlFor="whatsapp-integration" className="text-sm font-medium">
-                  Usar API oficial da Meta (WhatsApp Business)
-                </label>
-                <p className="text-xs text-gray-600 mt-1">
-                  {formData.whatsappIntegrationType === 'meta_api' 
-                    ? 'Integração empresarial via API oficial da Meta. Sem necessidade de QR Code.'
-                    : 'Conexão via WhatsApp Web com QR Code. Ideal para testes e uso pessoal.'
-                  }
-                </p>
-              </div>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Integração WhatsApp</label>
+              <select
+                value={formData.whatsappIntegrationType}
+                onChange={(e) => handleInputChange('whatsappIntegrationType', e.target.value as 'meta_api' | 'none')}
+                className="w-full p-2 border border-gray-300 rounded-md"
+              >
+                <option value="meta_api">Meta API (Recomendado)</option>
+                <option value="none">Sem integração</option>
+              </select>
             </div>
+
+            {formData.whatsappIntegrationType === 'meta_api' && (
+              <div>
+                <label className="text-sm font-medium">Número WhatsApp *</label>
+                <BrazilianPhoneInput
+                  value={formData.whatsappPhoneNumber}
+                  onChange={(value) => handleInputChange('whatsappPhoneNumber', value)}
+                  placeholder="(47) 9999-9999"
+                  required
+                />
+              </div>
+            )}
           </div>
 
-          {/* Campo de Número de Telefone WhatsApp */}
-          <WhatsAppPhoneNumberField
-            value={formData.whatsappPhoneNumber}
-            onChange={(value) => handleInputChange('whatsappPhoneNumber', value)}
-            integrationType={formData.whatsappIntegrationType}
-            isVerified={false}
-            verificationStatus="pending"
-            onVerify={async (phoneNumber) => {
-              // TODO: Implementar verificação na Meta API
-              // Por enquanto, simula verificação
-              return new Promise((resolve) => {
-                setTimeout(() => {
-                  resolve(true);
-                }, 1000);
-              });
-            }}
-          />
-
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={onClose}>
+          <div className="flex justify-end gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isLoading}
+            >
               Cancelar
             </Button>
-            <Button onClick={handleCreateClinic} disabled={isLoading}>
+            <Button
+              type="submit"
+              onClick={handleCreateClinic}
+              disabled={isLoading}
+            >
               {isLoading ? 'Criando...' : 'Criar Clínica'}
             </Button>
           </div>
@@ -270,5 +255,3 @@ const CreateClinicModal = ({ isOpen, onClose, onClinicCreated }: CreateClinicMod
     </Dialog>
   );
 };
-
-export default CreateClinicModal;

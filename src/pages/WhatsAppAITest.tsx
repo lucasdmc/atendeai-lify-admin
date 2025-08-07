@@ -159,9 +159,6 @@ const WhatsAppAITest: React.FC = () => {
               placeholder="5511999999999"
               className="w-full"
             />
-            <p className="text-xs text-gray-500 mt-1">
-              Formato internacional sem + (ex: 5511999999999)
-            </p>
           </div>
 
           <div>

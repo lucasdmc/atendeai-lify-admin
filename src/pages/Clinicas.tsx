@@ -35,16 +35,25 @@ const Clinicas: React.FC = () => {
     }
   };
 
-  const handleSubmit = async (clinicData: Omit<Clinic, 'id' | 'created_at' | 'updated_at'>) => {
+  const handleSubmit = async (clinicData: Partial<Clinic>) => {
     try {
+      console.log('🚀 [Clinicas] Recebendo dados do formulário:', clinicData);
+      console.log('🔍 [Clinicas] simulation_mode:', clinicData.simulation_mode);
+      console.log('🔍 [Clinicas] whatsapp_phone:', clinicData.whatsapp_phone);
+      console.log('🔍 [Clinicas] contextualization_json:', clinicData.contextualization_json);
+      
       if (editingClinic) {
-        await ClinicService.updateClinic(editingClinic.id, clinicData);
+        console.log('🔄 [Clinicas] Atualizando clínica existente:', editingClinic.id);
+        const result = await ClinicService.updateClinic(editingClinic.id, clinicData);
+        console.log('✅ [Clinicas] Clínica atualizada:', result);
         toast({
           title: "Sucesso",
           description: "Clínica atualizada com sucesso!",
         });
       } else {
-        await ClinicService.createClinic(clinicData);
+        console.log('🆕 [Clinicas] Criando nova clínica');
+        const result = await ClinicService.createClinic(clinicData as Omit<Clinic, 'id' | 'created_at' | 'updated_at'>);
+        console.log('✅ [Clinicas] Clínica criada:', result);
         toast({
           title: "Sucesso",
           description: "Clínica criada com sucesso!",
@@ -55,7 +64,7 @@ const Clinicas: React.FC = () => {
       setEditingClinic(null);
       loadClinics();
     } catch (error) {
-      console.error('❌ Erro ao salvar clínica:', error);
+      console.error('❌ [Clinicas] Erro ao salvar clínica:', error);
       toast({
         title: "Erro",
         description: "Não foi possível salvar a clínica",
@@ -98,8 +107,8 @@ const Clinicas: React.FC = () => {
     return (
       <div className="container mx-auto p-6">
         <ClinicForm
-          clinic={editingClinic || undefined}
-          onSubmit={handleSubmit}
+          clinic={editingClinic || null}
+          onSave={handleSubmit}
           onCancel={handleCancel}
         />
       </div>

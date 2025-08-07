@@ -8,15 +8,15 @@ import { formatPhoneNumber } from '@/utils/conversationUtils';
 interface WhatsAppStyleConversationProps {
   conversation: {
     id: string;
-    phone_number: string;
-    formatted_phone_number: string | null;
-    country_code: string | null;
-    name: string | null;
-    updated_at: string | null;
+    patient_phone_number: string;
+    clinic_whatsapp_number: string;
+    patient_name: string | null;
     last_message_preview: string | null;
     unread_count: number | null;
-    message_count?: number;
-    last_message_type?: string;
+    last_message_at: string | null;
+    created_at: string | null;
+    updated_at: string | null;
+    clinic_id: string | null;
   };
   isSelected: boolean;
   onClick: () => void;
@@ -39,7 +39,7 @@ const WhatsAppStyleConversation: React.FC<WhatsAppStyleConversationProps> = ({
       try {
         const url = getAvatarUrl({
           name: displayName,
-          phone: conversation.phone_number,
+          phone: conversation.patient_phone_number,
           size: 200
         });
         setAvatarUrl(url);
@@ -50,7 +50,7 @@ const WhatsAppStyleConversation: React.FC<WhatsAppStyleConversationProps> = ({
     };
 
     generateAvatar();
-  }, [displayName, conversation.phone_number]);
+  }, [displayName, conversation.patient_phone_number]);
   
   const formatTime = (dateString: string | null) => {
     if (!dateString) return '';
@@ -120,20 +120,17 @@ const WhatsAppStyleConversation: React.FC<WhatsAppStyleConversationProps> = ({
             "text-xs flex-shrink-0 ml-2",
             hasUnreadMessages ? "text-gray-500" : "text-gray-400"
           )}>
-            {formatTime(conversation.updated_at)}
+            {formatTime(conversation.last_message_at)}
           </span>
         </div>
         
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1 flex-1 min-w-0">
-            {conversation.last_message_type === 'sent' && (
-              <span className="text-xs text-gray-400 flex-shrink-0">✓</span>
-            )}
             <p className={cn(
               "text-sm truncate",
               hasUnreadMessages ? "text-gray-900 font-medium" : "text-gray-600"
             )}>
-              {conversation.last_message_preview || formatPhoneNumber(conversation)}
+              {conversation.last_message_preview || conversation.patient_phone_number}
             </p>
           </div>
           

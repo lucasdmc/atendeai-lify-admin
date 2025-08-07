@@ -174,52 +174,56 @@ async function processWhatsAppWebhookFinal(webhookData, whatsappConfig) {
               continue;
             }
 
-            // 1. SALVAR CONVERSA NO BANCO DE DADOS
-            console.log('[Webhook-Final] Salvando conversa no banco...');
-            const conversationId = await saveConversationToDatabase(
-              message.from,
-              message.to || whatsappConfig.phoneNumberId,
-              messageText,
-              message.id
+            // 1. VERIFICAR MODO DE SIMULAÇÃO DA CLÍNICA
+            console.log('[Webhook-Final] Verificando modo de simulação...');
+            const simulationCheck = await checkSimulationMode(
+              message.to || whatsappConfig.phoneNumberId
             );
 
-            if (conversationId) {
-              console.log('[Webhook-Final] Conversa salva com ID:', conversationId);
-            }
-
-            // 2. Processar com CONTEXTUALIZAÇÃO COMPLETA
-            const aiResult = await processMessageWithCompleteContext(
-              messageText, 
-              message.from, 
-              whatsappConfig
-            );
-
-            if (aiResult.success) {
-              // 3. SALVAR RESPOSTA NO BANCO DE DADOS
-              console.log('[Webhook-Final] Salvando resposta no banco...');
-              await saveResponseToDatabase(
-                conversationId,
+            if (simulationCheck.isSimulationMode) {
+              console.log('🎭 [Webhook-Final] CLÍNICA EM MODO SIMULAÇÃO!');
+              simulationMode = true;
+              
+              // Processar em modo simulação (não enviar para WhatsApp)
+              const simulationResult = await processSimulationMode(
+                messageText,
                 message.from,
                 message.to || whatsappConfig.phoneNumberId,
-                aiResult.response,
-                'sent',
-                null
-              );
-
-              // 4. Enviar resposta via WhatsApp
-              await sendAIResponseViaWhatsApp(
-                message.from, 
-                aiResult, 
-                whatsappConfig
+                simulationCheck.clinicId,
+                simulationCheck.clinicName,
+                message.id // Adicionar message.id
               );
 
               processed.push({
                 phoneNumber: message.from,
                 message: messageText,
-                response: aiResult.response,
-                conversationId: conversationId,
-                intent: aiResult.intent,
-                confidence: aiResult.confidence
+                response: simulationResult.response,
+                conversationId: simulationResult.conversationId,
+                intent: simulationResult.intent,
+                confidence: simulationResult.confidence,
+                simulationMode: true,
+                clinicName: simulationCheck.clinicName
+              });
+            } else {
+              console.log('🚀 [Webhook-Final] CLÍNICA EM MODO PRODUÇÃO!');
+              
+              // Processar normalmente (enviar para WhatsApp)
+              const productionResult = await processProductionMode(
+                messageText,
+                message.from,
+                message.to || whatsappConfig.phoneNumberId,
+                whatsappConfig,
+                message.id // Adicionar message.id
+              );
+
+              processed.push({
+                phoneNumber: message.from,
+                message: messageText,
+                response: productionResult.response,
+                conversationId: productionResult.conversationId,
+                intent: productionResult.intent,
+                confidence: productionResult.confidence,
+                simulationMode: false
               });
             }
           }
@@ -238,24 +242,26 @@ async function processWhatsAppWebhookFinal(webhookData, whatsappConfig) {
 /**
  * Salva conversa no banco de dados
  */
-async function saveConversationToDatabase(fromNumber, toNumber, content, whatsappMessageId) {
+async function saveConversationToDatabase(fromNumber, toNumber, content, whatsappMessageId, clinicId = null) {
   try {
     console.log('[Webhook-Final] Salvando conversa:', { fromNumber, toNumber, content });
     
-    // 1. Identificar clínica pelo número que recebeu
-    const { data: clinicData, error: clinicError } = await supabase
-      .from('clinic_whatsapp_numbers')
-      .select('clinic_id')
-      .eq('whatsapp_number', toNumber)
-      .eq('is_active', true)
-      .single();
+    // 1. Identificar clínica pelo número que recebeu (se não foi passado)
+    if (!clinicId) {
+      const { data: clinicData, error: clinicError } = await supabase
+        .from('clinic_whatsapp_numbers')
+        .select('clinic_id')
+        .eq('whatsapp_number', toNumber)
+        .eq('is_active', true)
+        .single();
 
-    if (clinicError || !clinicData) {
-      console.error('[Webhook-Final] Clínica não encontrada para o número:', toNumber);
-      return null;
+      if (clinicError || !clinicData) {
+        console.error('[Webhook-Final] Clínica não encontrada para o número:', toNumber);
+        return null;
+      }
+
+      clinicId = clinicData.clinic_id;
     }
-
-    const clinicId = clinicData.clinic_id;
 
     // 2. Verificar se já existe uma conversa
     const { data: existingConversation, error: findError } = await supabase
@@ -436,6 +442,205 @@ async function sendAIResponseViaWhatsApp(to, aiResponse, config) {
 
   } catch (error) {
     console.error('[Webhook-Final] Erro ao enviar mensagem:', error);
+  }
+}
+
+/**
+ * Verifica se a clínica está em modo simulação
+ */
+async function checkSimulationMode(whatsappNumber) {
+  try {
+    console.log('[Webhook-Final] Verificando simulação para número:', whatsappNumber);
+    
+    // Buscar clínica pelo número do WhatsApp
+    const { data: clinicData, error: clinicError } = await supabase
+      .from('clinics')
+      .select('id, name, simulation_mode, whatsapp_phone')
+      .eq('whatsapp_phone', whatsappNumber)
+      .single();
+
+    if (clinicError || !clinicData) {
+      console.log('[Webhook-Final] Clínica não encontrada para o número:', whatsappNumber);
+      return {
+        isSimulationMode: false,
+        clinicId: null,
+        clinicName: null
+      };
+    }
+
+    console.log('[Webhook-Final] Clínica encontrada:', {
+      id: clinicData.id,
+      name: clinicData.name,
+      simulationMode: clinicData.simulation_mode
+    });
+
+    return {
+      isSimulationMode: clinicData.simulation_mode || false,
+      clinicId: clinicData.id,
+      clinicName: clinicData.name
+    };
+
+  } catch (error) {
+    console.error('[Webhook-Final] Erro ao verificar simulação:', error);
+    return {
+      isSimulationMode: false,
+      clinicId: null,
+      clinicName: null
+    };
+  }
+}
+
+/**
+ * Processa mensagem em modo simulação (não envia para WhatsApp)
+ */
+async function processSimulationMode(messageText, fromNumber, toNumber, clinicId, clinicName, whatsappMessageId) {
+  try {
+    console.log('🎭 [Webhook-Final] Processando em modo simulação:', {
+      fromNumber,
+      toNumber,
+      clinicId,
+      clinicName
+    });
+
+          // 1. SALVAR CONVERSA NO BANCO DE DADOS
+      console.log('[Webhook-Final] Salvando conversa no banco...');
+      const conversationId = await saveConversationToDatabase(
+        fromNumber,
+        toNumber,
+        messageText,
+        whatsappMessageId, // Usar o ID real do WhatsApp
+        clinicId
+      );
+
+    if (conversationId) {
+      console.log('[Webhook-Final] Conversa salva com ID:', conversationId);
+    }
+
+    // 2. Processar com IA (mesmo que produção)
+    const aiResult = await processMessageWithCompleteContext(
+      messageText, 
+      fromNumber, 
+      { accessToken: null, phoneNumberId: null } // Não usar config real
+    );
+
+    if (aiResult.success) {
+      // 3. SALVAR RESPOSTA NO BANCO DE DADOS (mas não enviar para WhatsApp)
+      console.log('[Webhook-Final] Salvando resposta simulada no banco...');
+      await saveResponseToDatabase(
+        conversationId,
+        fromNumber,
+        toNumber,
+        aiResult.response,
+        'simulated', // Tipo especial para simulação
+        null
+      );
+
+      console.log('🎭 [Webhook-Final] Resposta simulada salva (NÃO enviada para WhatsApp):', {
+        response: aiResult.response,
+        intent: aiResult.intent,
+        confidence: aiResult.confidence
+      });
+
+      return {
+        response: aiResult.response,
+        conversationId: conversationId,
+        intent: aiResult.intent,
+        confidence: aiResult.confidence
+      };
+    }
+
+    return {
+      response: 'Desculpe, estou com dificuldades técnicas no momento.',
+      conversationId: conversationId,
+      intent: null,
+      confidence: 0
+    };
+
+  } catch (error) {
+    console.error('[Webhook-Final] Erro no modo simulação:', error);
+    return {
+      response: 'Desculpe, estou com dificuldades técnicas no momento.',
+      conversationId: null,
+      intent: null,
+      confidence: 0
+    };
+  }
+}
+
+/**
+ * Processa mensagem em modo produção (envia para WhatsApp)
+ */
+async function processProductionMode(messageText, fromNumber, toNumber, config, whatsappMessageId) {
+  try {
+    console.log('🚀 [Webhook-Final] Processando em modo produção:', {
+      fromNumber,
+      toNumber,
+      whatsappMessageId
+    });
+
+    // 1. SALVAR CONVERSA NO BANCO DE DADOS
+    console.log('[Webhook-Final] Salvando conversa no banco...');
+    const conversationId = await saveConversationToDatabase(
+      fromNumber,
+      toNumber,
+      messageText,
+      whatsappMessageId, // Usar o ID real do WhatsApp
+      null // clinicId será encontrado automaticamente
+    );
+
+    if (conversationId) {
+      console.log('[Webhook-Final] Conversa salva com ID:', conversationId);
+    }
+
+    // 2. Processar com IA
+    const aiResult = await processMessageWithCompleteContext(
+      messageText, 
+      fromNumber, 
+      config
+    );
+
+    if (aiResult.success) {
+      // 3. SALVAR RESPOSTA NO BANCO DE DADOS
+      console.log('[Webhook-Final] Salvando resposta no banco...');
+      await saveResponseToDatabase(
+        conversationId,
+        fromNumber,
+        toNumber,
+        aiResult.response,
+        'sent',
+        null
+      );
+
+      // 4. Enviar resposta via WhatsApp
+      await sendAIResponseViaWhatsApp(
+        fromNumber, 
+        aiResult, 
+        config
+      );
+
+      return {
+        response: aiResult.response,
+        conversationId: conversationId,
+        intent: aiResult.intent,
+        confidence: aiResult.confidence
+      };
+    }
+
+    return {
+      response: 'Desculpe, estou com dificuldades técnicas no momento.',
+      conversationId: conversationId,
+      intent: null,
+      confidence: 0
+    };
+
+  } catch (error) {
+    console.error('[Webhook-Final] Erro no modo produção:', error);
+    return {
+      response: 'Desculpe, estou com dificuldades técnicas no momento.',
+      conversationId: null,
+      intent: null,
+      confidence: 0
+    };
   }
 }
 

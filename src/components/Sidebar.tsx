@@ -86,9 +86,9 @@ const menuItems = [
     permission: 'gestao_usuarios'
   },
   {
-    title: 'Dashboard AI',
+    title: 'Simulador de Atendimento',
     icon: Bot,
-    href: '/ai-dashboard',
+    href: '/simulacao',
     permission: 'dashboard'
   }
 ];

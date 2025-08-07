@@ -1,50 +1,49 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle 
-} from '@/components/ui/dialog';
-import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { AddressInput } from '@/components/ui/address-input';
-import { PhoneInput } from '@/components/ui/phone-input';
-import { supabase } from '@/integrations/supabase/client';
+import { BrazilianPhoneInput } from '@/components/ui/brazilian-phone-input';
 import { useToast } from '@/hooks/use-toast';
-
-interface Clinic {
-  id: string;
-  name: string;
-  address?: any | null;
-  phone?: any | null;
-  email?: any | null;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
-  working_hours?: any | null;
-  specialties?: any | null;
-  payment_methods?: any | null;
-  insurance_accepted?: any | null;
-  emergency_contact?: any | null;
-  admin_notes?: any | null;
-  logo_url?: any | null;
-  primary_color?: any | null;
-  secondary_color?: any | null;
-  timezone: string;
-  language: string;
-}
+import { supabase } from '@/integrations/supabase/client';
 
 interface EditClinicModalProps {
-  clinic: Clinic | null;
   isOpen: boolean;
   onClose: () => void;
   onClinicUpdated: () => void;
+  clinic: {
+    id: string;
+    name: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+    website?: string;
+    whatsapp_phone_number?: string;
+    whatsapp_integration_type?: string;
+  } | null;
 }
 
-const EditClinicModal = ({ clinic, isOpen, onClose, onClinicUpdated }: EditClinicModalProps) => {
+interface FormData {
+  name: string;
+  address: string;
+  city: string;
+  state: string;
+  phone: string;
+  email: string;
+  website: string;
+  whatsappIntegrationType: 'meta_api' | 'none';
+  whatsappPhoneNumber: string;
+}
+
+export const EditClinicModal: React.FC<EditClinicModalProps> = ({
+  isOpen,
+  onClose,
+  onClinicUpdated,
+  clinic
+}) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     address: '',
     city: '',
@@ -52,68 +51,96 @@ const EditClinicModal = ({ clinic, isOpen, onClose, onClinicUpdated }: EditClini
     phone: '',
     email: '',
     website: '',
-    whatsappIntegrationType: 'meta_api' as 'meta_api'
+    whatsappIntegrationType: 'meta_api',
+    whatsappPhoneNumber: ''
   });
+
   const { toast } = useToast();
 
+  // Carregar dados da clínica quando o modal abrir
   useEffect(() => {
-    if (clinic && isOpen) {
+    if (clinic) {
       setFormData({
-        name: clinic.name,
-        address: clinic.address?.street || '',
-        city: clinic.address?.city || '',
-        state: clinic.address?.state || '',
-        phone: clinic.phone?.value || '',
-        email: clinic.email?.value || '',
-        website: '',
-        whatsappIntegrationType: (clinic as any).whatsapp_integration_type || 'meta_api'
+        name: clinic.name || '',
+        address: clinic.address || '',
+        city: '', // TODO: Extrair cidade do endereço
+        state: '', // TODO: Extrair estado do endereço
+        phone: clinic.phone || '',
+        email: clinic.email || '',
+        website: clinic.website || '',
+        whatsappIntegrationType: (clinic.whatsapp_integration_type as 'meta_api' | 'none') || 'meta_api',
+        whatsappPhoneNumber: clinic.whatsapp_phone_number || ''
       });
     }
-  }, [clinic, isOpen]);
+  }, [clinic]);
 
-  const handleInputChange = (field: string, value: string | 'meta_api') => {
+  const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleUpdateClinic = async () => {
-    if (!clinic) return;
+  const handleUpdateClinic = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!clinic?.id) {
+      toast({
+        title: "Erro",
+        description: "Clínica não encontrada.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (!formData.name.trim()) {
       toast({
         title: "Erro",
-        description: "O nome da clínica é obrigatório.",
+        description: "Nome da clínica é obrigatório.",
         variant: "destructive",
       });
       return;
     }
 
     setIsLoading(true);
+
     try {
+      const clinicData = {
+        name: formData.name,
+        address: formData.address || null,
+        phone: formData.phone || null,
+        email: formData.email || null,
+        website: formData.website || null,
+        whatsapp_integration_type: formData.whatsappIntegrationType,
+        whatsapp_phone_number: formData.whatsappPhoneNumber.trim() || null,
+        updated_at: new Date().toISOString()
+      };
+
       const { error } = await supabase
         .from('clinics')
-        .update({
-          name: formData.name,
-          address: formData.address || null,
-          phone: formData.phone || null,
-          email: formData.email || null,
-          whatsapp_integration_type: formData.whatsappIntegrationType
-        })
+        .update(clinicData)
         .eq('id', clinic.id);
 
       if (error) throw error;
 
       toast({
         title: "Clínica atualizada",
-        description: "As informações da clínica foram atualizadas com sucesso.",
+        description: "A clínica foi atualizada com sucesso.",
       });
 
       onClinicUpdated();
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao atualizar clínica:', error);
+      
+      let errorMessage = "Não foi possível atualizar a clínica.";
+      
+      if (error && typeof error === 'object' && 'code' in error && error.code === '42501') {
+        errorMessage = "Você não tem permissão para editar clínicas. Entre em contato com o administrador.";
+      } else if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
+        errorMessage = error.message;
+      }
+
       toast({
         title: "Erro",
-        description: "Não foi possível atualizar a clínica.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -121,7 +148,9 @@ const EditClinicModal = ({ clinic, isOpen, onClose, onClinicUpdated }: EditClini
     }
   };
 
-  if (!clinic) return null;
+  if (!clinic) {
+    return null;
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -152,10 +181,10 @@ const EditClinicModal = ({ clinic, isOpen, onClose, onClinicUpdated }: EditClini
             </div>
             <div>
               <label className="text-sm font-medium">Telefone</label>
-              <PhoneInput
+              <BrazilianPhoneInput
                 value={formData.phone}
                 onChange={(value) => handleInputChange('phone', value)}
-                placeholder="(11) 99999-9999"
+                placeholder="Digite o telefone"
               />
             </div>
           </div>
@@ -180,7 +209,7 @@ const EditClinicModal = ({ clinic, isOpen, onClose, onClinicUpdated }: EditClini
               <Input
                 value={formData.city}
                 onChange={(e) => handleInputChange('city', e.target.value)}
-                placeholder="São Paulo"
+                placeholder="Cidade"
               />
             </div>
             <div>
@@ -188,42 +217,62 @@ const EditClinicModal = ({ clinic, isOpen, onClose, onClinicUpdated }: EditClini
               <Input
                 value={formData.state}
                 onChange={(e) => handleInputChange('state', e.target.value)}
-                placeholder="SP"
-                maxLength={2}
+                placeholder="Estado"
               />
             </div>
           </div>
 
-          <div className="space-y-3">
-            <label className="text-sm font-medium">Integração WhatsApp</label>
-            <div className="flex items-center space-x-3">
-              <Switch
-                id="whatsapp-integration"
-                checked={formData.whatsappIntegrationType === 'meta_api'}
-                onCheckedChange={(checked) => 
-                  handleInputChange('whatsappIntegrationType', 'meta_api')
-                }
-              />
-              <div className="flex-1">
-                <label htmlFor="whatsapp-integration" className="text-sm font-medium">
-                  Usar API oficial da Meta (WhatsApp Business)
-                </label>
-                <p className="text-xs text-gray-600 mt-1">
-                  {formData.whatsappIntegrationType === 'meta_api' 
-                    ? 'Integração empresarial via API oficial da Meta. Sem necessidade de QR Code.'
-                    : 'Conexão via WhatsApp Web com QR Code. Ideal para testes e uso pessoal.'
-                  }
-                </p>
+          <div>
+            <label className="text-sm font-medium">Website</label>
+            <Input
+              type="url"
+              value={formData.website}
+              onChange={(e) => handleInputChange('website', e.target.value)}
+              placeholder="https://clinica.com"
+            />
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Integração WhatsApp</label>
+              <select
+                value={formData.whatsappIntegrationType}
+                onChange={(e) => handleInputChange('whatsappIntegrationType', e.target.value as 'meta_api' | 'none')}
+                className="w-full p-2 border border-gray-300 rounded-md"
+              >
+                <option value="meta_api">Meta API (Recomendado)</option>
+                <option value="none">Sem integração</option>
+              </select>
+            </div>
+
+            {formData.whatsappIntegrationType === 'meta_api' && (
+              <div>
+                <label className="text-sm font-medium">Número WhatsApp *</label>
+                <BrazilianPhoneInput
+                  value={formData.whatsappPhoneNumber}
+                  onChange={(value) => handleInputChange('whatsappPhoneNumber', value)}
+                  placeholder="(47) 9999-9999"
+                  required
+                />
               </div>
-            </div>
+            )}
           </div>
 
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={onClose}>
+          <div className="flex justify-end gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isLoading}
+            >
               Cancelar
             </Button>
-            <Button onClick={handleUpdateClinic} disabled={isLoading}>
-              {isLoading ? 'Salvando...' : 'Salvar Alterações'}
+            <Button
+              type="submit"
+              onClick={handleUpdateClinic}
+              disabled={isLoading}
+            >
+              {isLoading ? 'Atualizando...' : 'Atualizar Clínica'}
             </Button>
           </div>
         </div>
@@ -231,5 +280,3 @@ const EditClinicModal = ({ clinic, isOpen, onClose, onClinicUpdated }: EditClini
     </Dialog>
   );
 };
-
-export default EditClinicModal;

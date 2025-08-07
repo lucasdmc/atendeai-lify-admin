@@ -53,6 +53,43 @@ export const ClinicProvider = ({ children }: ClinicProviderProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const { user, userRole } = useAuth();
 
+  // Função para obter a chave do localStorage específica do usuário
+  const getLocalStorageKey = useCallback((userId: string) => {
+    return `last_selected_clinic_${userId}`;
+  }, []);
+
+  // Função para carregar a última clínica selecionada do localStorage
+  const loadLastSelectedClinic = useCallback((userId: string) => {
+    if (typeof window === 'undefined') return null;
+    const key = getLocalStorageKey(userId);
+    return localStorage.getItem(key);
+  }, [getLocalStorageKey]);
+
+  // Função para salvar a última clínica selecionada no localStorage
+  const saveLastSelectedClinic = useCallback((userId: string, clinicId: string) => {
+    if (typeof window === 'undefined') return;
+    const key = getLocalStorageKey(userId);
+    localStorage.setItem(key, clinicId);
+  }, [getLocalStorageKey]);
+
+  // Função para carregar a primeira clínica disponível como fallback
+  const loadFirstAvailableClinic = useCallback(async () => {
+    try {
+      const { data: clinics, error } = await supabase
+        .from('clinics')
+        .select('id')
+        .order('name', { ascending: true })
+        .limit(1);
+
+      if (!error && clinics && clinics.length > 0) {
+        return clinics[0].id;
+      }
+    } catch (error) {
+      console.error('Erro ao carregar primeira clínica:', error);
+    }
+    return null;
+  }, []);
+
   // Buscar a clínica associada ao usuário com cache
   const fetchUserClinic = useCallback(async () => {
     if (!user) {
@@ -73,13 +110,43 @@ export const ClinicProvider = ({ children }: ClinicProviderProps) => {
           setUserClinicId(userProfile.clinic_id);
           setSelectedClinicIdState(userProfile.clinic_id);
         }
+      } else {
+        // Para usuários admin_lify e suporte_lify, carregar última clínica selecionada
+        const lastSelectedClinicId = loadLastSelectedClinic(user.id);
+        
+        if (lastSelectedClinicId) {
+          // Verificar se a clínica ainda existe
+          const { data: clinicExists, error } = await supabase
+            .from('clinics')
+            .select('id')
+            .eq('id', lastSelectedClinicId)
+            .single();
+
+          if (!error && clinicExists) {
+            setSelectedClinicIdState(lastSelectedClinicId);
+          } else {
+            // Se a clínica não existe mais, carregar primeira disponível
+            const firstClinicId = await loadFirstAvailableClinic();
+            if (firstClinicId) {
+              setSelectedClinicIdState(firstClinicId);
+              saveLastSelectedClinic(user.id, firstClinicId);
+            }
+          }
+        } else {
+          // Se não há última clínica salva, carregar primeira disponível
+          const firstClinicId = await loadFirstAvailableClinic();
+          if (firstClinicId) {
+            setSelectedClinicIdState(firstClinicId);
+            saveLastSelectedClinic(user.id, firstClinicId);
+          }
+        }
       }
     } catch (error) {
       console.error('Erro ao buscar clínica do usuário:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [user, userRole]);
+  }, [user, userRole, loadLastSelectedClinic, saveLastSelectedClinic, loadFirstAvailableClinic]);
 
   useEffect(() => {
     fetchUserClinic();
@@ -116,7 +183,12 @@ export const ClinicProvider = ({ children }: ClinicProviderProps) => {
 
   const setSelectedClinicId = useCallback((clinicId: string) => {
     setSelectedClinicIdState(clinicId);
-  }, []);
+    
+    // Salvar a seleção no localStorage para usuários admin_lify e suporte_lify
+    if (user && (userRole === 'admin_lify' || userRole === 'suporte_lify')) {
+      saveLastSelectedClinic(user.id, clinicId);
+    }
+  }, [user, userRole, saveLastSelectedClinic]);
 
   const value = useMemo(() => ({
     selectedClinicId,

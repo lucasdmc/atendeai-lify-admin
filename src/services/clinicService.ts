@@ -6,6 +6,7 @@ export interface Clinic {
   whatsapp_phone: string;
   contextualization_json: any;
   has_contextualization: boolean;
+  simulation_mode?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -50,13 +51,19 @@ export class ClinicService {
 
   static async createClinic(clinic: Omit<Clinic, 'id' | 'created_at' | 'updated_at'>): Promise<Clinic> {
     try {
+      console.log('🚀 [ClinicService] Criando clínica:', clinic);
       const { data, error } = await supabase
         .from('clinics')
         .insert([clinic])
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ [ClinicService] Erro do Supabase:', error);
+        throw error;
+      }
+      
+      console.log('✅ [ClinicService] Clínica criada com sucesso:', data);
       return data;
     } catch (error) {
       console.error('❌ [ClinicService] Erro ao criar clínica:', error);
@@ -66,6 +73,7 @@ export class ClinicService {
 
   static async updateClinic(id: string, updates: Partial<Clinic>): Promise<Clinic> {
     try {
+      console.log('🚀 [ClinicService] Atualizando clínica:', { id, updates });
       const { data, error } = await supabase
         .from('clinics')
         .update(updates)
@@ -73,7 +81,12 @@ export class ClinicService {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ [ClinicService] Erro do Supabase:', error);
+        throw error;
+      }
+      
+      console.log('✅ [ClinicService] Clínica atualizada com sucesso:', data);
       return data;
     } catch (error) {
       console.error('❌ [ClinicService] Erro ao atualizar clínica:', error);

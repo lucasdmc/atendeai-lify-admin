@@ -21,6 +21,7 @@ import GestaoUsuarios from "./pages/GestaoUsuarios";
 import Agendamentos from "./pages/Agendamentos";
 import Clinicas from "./pages/Clinicas";
 import AIDashboard from "./pages/AIDashboard";
+import Simulacao from "./pages/Simulacao";
 import WhatsAppAITest from "./pages/WhatsAppAITest";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -151,6 +152,22 @@ const App = () => {
                       element={
                         <Layout>
                           <AIDashboard />
+                        </Layout>
+                      }
+                    />
+                    <Route
+                      path="/simulacao"
+                      element={
+                        <Layout>
+                          <Simulacao />
+                        </Layout>
+                      }
+                    />
+                    <Route
+                      path="/simulacao/:conversationId"
+                      element={
+                        <Layout>
+                          <Simulacao />
                         </Layout>
                       }
                     />

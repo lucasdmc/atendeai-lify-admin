@@ -1,125 +1,84 @@
 import React, { useState, useEffect } from 'react';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Textarea } from '../ui/textarea';
-import { Badge } from '../ui/badge';
-import { Brain, Phone, Info, FileText, Copy } from 'lucide-react';
-import { useToast } from '../../hooks/use-toast';
-
-interface Clinic {
-  id?: string;
-  name: string;
-  whatsapp_phone: string;
-  contextualization_json: any;
-  has_contextualization: boolean;
-}
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+import { Phone, FileText, CheckCircle, AlertCircle, Copy, Download } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { validateMetaPhoneFormat, formatPhoneNumberForMeta } from '@/utils/phoneValidation';
+import { BrazilianPhoneInput } from '@/components/ui/brazilian-phone-input';
+import { Clinic } from '@/services/clinicService';
 
 interface ClinicFormProps {
-  clinic?: Clinic;
-  onSubmit: (clinic: Clinic) => void;
+  clinic?: Clinic | null;
+  onSave: (clinic: Partial<Clinic>) => void;
   onCancel: () => void;
+  isLoading?: boolean;
 }
 
 const JSON_TEMPLATE = {
-  "clinica": {
-    "informacoes_basicas": {
-      "nome": "Nome da Clínica",
-      "razao_social": "Razão Social da Clínica",
-      "cnpj": "00.000.000/0001-00",
-      "especialidade_principal": "Especialidade Principal",
-      "especialidades_secundarias": ["Especialidade 1", "Especialidade 2"],
-      "descricao": "Descrição da clínica",
-      "missao": "Missão da clínica",
-      "valores": ["Valor 1", "Valor 2"],
-      "diferenciais": ["Diferencial 1", "Diferencial 2"]
-    },
-    "localizacao": {
-      "endereco_principal": {
-        "logradouro": "Rua das Flores",
-        "numero": "123",
-        "complemento": "Sala 101",
-        "bairro": "Centro",
-        "cidade": "Blumenau",
-        "estado": "SC",
-        "cep": "89010-000",
-        "pais": "Brasil"
-      }
-    },
-    "contatos": {
-      "telefone_principal": "(47) 3333-3333",
-      "whatsapp": "(47) 99999-9999",
-      "email_principal": "contato@clinica.com",
-      "website": "https://clinica.com"
-    },
-    "horario_funcionamento": {
-      "segunda": {"abertura": "08:00", "fechamento": "18:00"},
-      "terca": {"abertura": "08:00", "fechamento": "18:00"},
-      "quarta": {"abertura": "08:00", "fechamento": "18:00"},
-      "quinta": {"abertura": "08:00", "fechamento": "18:00"},
-      "sexta": {"abertura": "08:00", "fechamento": "17:00"},
-      "sabado": {"abertura": "08:00", "fechamento": "12:00"},
-      "domingo": {"abertura": null, "fechamento": null}
-    }
+  "clinic_info": {
+    "name": "Nome da Clínica",
+    "specialty": "Especialidade principal",
+    "address": "Endereço completo",
+    "phone": "Telefone de contato",
+    "website": "Site da clínica"
   },
-  "agente_ia": {
-    "configuracao": {
-      "nome": "Assistente",
-      "personalidade": "Profissional e atencioso",
-      "tom_comunicacao": "Formal mas acessível",
-      "saudacao_inicial": "Olá! Sou o assistente virtual da clínica. Como posso ajudar?",
-      "mensagem_despedida": "Obrigado por escolher nossa clínica. Até breve!"
-    }
-  },
-  "profissionais": [
+  "services": [
     {
-      "id": "prof_001",
-      "nome_completo": "Dr. João Silva",
-      "especialidades": ["Cardiologia"],
-      "ativo": true,
-      "aceita_novos_pacientes": true
+      "name": "Consulta médica",
+      "description": "Consulta com especialista",
+      "duration": "30 minutos",
+      "price": "R$ 150,00"
     }
   ],
-  "servicos": {
-    "consultas": [
-      {
-        "id": "cons_001",
-        "nome": "Consulta Especializada",
-        "descricao": "Consulta médica especializada",
-        "preco_particular": 150.00,
-        "aceita_convenio": true,
-        "convenios_aceitos": ["Unimed", "Amil"],
-        "ativo": true
-      }
-    ]
+  "working_hours": {
+    "monday": "08:00-18:00",
+    "tuesday": "08:00-18:00",
+    "wednesday": "08:00-18:00",
+    "thursday": "08:00-18:00",
+    "friday": "08:00-18:00",
+    "saturday": "08:00-12:00",
+    "sunday": "Fechado"
   },
-  "convenios": [
-    {
-      "id": "conv_001",
-      "nome": "Unimed",
-      "ativo": true,
-      "copagamento": false
-    }
-  ],
-  "formas_pagamento": {
-    "dinheiro": true,
-    "cartao_credito": true,
-    "cartao_debito": true,
-    "pix": true
+  "policies": {
+    "cancellation": "Cancelamento até 24h antes",
+    "rescheduling": "Reagendamento gratuito",
+    "insurance": "Aceitamos convênios",
+    "payment": "Cartão, PIX, dinheiro"
+  },
+  "ai_context": {
+    "tone": "Profissional e acolhedor",
+    "specialties": ["Especialidade 1", "Especialidade 2"],
+    "common_questions": [
+      "Como agendar consulta?",
+      "Quais convênios aceitam?",
+      "Qual o valor da consulta?"
+    ],
+    "response_style": "Direto, informativo e empático"
   }
 };
 
-export const ClinicForm: React.FC<ClinicFormProps> = ({ clinic, onSubmit, onCancel }) => {
-  const [formData, setFormData] = useState<Clinic>({
+export const ClinicForm: React.FC<ClinicFormProps> = ({
+  clinic,
+  onSave,
+  onCancel,
+  isLoading = false
+}) => {
+  const [formData, setFormData] = useState<Partial<Clinic>>({
     name: clinic?.name || '',
     whatsapp_phone: clinic?.whatsapp_phone || '',
     contextualization_json: clinic?.contextualization_json || {},
-    has_contextualization: clinic?.has_contextualization || false
+    has_contextualization: clinic?.has_contextualization || false,
+    simulation_mode: clinic?.simulation_mode || false
   });
   
   const [contextualizationText, setContextualizationText] = useState('');
   const [isContextualizationValid, setIsContextualizationValid] = useState(true);
+  const [phoneValidationError, setPhoneValidationError] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -128,9 +87,15 @@ export const ClinicForm: React.FC<ClinicFormProps> = ({ clinic, onSubmit, onCanc
     }
   }, [clinic]);
 
-  const validateJSON = (text: string) => {
+  // Validar telefone quando mudar
+  useEffect(() => {
+    const validation = validateMetaPhoneFormat(formData.whatsapp_phone || '');
+    setPhoneValidationError(validation.isValid ? null : validation.error || null);
+  }, [formData.whatsapp_phone]);
+
+  const validateJSON = (text: string): boolean => {
     try {
-      if (text.trim() === '') return {};
+      if (text.trim() === '') return true;
       JSON.parse(text);
       return true;
     } catch {
@@ -161,10 +126,14 @@ export const ClinicForm: React.FC<ClinicFormProps> = ({ clinic, onSubmit, onCanc
     });
   };
 
+  const handlePhoneChange = (value: string) => {
+    setFormData({ ...formData, whatsapp_phone: value });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name.trim()) {
+    if (!formData.name?.trim()) {
       toast({
         title: "Erro",
         description: "Nome da clínica é obrigatório",
@@ -173,10 +142,12 @@ export const ClinicForm: React.FC<ClinicFormProps> = ({ clinic, onSubmit, onCanc
       return;
     }
 
-    if (!formData.whatsapp_phone.trim()) {
+    // Validação rigorosa do telefone
+    const phoneValidation = validateMetaPhoneFormat(formData.whatsapp_phone || '');
+    if (!phoneValidation.isValid) {
       toast({
-        title: "Erro",
-        description: "Telefone WhatsApp é obrigatório",
+        title: "Formato de telefone inválido",
+        description: phoneValidation.error,
         variant: "destructive"
       });
       return;
@@ -195,7 +166,7 @@ export const ClinicForm: React.FC<ClinicFormProps> = ({ clinic, onSubmit, onCanc
     if (contextualizationText.trim()) {
       try {
         contextualization = JSON.parse(contextualizationText);
-      } catch {
+      } catch (error) {
         toast({
           title: "Erro",
           description: "Erro ao processar JSON de contextualização",
@@ -205,125 +176,131 @@ export const ClinicForm: React.FC<ClinicFormProps> = ({ clinic, onSubmit, onCanc
       }
     }
 
-    const updatedClinic = {
+    const updatedClinic: Partial<Clinic> = {
       ...formData,
       contextualization_json: contextualization,
       has_contextualization: Object.keys(contextualization).length > 0
     };
 
-    onSubmit(updatedClinic);
+    onSave(updatedClinic as Partial<Clinic>);
   };
 
   return (
-    <Card className="w-full max-w-4xl mx-auto">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          {clinic ? 'Editar Clínica' : 'Nova Clínica'}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Informações Básicas */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="name">Nome da Clínica *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Digite o nome da clínica"
-                required
-              />
-            </div>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Informações Básicas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="name">Nome da Clínica *</Label>
+          <Input
+            id="name"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            placeholder="Digite o nome da clínica"
+            required
+          />
+        </div>
 
-            <div>
-              <Label htmlFor="whatsapp_phone" className="flex items-center gap-2">
-                <Phone className="h-4 w-4" />
-                Telefone WhatsApp *
-              </Label>
-              <Input
-                id="whatsapp_phone"
-                value={formData.whatsapp_phone}
-                onChange={(e) => setFormData({ ...formData, whatsapp_phone: e.target.value })}
-                placeholder="554730915628"
-                required
-              />
-              <p className="text-sm text-muted-foreground mt-1">
-                Este número será usado para identificar mensagens do WhatsApp
-              </p>
-            </div>
+        <div>
+          <Label htmlFor="whatsapp_phone" className="flex items-center gap-2">
+            <Phone className="h-4 w-4" />
+            Telefone WhatsApp *
+          </Label>
+          <BrazilianPhoneInput
+            value={formData.whatsapp_phone || ''}
+            onChange={handlePhoneChange}
+            placeholder="(47) 9999-9999"
+            required
+            className={`${phoneValidationError ? 'border-red-500' : formData.whatsapp_phone && !phoneValidationError ? 'border-green-500' : ''}`}
+          />
+        </div>
+      </div>
+
+      {/* Configurações de Simulação */}
+      <div className="flex items-center space-x-2">
+        <Switch
+          id="simulation_mode"
+          checked={formData.simulation_mode || false}
+          onCheckedChange={(checked) => setFormData({ ...formData, simulation_mode: checked })}
+        />
+        <Label htmlFor="simulation_mode">Modo de Simulação</Label>
+      </div>
+
+      {/* Contextualização IA */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold">Contextualização para IA</h3>
+            <p className="text-sm text-muted-foreground">
+              Configure informações da clínica para melhorar as respostas da IA
+            </p>
           </div>
-
-          {/* Contextualização */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Brain className="h-5 w-5 text-blue-600" />
-                <Label className="text-lg font-semibold">Contextualização da IA</Label>
-                <Badge variant={formData.has_contextualization ? "default" : "secondary"}>
-                  {formData.has_contextualization ? "Ativo" : "Genérico"}
-                </Badge>
-              </div>
-              
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={loadTemplate}>
-                  <FileText className="h-4 w-4 mr-1" />
-                  Carregar Template
-                </Button>
-                <Button type="button" variant="outline" size="sm" onClick={copyTemplate}>
-                  <Copy className="h-4 w-4 mr-1" />
-                  Copiar Template
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Info className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  JSON com informações específicas da clínica (opcional)
-                </span>
-              </div>
-              
-              <Textarea
-                value={contextualizationText}
-                onChange={(e) => handleContextualizationChange(e.target.value)}
-                placeholder="Cole aqui o JSON de contextualização..."
-                rows={20}
-                className={`font-mono text-sm ${!isContextualizationValid ? 'border-red-500' : ''}`}
-              />
-              
-              {!isContextualizationValid && (
-                <p className="text-sm text-red-500">
-                  JSON inválido. Verifique a sintaxe.
-                </p>
-              )}
-            </div>
-
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h4 className="font-semibold text-blue-900 mb-2">Como funciona:</h4>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>• <strong>Sem JSON:</strong> IA responde com informações genéricas</li>
-                <li>• <strong>Com JSON:</strong> IA usa informações específicas da clínica</li>
-                <li>• <strong>Campos principais:</strong> clinica.informacoes_basicas, clinica.localizacao, clinica.contatos, clinica.horario_funcionamento</li>
-                <li>• <strong>Exemplo:</strong> "Qual o endereço?" → IA responde com o endereço do JSON</li>
-                <li>• <strong>Profissionais:</strong> IA pode listar médicos e especialidades</li>
-                <li>• <strong>Serviços:</strong> IA informa preços e convênios aceitos</li>
-              </ul>
-            </div>
-          </div>
-
-          {/* Botões */}
-          <div className="flex gap-4 pt-4">
-            <Button type="submit" className="flex-1">
-              {clinic ? 'Atualizar' : 'Criar'} Clínica
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={loadTemplate}
+              className="flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Carregar Template
             </Button>
-            <Button type="button" variant="outline" onClick={onCancel}>
-              Cancelar
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={copyTemplate}
+              className="flex items-center gap-2"
+            >
+              <Copy className="h-4 w-4" />
+              Copiar Template
             </Button>
           </div>
-        </form>
-      </CardContent>
-    </Card>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="contextualization">JSON de Contextualização</Label>
+          <Textarea
+            id="contextualization"
+            value={contextualizationText}
+            onChange={(e) => handleContextualizationChange(e.target.value)}
+            placeholder="Cole aqui o JSON de contextualização..."
+            className={`min-h-[300px] font-mono text-sm ${
+              isContextualizationValid ? 'border-green-500' : 'border-red-500'
+            }`}
+          />
+          <div className="flex items-center gap-2">
+            {isContextualizationValid ? (
+              <CheckCircle className="h-4 w-4 text-green-500" />
+            ) : (
+              <AlertCircle className="h-4 w-4 text-red-500" />
+            )}
+            <span className={`text-sm ${isContextualizationValid ? 'text-green-600' : 'text-red-600'}`}>
+              {isContextualizationValid ? 'JSON válido' : 'JSON inválido'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Botões de Ação */}
+      <div className="flex justify-end gap-4">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          disabled={isLoading}
+        >
+          Cancelar
+        </Button>
+        <Button
+          type="submit"
+          disabled={isLoading || !isContextualizationValid || !!phoneValidationError}
+        >
+          {isLoading ? 'Salvando...' : 'Salvar Clínica'}
+        </Button>
+      </div>
+    </form>
   );
 }; 

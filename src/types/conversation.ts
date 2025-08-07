@@ -1,13 +1,14 @@
 export interface Conversation {
   id: string;
-  phone_number: string;
-  formatted_phone_number: string | null;
-  country_code: string | null;
-  name: string | null;
-  updated_at: string | null;
+  patient_phone_number: string;
+  clinic_whatsapp_number: string;
+  patient_name: string | null;
   last_message_preview: string | null;
   unread_count: number | null;
-  message_count?: number;
+  last_message_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  clinic_id: string | null;
 }
 
 export interface Message {

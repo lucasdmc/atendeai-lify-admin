@@ -9,25 +9,25 @@ export const getDisplayName = (conversation: Conversation | null | undefined) =>
 
   // Log para debug
   console.log('getDisplayName - Conversation data:', {
-    name: conversation?.name,
-    phone_number: conversation?.phone_number,
-    formatted_phone_number: conversation?.formatted_phone_number
+    patient_name: conversation?.patient_name,
+    patient_phone_number: conversation?.patient_phone_number,
+    clinic_whatsapp_number: conversation?.clinic_whatsapp_number
   });
   
   // Primeiro, verificar se há um nome salvo e se é válido
-  if (conversation.name && 
-      conversation.name.trim() && 
-      conversation.name !== conversation.phone_number && 
-      !conversation.name.includes('@s.whatsapp.net') &&
-      !conversation.name.includes('@c.us') &&
-      conversation.name !== 'null' &&
-      conversation.name !== 'undefined') {
-    console.log('getDisplayName - Using saved name:', conversation.name);
-    return conversation.name;
+  if (conversation.patient_name && 
+      conversation.patient_name.trim() && 
+      conversation.patient_name !== conversation.patient_phone_number && 
+      !conversation.patient_name.includes('@s.whatsapp.net') &&
+      !conversation.patient_name.includes('@c.us') &&
+      conversation.patient_name !== 'null' &&
+      conversation.patient_name !== 'undefined') {
+    console.log('getDisplayName - Using saved name:', conversation.patient_name);
+    return conversation.patient_name;
   }
   
-  // Se não há nome válido, usar o número formatado ou original
-  const phoneToDisplay = conversation.formatted_phone_number || conversation.phone_number;
+  // Se não há nome válido, usar o número do paciente
+  const phoneToDisplay = conversation.patient_phone_number;
   
   // Se o número ainda contém @s.whatsapp.net, remover
   if (phoneToDisplay && phoneToDisplay.includes('@s.whatsapp.net')) {
@@ -52,7 +52,7 @@ export const formatPhoneNumber = (conversation: Conversation | null | undefined)
     return '';
   }
 
-  const phoneToDisplay = conversation.formatted_phone_number || conversation.phone_number;
+  const phoneToDisplay = conversation.patient_phone_number;
   
   if (!phoneToDisplay) {
     return '';
