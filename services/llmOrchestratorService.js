@@ -998,8 +998,11 @@ DIRETRIZES FUNDAMENTAIS:
       const currentTime = brazilTime.getHours() * 100 + brazilTime.getMinutes(); // Formato HHMM
 
       console.log('🔍 [DEBUG] Data atual:', now.toLocaleString());
+      console.log('🔍 [DEBUG] Data Brasil:', brazilTime.toLocaleString());
       console.log('🔍 [DEBUG] Dia da semana:', currentDay);
       console.log('🔍 [DEBUG] Horário atual (HHMM):', currentTime);
+      console.log('🔍 [DEBUG] NODE_ENV:', process.env.NODE_ENV);
+      console.log('🔍 [DEBUG] TZ:', process.env.TZ);
 
       const todaySchedule = clinicContext.workingHours[currentDay];
       console.log('🔍 [DEBUG] Horário para hoje:', todaySchedule);
