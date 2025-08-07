@@ -464,10 +464,12 @@ Return a JSON with: { "intent": "INTENT_NAME", "confidence": 0.0-1.0, "entities"
         // ✅ BUSCA DINÂMICA - Buscar clínica específica pelo telefone
         console.log(`🔍 [LLMOrchestrator] Buscando clínica por WhatsApp: ${phoneNumber}`);
         
+        // Adicionar '+' se não tiver para compatibilidade com o banco
+        const phoneWithPlus = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
         const { data: clinicData, error } = await supabase
           .from('clinics')
           .select('*')
-          .eq('whatsapp_phone', phoneNumber)
+          .eq('whatsapp_phone', phoneWithPlus)
           .single();
 
         if (error) {
