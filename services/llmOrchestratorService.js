@@ -990,6 +990,8 @@ DIRETRIZES FUNDAMENTAIS:
     try {
       console.log('🔍 [DEBUG] Verificando horário de funcionamento...');
       console.log('🔍 [DEBUG] clinicContext.workingHours:', clinicContext.workingHours);
+      console.log('🔍 [DEBUG] Tipo do clinicContext:', typeof clinicContext);
+      console.log('🔍 [DEBUG] ClinicContext keys:', Object.keys(clinicContext || {}));
       
       if (!clinicContext.workingHours) {
         console.log('⚠️ [DEBUG] Sem horários configurados, assumindo aberto');
@@ -1008,12 +1010,21 @@ DIRETRIZES FUNDAMENTAIS:
       console.log('🔍 [DEBUG] Horário atual (HHMM):', currentTime);
       console.log('🔍 [DEBUG] NODE_ENV:', process.env.NODE_ENV);
       console.log('🔍 [DEBUG] TZ:', process.env.TZ);
+      console.log('🔍 [DEBUG] Process.env completo:', {
+        NODE_ENV: process.env.NODE_ENV,
+        TZ: process.env.TZ,
+        RAILWAY_ENVIRONMENT: process.env.RAILWAY_ENVIRONMENT
+      });
 
       const todaySchedule = clinicContext.workingHours[currentDay];
       console.log('🔍 [DEBUG] Horário para hoje:', todaySchedule);
+      console.log('🔍 [DEBUG] Tipo do todaySchedule:', typeof todaySchedule);
       
       if (!todaySchedule || !todaySchedule.abertura || !todaySchedule.fechamento) {
         console.log('❌ [DEBUG] Sem horário configurado para hoje, considerando fechado');
+        console.log('❌ [DEBUG] todaySchedule:', todaySchedule);
+        console.log('❌ [DEBUG] todaySchedule.abertura:', todaySchedule?.abertura);
+        console.log('❌ [DEBUG] todaySchedule.fechamento:', todaySchedule?.fechamento);
         return false; // Fechado se não há horário configurado
       }
 
@@ -1023,11 +1034,21 @@ DIRETRIZES FUNDAMENTAIS:
       console.log('🔍 [DEBUG] Horário de abertura (HHMM):', openingTime);
       console.log('🔍 [DEBUG] Horário de fechamento (HHMM):', closingTime);
       console.log('🔍 [DEBUG] Está dentro do horário?', currentTime >= openingTime && currentTime <= closingTime);
+      console.log('🔍 [DEBUG] Comparação detalhada:', {
+        currentTime,
+        openingTime,
+        closingTime,
+        isAfterOpening: currentTime >= openingTime,
+        isBeforeClosing: currentTime <= closingTime
+      });
 
-      return currentTime >= openingTime && currentTime <= closingTime;
+      const result = currentTime >= openingTime && currentTime <= closingTime;
+      console.log('🔍 [DEBUG] RESULTADO FINAL:', result);
+      return result;
     } catch (error) {
       console.error('❌ Erro ao verificar horário de funcionamento:', error);
       console.error('❌ Stack trace:', error.stack);
+      console.error('❌ Error message:', error.message);
       return true; // Por segurança, assume que está aberto
     }
   }
