@@ -16,8 +16,34 @@ export class AppointmentService {
     if (this.clinicData) return this.clinicData;
     
     try {
-      const dataPath = path.join(process.cwd(), 'src', 'data', `contextualizacao-${clinicId}.json`);
-      const rawData = fs.readFileSync(dataPath, 'utf8');
+      // Tentar múltiplos caminhos possíveis
+      const possiblePaths = [
+        path.join(process.cwd(), 'src', 'data', `contextualizacao-${clinicId}.json`),
+        path.join(process.cwd(), 'atendeai-lify-admin', 'src', 'data', `contextualizacao-${clinicId}.json`),
+        path.join(__dirname, '..', 'src', 'data', `contextualizacao-${clinicId}.json`),
+        path.join(__dirname, '..', 'atendeai-lify-admin', 'src', 'data', `contextualizacao-${clinicId}.json`)
+      ];
+      
+      let rawData = null;
+      let usedPath = null;
+      
+      for (const dataPath of possiblePaths) {
+        try {
+          console.log(`[AppointmentService] Tentando carregar dados de: ${dataPath}`);
+          rawData = fs.readFileSync(dataPath, 'utf8');
+          usedPath = dataPath;
+          break;
+        } catch (pathError) {
+          console.log(`[AppointmentService] Caminho não encontrado: ${dataPath}`);
+          continue;
+        }
+      }
+      
+      if (!rawData) {
+        throw new Error('Nenhum caminho válido encontrado para os dados da clínica');
+      }
+      
+      console.log(`[AppointmentService] Dados carregados com sucesso de: ${usedPath}`);
       this.clinicData = JSON.parse(rawData);
       return this.clinicData;
     } catch (error) {
