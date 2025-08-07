@@ -174,12 +174,57 @@ async function processWhatsAppWebhookFinal(webhookData, whatsappConfig) {
               continue;
             }
 
-            // 1. SALVAR CONVERSA NO BANCO DE DADOS
-            console.log('[Webhook-Final] Salvando conversa no banco...');
-            
             // CORREÇÃO CRÍTICA: Extrair número de destino corretamente
-            const toNumber = change.value.metadata?.phone_number_id || whatsappConfig.phoneNumberId;
+            // Usar display_phone_number (número real) em vez de phone_number_id (ID interno)
+            const toNumber = change.value.metadata?.display_phone_number || whatsappConfig.phoneNumberId;
             console.log('[Webhook-Final] Número de destino extraído:', toNumber);
+            
+            // 1. VERIFICAR MODO DE SIMULAÇÃO
+            const { data: clinicData, error: clinicError } = await supabase
+              .from('clinic_whatsapp_numbers')
+              .select('clinic_id')
+              .eq('whatsapp_number', toNumber)
+              .eq('is_active', true)
+              .single();
+
+            if (clinicError || !clinicData) {
+              console.error('[Webhook-Final] Clínica não encontrada para o número:', toNumber);
+              continue;
+            }
+
+            const clinicId = clinicData.clinic_id;
+            const isSimulationMode = await checkClinicSimulationMode(clinicId);
+
+            if (isSimulationMode) {
+              console.log('[Webhook-Final] Clínica em modo simulação, processando com SimulationMessageService');
+              
+              // Importar e usar o serviço de simulação
+              const { SimulationMessageService } = await import('../services/simulationMessageService.js');
+              
+              const simulationResult = await SimulationMessageService.processSimulationMessage(
+                message.from,
+                toNumber,
+                messageText,
+                clinicId
+              );
+
+              if (simulationResult.success) {
+                processed.push({
+                  phoneNumber: message.from,
+                  message: messageText,
+                  response: simulationResult.response,
+                  conversationId: simulationResult.conversationId,
+                  intent: simulationResult.intent,
+                  confidence: simulationResult.confidence,
+                  simulationMode: true
+                });
+              }
+              
+              continue; // Pular processamento normal
+            }
+
+            // 2. PROCESSAMENTO NORMAL (modo produção)
+            console.log('[Webhook-Final] Clínica em modo produção, processando normalmente');
             
             const conversationId = await saveConversationToDatabase(
               message.from,
@@ -194,7 +239,7 @@ async function processWhatsAppWebhookFinal(webhookData, whatsappConfig) {
               console.error('[Webhook-Final] Falha ao salvar conversa, mas continuando processamento');
             }
 
-            // 2. Processar com CONTEXTUALIZAÇÃO COMPLETA
+            // 3. Processar com CONTEXTUALIZAÇÃO COMPLETA
             const aiResult = await processMessageWithCompleteContext(
               messageText, 
               message.from, 
@@ -202,7 +247,7 @@ async function processWhatsAppWebhookFinal(webhookData, whatsappConfig) {
             );
 
             if (aiResult.success) {
-              // 3. SALVAR RESPOSTA NO BANCO DE DADOS
+              // 4. SALVAR RESPOSTA NO BANCO DE DADOS
               console.log('[Webhook-Final] Salvando resposta no banco...');
               console.log('[Webhook-Final] Parâmetros da resposta:', {
                 conversationId,
@@ -219,11 +264,12 @@ async function processWhatsAppWebhookFinal(webhookData, whatsappConfig) {
                 null
               );
 
-              // 4. Enviar resposta via WhatsApp
-              await sendAIResponseViaWhatsApp(
+              // 5. Enviar resposta via WhatsApp
+              const sendResult = await sendAIResponseViaWhatsApp(
                 message.from, 
                 aiResult, 
-                whatsappConfig
+                whatsappConfig,
+                clinicId
               );
 
               processed.push({
@@ -404,9 +450,23 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
 /**
  * Envia resposta processada via WhatsApp
  */
-async function sendAIResponseViaWhatsApp(to, aiResponse, config) {
+async function sendAIResponseViaWhatsApp(to, aiResponse, config, clinicId = null) {
   try {
     const { accessToken, phoneNumberId } = config;
+    
+    // Verificar modo de simulação se clinicId for fornecido
+    if (clinicId) {
+      const isSimulationMode = await checkClinicSimulationMode(clinicId);
+      if (isSimulationMode) {
+        console.log('[Webhook-Final] Clínica em modo simulação, NÃO enviando mensagem via WhatsApp');
+        console.log('[Webhook-Final] Resposta seria:', aiResponse.response);
+        return {
+          success: true,
+          simulationMode: true,
+          message: 'Mensagem processada em modo simulação (não enviada)'
+        };
+      }
+    }
     
     // Preparar mensagem com informações dos Serviços Robustos
     let messageText = aiResponse.response;
@@ -431,8 +491,47 @@ async function sendAIResponseViaWhatsApp(to, aiResponse, config) {
       intent: aiResponse.intent
     });
 
+    return {
+      success: true,
+      simulationMode: false,
+      message: 'Mensagem enviada via WhatsApp'
+    };
+
   } catch (error) {
     console.error('[Webhook-Final] Erro ao enviar mensagem:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Verifica se a clínica está em modo simulação
+ */
+async function checkClinicSimulationMode(clinicId) {
+  try {
+    console.log('[Webhook-Final] Verificando modo simulação para clínica:', clinicId);
+    
+    const { data: clinicData, error } = await supabase
+      .from('clinics')
+      .select('simulation_mode')
+      .eq('id', clinicId)
+      .single();
+
+    if (error) {
+      console.error('[Webhook-Final] Erro ao verificar modo simulação:', error);
+      return false; // Por segurança, assume modo produção
+    }
+
+    const isSimulationMode = clinicData?.simulation_mode || false;
+    console.log('[Webhook-Final] Modo simulação:', isSimulationMode);
+    
+    return isSimulationMode;
+
+  } catch (error) {
+    console.error('[Webhook-Final] Erro ao verificar modo simulação:', error);
+    return false; // Por segurança, assume modo produção
   }
 }
 
