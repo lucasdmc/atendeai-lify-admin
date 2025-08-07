@@ -437,16 +437,63 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
       console.log('📅 [Webhook-Final] Intenção de agendamento detectada, iniciando fluxo de agendamento...');
       
       try {
+        const phoneNumberId = config.phoneNumberId || process.env.WHATSAPP_META_PHONE_NUMBER_ID;
+        console.log('[Webhook-Final] Buscando clínica para número:', phoneNumberId);
+        
         // Buscar clínica pelo número do WhatsApp
         const { data: clinicData, error: clinicError } = await supabase
           .from('whatsapp_connections')
           .select('clinic_id')
-          .eq('phone_number', config.phoneNumberId || process.env.WHATSAPP_META_PHONE_NUMBER_ID)
+          .eq('phone_number', phoneNumberId)
           .eq('is_active', true)
           .single();
 
+        console.log('[Webhook-Final] Resultado da busca na whatsapp_connections:', { clinicData, clinicError });
+
+        let clinicId = null;
+        
         if (clinicError || !clinicData) {
-          console.error('[Webhook-Final] Clínica não encontrada para agendamento');
+          console.log('[Webhook-Final] Clínica não encontrada na whatsapp_connections, tentando fallback...');
+          
+          // Fallback: buscar diretamente na tabela clinics pelo DEFAULT_CLINIC_ID
+          const defaultClinicId = process.env.DEFAULT_CLINIC_ID;
+          if (defaultClinicId) {
+            console.log('[Webhook-Final] Usando DEFAULT_CLINIC_ID como fallback:', defaultClinicId);
+            
+            const { data: defaultClinic, error: defaultClinicError } = await supabase
+              .from('clinics')
+              .select('id')
+              .eq('id', defaultClinicId)
+              .single();
+              
+            if (!defaultClinicError && defaultClinic) {
+              clinicId = defaultClinic.id;
+              console.log('[Webhook-Final] Clínica encontrada via fallback:', clinicId);
+            }
+          }
+          
+          // Se ainda não encontrou, tentar buscar pela primeira clínica disponível
+          if (!clinicId) {
+            console.log('[Webhook-Final] Tentando buscar primeira clínica disponível...');
+            
+            const { data: firstClinic, error: firstClinicError } = await supabase
+              .from('clinics')
+              .select('id')
+              .limit(1)
+              .single();
+              
+            if (!firstClinicError && firstClinic) {
+              clinicId = firstClinic.id;
+              console.log('[Webhook-Final] Usando primeira clínica disponível:', clinicId);
+            }
+          }
+        } else {
+          clinicId = clinicData.clinic_id;
+          console.log('[Webhook-Final] Clínica encontrada na whatsapp_connections:', clinicId);
+        }
+
+        if (!clinicId) {
+          console.error('[Webhook-Final] Nenhuma clínica encontrada para agendamento');
           return {
             success: true,
             response: 'Desculpe, não consegui identificar a clínica. Por favor, entre em contato diretamente.',
@@ -455,7 +502,6 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
           };
         }
 
-        const clinicId = clinicData.clinic_id;
         console.log('[Webhook-Final] Clínica encontrada para agendamento:', clinicId);
 
         // Importar e usar AppointmentConversationService
@@ -532,14 +578,30 @@ function formatMessageForWhatsApp(message) {
   // Converter **texto** para *texto* (negrito do WhatsApp)
   let formatted = message.replace(/\*\*(.*?)\*\*/g, '*$1*');
   
+  // Melhorar formatação de listas numeradas
+  formatted = formatted.replace(/(\n)(\d+\.)/g, '\n\n$2');
+  
+  // Melhorar formatação de listas com traços
+  formatted = formatted.replace(/(\n)(\s*[-•]\s*)/g, '\n\n$2');
+  
+  // Adicionar quebras de linha antes de frases que começam com maiúscula após ponto
+  formatted = formatted.replace(/(\.)\s+([A-Z])/g, '$1\n\n$2');
+  
   // Garantir que parágrafos sejam separados corretamente
   formatted = formatted.replace(/\n\n+/g, '\n\n');
   
-  // Adicionar quebra de linha antes de listas
-  formatted = formatted.replace(/(\n)(\d+\.)/g, '\n\n$2');
+  // Adicionar quebra de linha antes de frases que começam com "Se", "Para", "Quando", etc.
+  formatted = formatted.replace(/(\n)(Se\s)/g, '\n\n$2');
+  formatted = formatted.replace(/(\n)(Para\s)/g, '\n\n$2');
+  formatted = formatted.replace(/(\n)(Quando\s)/g, '\n\n$2');
+  formatted = formatted.replace(/(\n)(Também\s)/g, '\n\n$2');
+  formatted = formatted.replace(/(\n)(Além\s)/g, '\n\n$2');
   
   // Garantir que não há espaços extras no início/fim
   formatted = formatted.trim();
+  
+  // Garantir que não há múltiplas quebras de linha consecutivas
+  formatted = formatted.replace(/\n{3,}/g, '\n\n');
   
   return formatted;
 }

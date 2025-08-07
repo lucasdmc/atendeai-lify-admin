@@ -127,6 +127,14 @@ Transfira para atendente humano quando:
 - Use quebras de linha para separar parágrafos
 - Evite formatação complexa que pode não funcionar no WhatsApp
 
+*FORMATAÇÃO DE PARÁGRAFOS*:
+- Separe parágrafos com duas quebras de linha
+- Use uma quebra de linha antes de listas
+- Use uma quebra de linha antes de frases que começam com "Se", "Para", "Quando", "Também", "Além"
+- Mantenha frases relacionadas no mesmo parágrafo
+- Use listas numeradas para informações sequenciais
+- Use traços (-) para listas simples
+
 ## EXEMPLOS DE INTERAÇÃO
 
 ### Exemplo 1 - Agendamento:
