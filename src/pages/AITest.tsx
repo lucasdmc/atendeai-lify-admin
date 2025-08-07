@@ -161,11 +161,6 @@ const AITest: React.FC = () => {
                     
                     {!message.isUser && (
                       <div className="mt-2 flex flex-wrap gap-1">
-                        {message.confidence && (
-                          <Badge variant="outline" className="text-xs">
-                            Confiança: {Math.round(message.confidence * 100)}%
-                          </Badge>
-                        )}
                         {message.modelUsed && (
                           <Badge variant="outline" className="text-xs">
                             {message.modelUsed}

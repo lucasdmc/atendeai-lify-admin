@@ -40,12 +40,12 @@ export class LLMOrchestratorService {
         await this.saveUserName(phoneNumber, extractedName);
       }
       
+      // Buscar contexto da clínica (contextualização dinâmica)
+      const clinicContext = await this.getClinicContext(phoneNumber);
+      
       // Detectar intenção avançada com histórico e contexto
       const conversationHistory = memory.history || [];
       const intent = await this.detectIntent(message, conversationHistory, clinicContext);
-      
-      // Buscar contexto da clínica (contextualização dinâmica)
-      const clinicContext = await this.getClinicContext(phoneNumber);
       
       // Verificar se é primeira conversa do dia
       const isFirstConversationOfDay = await this.isFirstConversationOfDay(phoneNumber);

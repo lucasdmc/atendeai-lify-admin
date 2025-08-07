@@ -303,9 +303,9 @@ async function saveConversationToDatabase(fromNumber, toNumber, content, whatsap
     
     // Primeiro, encontrar a clínica pelo número do WhatsApp
     const { data: clinicData, error: clinicError } = await supabase
-      .from('clinic_whatsapp_numbers')
+      .from('whatsapp_connections')
       .select('clinic_id')
-      .eq('whatsapp_number', toNumber)
+      .eq('phone_number', toNumber)
       .eq('is_active', true)
       .single();
 
@@ -357,7 +357,11 @@ async function saveConversationToDatabase(fromNumber, toNumber, content, whatsap
       return null;
     }
 
-    console.log('[Webhook-Final] Conversa e mensagem salvas com sucesso, Conversation ID:', conversationData.id);
+    console.log('[Webhook-Final] Conversa salva com sucesso:', {
+      conversationId: conversationData.id,
+      messageId: messageData.id
+    });
+
     return conversationData.id;
 
   } catch (error) {
@@ -435,9 +439,9 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
       try {
         // Buscar clínica pelo número do WhatsApp
         const { data: clinicData, error: clinicError } = await supabase
-          .from('clinic_whatsapp_numbers')
+          .from('whatsapp_connections')
           .select('clinic_id')
-          .eq('whatsapp_number', config.phoneNumberId || process.env.WHATSAPP_META_PHONE_NUMBER_ID)
+          .eq('phone_number', config.phoneNumberId || process.env.WHATSAPP_META_PHONE_NUMBER_ID)
           .eq('is_active', true)
           .single();
 
@@ -520,6 +524,27 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
 }
 
 /**
+ * Formata mensagem para WhatsApp
+ */
+function formatMessageForWhatsApp(message) {
+  if (!message) return message;
+  
+  // Converter **texto** para *texto* (negrito do WhatsApp)
+  let formatted = message.replace(/\*\*(.*?)\*\*/g, '*$1*');
+  
+  // Garantir que parágrafos sejam separados corretamente
+  formatted = formatted.replace(/\n\n+/g, '\n\n');
+  
+  // Adicionar quebra de linha antes de listas
+  formatted = formatted.replace(/(\n)(\d+\.)/g, '\n\n$2');
+  
+  // Garantir que não há espaços extras no início/fim
+  formatted = formatted.trim();
+  
+  return formatted;
+}
+
+/**
  * Envia resposta processada via WhatsApp
  */
 async function sendAIResponseViaWhatsApp(to, aiResponse, config, clinicId = null) {
@@ -543,10 +568,11 @@ async function sendAIResponseViaWhatsApp(to, aiResponse, config, clinicId = null
     // Preparar mensagem com informações dos Serviços Robustos
     let messageText = aiResponse.response;
     
-    // Adicionar informações de confiança se baixa
-    if (aiResponse.confidence < 0.7) {
-      messageText += '\n\n💡 Nota: Esta resposta foi gerada com confiança moderada. Para informações mais precisas, consulte um profissional de saúde.';
-    }
+    // Formatar mensagem para WhatsApp
+    messageText = formatMessageForWhatsApp(messageText);
+    
+    // NOTA: Removida a exibição de confiança para o usuário final
+    // As informações de confiança são apenas para controle interno do sistema
 
     // Enviar via API Meta
     const response = await sendWhatsAppTextMessage({

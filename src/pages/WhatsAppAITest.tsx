@@ -220,9 +220,6 @@ const WhatsAppAITest: React.FC = () => {
                     <Badge variant="outline" className="text-xs">
                       Modelo: {testResult.aiResponse.modelUsed}
                     </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      Confiança: {Math.round(testResult.aiResponse.confidence * 100)}%
-                    </Badge>
                     {testResult.aiResponse.medicalContent && (
                       <Badge variant="destructive" className="text-xs">
                         Conteúdo Médico
