@@ -176,9 +176,11 @@ async function processWhatsAppWebhookFinal(webhookData, whatsappConfig) {
 
             // 1. VERIFICAR MODO DE SIMULAÇÃO DA CLÍNICA
             console.log('[Webhook-Final] Verificando modo de simulação...');
-            const simulationCheck = await checkSimulationMode(
-              message.to || whatsappConfig.phoneNumberId
-            );
+            
+            // Usar o número real do WhatsApp dos metadados
+            const realWhatsAppNumber = change.value.metadata?.display_phone_number || whatsappConfig.phoneNumberId;
+            
+            const simulationCheck = await checkSimulationMode(realWhatsAppNumber);
 
             if (simulationCheck.isSimulationMode) {
               console.log('🎭 [Webhook-Final] CLÍNICA EM MODO SIMULAÇÃO!');
@@ -188,7 +190,7 @@ async function processWhatsAppWebhookFinal(webhookData, whatsappConfig) {
               const simulationResult = await processSimulationMode(
                 messageText,
                 message.from,
-                message.to || whatsappConfig.phoneNumberId,
+                realWhatsAppNumber,
                 simulationCheck.clinicId,
                 simulationCheck.clinicName,
                 message.id // Adicionar message.id
@@ -211,7 +213,7 @@ async function processWhatsAppWebhookFinal(webhookData, whatsappConfig) {
               const productionResult = await processProductionMode(
                 messageText,
                 message.from,
-                message.to || whatsappConfig.phoneNumberId,
+                realWhatsAppNumber,
                 whatsappConfig,
                 message.id // Adicionar message.id
               );
