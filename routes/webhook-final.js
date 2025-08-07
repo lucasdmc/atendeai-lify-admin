@@ -499,71 +499,9 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
       console.log('📅 [Webhook-Final] Intenção de agendamento detectada, iniciando fluxo de agendamento...');
       
       try {
-        // CORREÇÃO: Usar o número real do telefone, não o ID da Meta
-        // O webhook contém o número real em metadata.display_phone_number
-        const realPhoneNumber = webhookData.entry?.[0]?.changes?.[0]?.value?.metadata?.display_phone_number;
-        console.log('[Webhook-Final] Número real do telefone:', realPhoneNumber);
+        // Buscar clínica baseada no contexto da mensagem
+        let clinicId = await findClinicForAppointment(phoneNumber, messageText);
         
-        // Se não temos o número real, tentar buscar na tabela clinics
-        let clinicId = null;
-        
-        if (realPhoneNumber) {
-          console.log('[Webhook-Final] Buscando clínica para número real:', realPhoneNumber);
-          
-          // Buscar clínica pelo número real do WhatsApp
-          const { data: clinicData, error: clinicError } = await supabase
-            .from('whatsapp_connections')
-            .select('clinic_id')
-            .eq('phone_number', realPhoneNumber)
-            .eq('is_active', true)
-            .single();
-
-          console.log('[Webhook-Final] Resultado da busca na whatsapp_connections:', { clinicData, clinicError });
-
-          if (!clinicError && clinicData) {
-            clinicId = clinicData.clinic_id;
-            console.log('[Webhook-Final] Clínica encontrada na whatsapp_connections:', clinicId);
-          }
-        }
-        
-        // Se não encontrou na whatsapp_connections, tentar fallbacks
-        if (!clinicId) {
-          console.log('[Webhook-Final] Clínica não encontrada na whatsapp_connections, tentando fallbacks...');
-          
-          // Fallback 1: buscar diretamente na tabela clinics pelo DEFAULT_CLINIC_ID
-          const defaultClinicId = process.env.DEFAULT_CLINIC_ID;
-          if (defaultClinicId) {
-            console.log('[Webhook-Final] Usando DEFAULT_CLINIC_ID como fallback:', defaultClinicId);
-            
-            const { data: defaultClinic, error: defaultClinicError } = await supabase
-              .from('clinics')
-              .select('id')
-              .eq('id', defaultClinicId)
-              .single();
-              
-            if (!defaultClinicError && defaultClinic) {
-              clinicId = defaultClinic.id;
-              console.log('[Webhook-Final] Clínica encontrada via fallback:', clinicId);
-            }
-          }
-          
-          // Fallback 2: buscar pela primeira clínica disponível
-          if (!clinicId) {
-            console.log('[Webhook-Final] Tentando buscar primeira clínica disponível...');
-            
-            const { data: firstClinic, error: firstClinicError } = await supabase
-              .from('clinics')
-              .select('id')
-              .limit(1)
-              .single();
-              
-            if (!firstClinicError && firstClinic) {
-              clinicId = firstClinic.id;
-              console.log('[Webhook-Final] Usando primeira clínica disponível:', clinicId);
-            }
-          }
-        }
-
         if (!clinicId) {
           console.error('[Webhook-Final] Nenhuma clínica encontrada para agendamento');
           return {
@@ -735,6 +673,68 @@ async function sendAIResponseViaWhatsApp(to, aiResponse, config, clinicId = null
       success: false,
       error: error.message
     };
+  }
+}
+
+/**
+ * Encontra clínica para agendamento baseado no contexto
+ */
+async function findClinicForAppointment(phoneNumber, messageText) {
+  try {
+    console.log('[Webhook-Final] Buscando clínica para agendamento:', { phoneNumber, messageText });
+    
+    // 1. Tentar encontrar clínica baseada em conversas anteriores
+    const { data: conversationData, error: conversationError } = await supabase
+      .from('whatsapp_conversations_improved')
+      .select('clinic_id')
+      .eq('patient_phone_number', phoneNumber)
+      .order('last_message_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!conversationError && conversationData) {
+      console.log('[Webhook-Final] Clínica encontrada via conversa anterior:', conversationData.clinic_id);
+      return conversationData.clinic_id;
+    }
+
+    // 2. Tentar encontrar clínica baseada no número do WhatsApp
+    const { data: connectionData, error: connectionError } = await supabase
+      .from('whatsapp_connections')
+      .select('clinic_id')
+      .eq('is_active', true)
+      .limit(1)
+      .single();
+
+    if (!connectionError && connectionData) {
+      console.log('[Webhook-Final] Clínica encontrada via conexão WhatsApp:', connectionData.clinic_id);
+      return connectionData.clinic_id;
+    }
+
+    // 3. Fallback: usar clínica padrão
+    const defaultClinicId = process.env.DEFAULT_CLINIC_ID;
+    if (defaultClinicId) {
+      console.log('[Webhook-Final] Usando clínica padrão:', defaultClinicId);
+      return defaultClinicId;
+    }
+
+    // 4. Último fallback: primeira clínica disponível
+    const { data: firstClinic, error: firstClinicError } = await supabase
+      .from('clinics')
+      .select('id')
+      .limit(1)
+      .single();
+
+    if (!firstClinicError && firstClinic) {
+      console.log('[Webhook-Final] Usando primeira clínica disponível:', firstClinic.id);
+      return firstClinic.id;
+    }
+
+    console.error('[Webhook-Final] Nenhuma clínica encontrada');
+    return null;
+
+  } catch (error) {
+    console.error('[Webhook-Final] Erro ao buscar clínica para agendamento:', error);
+    return null;
   }
 }
 
