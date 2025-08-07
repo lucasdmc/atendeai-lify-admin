@@ -5,7 +5,8 @@ import cors from 'cors';
 dotenv.config();
 
 const whatsappRoutes = await import('./routes/whatsapp.js');
-const webhookRoutes = await import('./routes/webhook.js');
+const webhookRoutes = await import('./routes/webhook-final.js');
+const simulationRoutes = await import('./routes/simulation-test.js');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -16,6 +17,7 @@ app.use(express.json());
 // Rotas do WhatsApp
 app.use('/api/whatsapp', whatsappRoutes.default);
 app.use('/webhook', webhookRoutes.default);
+app.use('/api/simulation', simulationRoutes.default);
 
 // Rota de teste para verificar se o servidor está funcionando
 app.get('/', (req, res) => {
@@ -26,7 +28,10 @@ app.get('/', (req, res) => {
       '/webhook/whatsapp-meta', 
       '/api/whatsapp/send-message',
       '/health',
-      '/api/ai/process'
+      '/api/ai/process',
+      '/api/simulation/test',
+      '/api/simulation/clinics',
+      '/api/simulation/messages/:clinicId'
     ] 
   });
 });

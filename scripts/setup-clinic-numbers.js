@@ -31,12 +31,8 @@ async function setupClinicNumbers() {
         clinic_id: '4a73f615-b636-4134-8937-c20b5db5acac', // CardioPrime
         whatsapp_number: '554730915628',
         is_active: true
-      },
-      {
-        clinic_id: '9b11dfd6-d638-48e3-bc84-f3880f987da2', // ESADI
-        whatsapp_number: '5547999999999', // Número fictício para teste
-        is_active: true
       }
+      // Removido número de simulação 5547999999999
     ];
 
     for (const clinicNumber of clinicNumbers) {
