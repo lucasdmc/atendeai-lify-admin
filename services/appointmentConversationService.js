@@ -6,20 +6,6 @@
 import { AppointmentService } from './appointmentService.js';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
-
-// Obter __dirname equivalente para módulos ES
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Fallback para __dirname se não estiver disponível
-const getDirname = () => {
-  try {
-    return __dirname;
-  } catch (error) {
-    return process.cwd();
-  }
-};
 
 export class AppointmentConversationService {
   static conversationStates = new Map();
@@ -97,12 +83,10 @@ export class AppointmentConversationService {
       
       console.log(`[AppointmentConversationService] Mapeando clinicId ${clinicId} para arquivo: ${fileId}`);
       
-      // Tentar múltiplos caminhos possíveis
+      // Tentar múltiplos caminhos possíveis (usando apenas process.cwd())
       const possiblePaths = [
         path.join(process.cwd(), 'src', 'data', `contextualizacao-${fileId}.json`),
         path.join(process.cwd(), 'atendeai-lify-admin', 'src', 'data', `contextualizacao-${fileId}.json`),
-        path.join(getDirname(), '..', 'src', 'data', `contextualizacao-${fileId}.json`),
-        path.join(getDirname(), '..', 'atendeai-lify-admin', 'src', 'data', `contextualizacao-${fileId}.json`),
         path.join(process.cwd(), 'dist', 'src', 'data', `contextualizacao-${fileId}.json`),
         path.join(process.cwd(), 'build', 'src', 'data', `contextualizacao-${fileId}.json`),
         path.join(process.cwd(), 'public', 'data', `contextualizacao-${fileId}.json`),
