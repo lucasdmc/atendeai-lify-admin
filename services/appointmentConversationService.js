@@ -267,8 +267,8 @@ export class AppointmentConversationService {
         case 'collecting_specialty':
           return await this.handleSpecialtyCollection(message, state);
         
-        case 'collecting_date':
-          return await this.handleDateCollection(message, state);
+        case 'searching_available_dates':
+          return await this.handleDateSelection(message, state);
         
         case 'selecting_time':
           return await this.handleTimeSelection(message, state);
@@ -389,110 +389,97 @@ export class AppointmentConversationService {
   static async handleSpecialtyCollection(message, state) {
     const specialty = message.trim();
     state.collectedData.specialty = specialty;
-    state.step = 'collecting_date';
+    state.step = 'searching_available_dates';
+
+    // Buscar as próximas 4 datas disponíveis no Google Calendar
+    console.log('📅 [AppointmentConversationService] Buscando datas disponíveis...');
+    const availableDates = await this.getAvailableDates(state);
+    
+    if (availableDates.length === 0) {
+      return this.createResponse(
+        'Desculpe, não encontrei datas disponíveis nos próximos dias. Por favor, entre em contato pelo telefone (47) 3231-0200.',
+        'error',
+        state,
+        false
+      );
+    }
+
+    // Formatar datas para exibição
+    const dateOptions = availableDates.map((date, index) => {
+      const formattedDate = date.toLocaleDateString('pt-BR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long'
+      });
+      return `${index + 1}. ${formattedDate}`;
+    }).join('\n');
+
+    state.collectedData.availableDates = availableDates;
 
     return this.createResponse(
-      'Excelente! Agora preciso saber para quando você gostaria de agendar:\n\n' +
-      '📅 Para qual data você prefere?\n' +
-      '• Hoje\n' +
-      '• Amanhã\n' +
-      '• Próxima semana\n' +
-      '• Outra data (especifique DD/MM/AAAA)',
-      'collecting_date',
+      'Excelente! Encontrei as seguintes datas disponíveis:\n\n' +
+      `${dateOptions}\n\n` +
+      'Digite o número da data que prefere:',
+      'selecting_date',
       state,
       true
     );
   }
 
   /**
-   * Processa coleta da data
+   * Processa seleção da data
    */
-  static async handleDateCollection(message, state) {
-    const dateInput = message.trim().toLowerCase();
-    let targetDate;
+  static async handleDateSelection(message, state) {
+    const choice = parseInt(message.trim());
+    const availableDates = state.collectedData.availableDates;
 
-    // Processar diferentes formatos de data
-    if (dateInput === 'hoje') {
-      targetDate = new Date();
-    } else if (dateInput === 'amanhã' || dateInput === 'amanha') {
-      targetDate = new Date();
-      targetDate.setDate(targetDate.getDate() + 1);
-    } else if (dateInput === 'próxima semana' || dateInput === 'proxima semana') {
-      targetDate = new Date();
-      targetDate.setDate(targetDate.getDate() + 7);
-    } else {
-      // Tentar parsear data no formato DD/MM/AAAA
-      const dateMatch = dateInput.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-      if (dateMatch) {
-        const [, day, month, year] = dateMatch;
-        targetDate = new Date(year, month - 1, day);
-      } else {
-        return this.createResponse(
-          'Por favor, informe a data no formato DD/MM/AAAA ou escolha uma das opções:\n' +
-          '• Hoje\n' +
-          '• Amanhã\n' +
-          '• Próxima semana',
-          'collecting_date',
-          state,
-          true
-        );
-      }
-    }
+    if (isNaN(choice) || choice < 1 || choice > availableDates.length) {
+      const dateOptions = availableDates.map((date, index) => {
+        const formattedDate = date.toLocaleDateString('pt-BR', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long'
+        });
+        return `${index + 1}. ${formattedDate}`;
+      }).join('\n');
 
-    // Validar se a data não é no passado
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (targetDate < today) {
       return this.createResponse(
-        'Não é possível agendar para datas passadas. Por favor, escolha uma data futura:',
-        'collecting_date',
+        `Por favor, escolha um número válido:\n\n` +
+        `${dateOptions}\n\n` +
+        'Digite o número da data:',
+        'selecting_date',
         state,
         true
       );
     }
 
-    // Validar horário de funcionamento da clínica
-    const dayOfWeek = targetDate.getDay();
-    const dayNames = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
-    const dayName = dayNames[dayOfWeek];
-    const workingHours = state.clinicData.clinica.horario_funcionamento[dayName];
+    const selectedDate = availableDates[choice - 1];
+    state.collectedData.targetDate = selectedDate;
+    state.step = 'searching_available_times';
 
-    if (!workingHours || !workingHours.abertura) {
-      return this.createResponse(
-        'Desculpe, a clínica não funciona aos domingos. Por favor, escolha outra data:',
-        'collecting_date',
-        state,
-        true
-      );
-    }
-
-    state.collectedData.targetDate = targetDate;
-    state.collectedData.dayName = dayName;
-    state.collectedData.workingHours = workingHours;
-    state.step = 'selecting_time';
-
-    // Buscar horários disponíveis no Google Calendar
-    const availableSlots = await this.getAvailableTimeSlots(state);
+    // Buscar horários disponíveis para a data selecionada
+    console.log('⏰ [AppointmentConversationService] Buscando horários disponíveis...');
+    const availableTimes = await this.getAvailableTimesForDate(selectedDate, state);
     
-    if (availableSlots.length === 0) {
+    if (availableTimes.length === 0) {
       return this.createResponse(
         'Desculpe, não há horários disponíveis para esta data. Gostaria de escolher outra data?',
-        'collecting_date',
+        'selecting_date',
         state,
         true
       );
     }
 
-    // Mostrar horários disponíveis
-    const timeSlots = availableSlots.slice(0, 4).map((slot, index) => 
-      `${index + 1}. ${slot.startTime} - ${slot.endTime}`
+    // Formatar horários para exibição
+    const timeOptions = availableTimes.map((time, index) => 
+      `${index + 1}. ${time.startTime} - ${time.endTime}`
     ).join('\n');
 
-    state.collectedData.availableSlots = availableSlots;
+    state.collectedData.availableTimes = availableTimes;
 
     return this.createResponse(
-      `Perfeito! Encontrei os seguintes horários disponíveis para ${dayName}:\n\n` +
-      `${timeSlots}\n\n` +
+      `Perfeito! Encontrei os seguintes horários disponíveis:\n\n` +
+      `${timeOptions}\n\n` +
       'Digite o número do horário que prefere:',
       'selecting_time',
       state,
@@ -505,16 +492,16 @@ export class AppointmentConversationService {
    */
   static async handleTimeSelection(message, state) {
     const choice = parseInt(message.trim());
-    const availableSlots = state.collectedData.availableSlots;
+    const availableTimes = state.collectedData.availableTimes;
 
-    if (isNaN(choice) || choice < 1 || choice > availableSlots.length) {
-      const timeSlots = availableSlots.slice(0, 4).map((slot, index) => 
-        `${index + 1}. ${slot.startTime} - ${slot.endTime}`
+    if (isNaN(choice) || choice < 1 || choice > availableTimes.length) {
+      const timeOptions = availableTimes.map((time, index) => 
+        `${index + 1}. ${time.startTime} - ${time.endTime}`
       ).join('\n');
 
       return this.createResponse(
         `Por favor, escolha um número válido:\n\n` +
-        `${timeSlots}\n\n` +
+        `${timeOptions}\n\n` +
         'Digite o número do horário:',
         'selecting_time',
         state,
@@ -522,8 +509,8 @@ export class AppointmentConversationService {
       );
     }
 
-    const selectedSlot = availableSlots[choice - 1];
-    state.collectedData.selectedSlot = selectedSlot;
+    const selectedTime = availableTimes[choice - 1];
+    state.collectedData.selectedTime = selectedTime;
     state.step = 'selecting_doctor';
 
     // Mostrar médicos disponíveis
@@ -624,8 +611,8 @@ export class AppointmentConversationService {
         patientPhone: state.collectedData.contactPhone,
         specialty: state.collectedData.specialty,
         date: state.collectedData.targetDate,
-        startTime: state.collectedData.selectedSlot.startTime,
-        endTime: state.collectedData.selectedSlot.endTime,
+        startTime: state.collectedData.selectedTime.startTime,
+        endTime: state.collectedData.selectedTime.endTime,
         doctor: state.collectedData.selectedDoctor,
         clinicId: state.clinicId
       };
@@ -659,24 +646,51 @@ export class AppointmentConversationService {
   }
 
   /**
-   * Busca horários disponíveis no Google Calendar
+   * Busca as próximas 4 datas disponíveis no Google Calendar
    */
-  static async getAvailableTimeSlots(state) {
+  static async getAvailableDates(state) {
     try {
-      // Por enquanto, simular horários disponíveis baseados no horário de funcionamento
-      // Em produção, integrar com Google Calendar
-      const workingHours = state.collectedData.workingHours;
-      const dayName = state.collectedData.dayName;
+      // TODO: Integrar com Google Calendar API
+      // Por enquanto, simular datas disponíveis
+      const today = new Date();
+      const availableDates = [];
       
-      // Buscar médicos disponíveis para este dia
-      const availableDoctors = this.getAvailableDoctors(state);
+      for (let i = 1; i <= 14; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        
+        // Verificar se é dia útil (segunda a sexta)
+        const dayOfWeek = date.getDay();
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+          availableDates.push(date);
+          if (availableDates.length >= 4) break;
+        }
+      }
       
-      if (availableDoctors.length === 0) {
+      return availableDates;
+    } catch (error) {
+      console.error('Erro ao buscar datas disponíveis:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Busca horários disponíveis para uma data específica
+   */
+  static async getAvailableTimesForDate(date, state) {
+    try {
+      // TODO: Integrar com Google Calendar API
+      // Por enquanto, simular horários baseados no horário de funcionamento
+      const dayOfWeek = date.getDay();
+      const dayNames = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
+      const dayName = dayNames[dayOfWeek];
+      const workingHours = state.clinicData.clinica.horario_funcionamento[dayName];
+
+      if (!workingHours || !workingHours.abertura) {
         return [];
       }
 
-      // Gerar slots de horário baseados no horário de funcionamento
-      const slots = [];
+      const availableTimes = [];
       const startHour = parseInt(workingHours.abertura.split(':')[0]);
       const endHour = parseInt(workingHours.fechamento.split(':')[0]);
       
@@ -684,14 +698,14 @@ export class AppointmentConversationService {
         const startTime = `${hour.toString().padStart(2, '0')}:00`;
         const endTime = `${(hour + 1).toString().padStart(2, '0')}:00`;
         
-        slots.push({
+        availableTimes.push({
           startTime,
           endTime,
           available: true
         });
       }
 
-      return slots;
+      return availableTimes;
     } catch (error) {
       console.error('Erro ao buscar horários disponíveis:', error);
       return [];
@@ -702,7 +716,10 @@ export class AppointmentConversationService {
    * Obtém médicos disponíveis para o dia selecionado
    */
   static getAvailableDoctors(state) {
-    const dayName = state.collectedData.dayName;
+    const targetDate = state.collectedData.targetDate;
+    const dayOfWeek = targetDate.getDay();
+    const dayNames = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
+    const dayName = dayNames[dayOfWeek];
     const specialty = state.collectedData.specialty;
     
     return state.clinicData.profissionais.filter(doctor => {
@@ -745,7 +762,7 @@ export class AppointmentConversationService {
 📞 Telefone: ${data.contactPhone}
 🏥 Especialidade: ${data.specialty}
 📅 Data: ${formattedDate}
-⏰ Horário: ${data.selectedSlot.startTime} - ${data.selectedSlot.endTime}
+⏰ Horário: ${data.selectedTime.startTime} - ${data.selectedTime.endTime}
 👨‍⚕️ Médico: ${data.selectedDoctor.nome_exibicao}
 🏥 Clínica: ${state.clinicData.clinica.informacoes_basicas.nome}`;
   }
