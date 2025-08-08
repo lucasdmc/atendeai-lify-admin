@@ -491,44 +491,79 @@ export class AppointmentConversationService {
    * Processa seleção de horário
    */
   static async handleTimeSelection(message, state) {
-    const choice = parseInt(message.trim());
-    const availableTimes = state.collectedData.availableTimes;
+    try {
+      console.log('⏰ [AppointmentConversationService] Processando seleção de horário...');
+      
+      const choice = parseInt(message.trim());
+      const availableTimes = state.collectedData.availableTimes;
 
-    if (isNaN(choice) || choice < 1 || choice > availableTimes.length) {
-      const timeOptions = availableTimes.map((time, index) => 
-        `${index + 1}. ${time.startTime} - ${time.endTime}`
+      console.log('📊 [AppointmentConversationService] Dados da seleção:', {
+        choice,
+        availableTimesLength: availableTimes?.length || 0,
+        availableTimes: availableTimes
+      });
+
+      if (isNaN(choice) || choice < 1 || choice > availableTimes.length) {
+        const timeOptions = availableTimes.map((time, index) => 
+          `${index + 1}. ${time.startTime} - ${time.endTime}`
+        ).join('\n');
+
+        return this.createResponse(
+          `Por favor, escolha um número válido:\n\n` +
+          `${timeOptions}\n\n` +
+          'Digite o número do horário:',
+          'selecting_time',
+          state,
+          true
+        );
+      }
+
+      const selectedTime = availableTimes[choice - 1];
+      state.collectedData.selectedTime = selectedTime;
+      state.step = 'selecting_doctor';
+
+      console.log('✅ [AppointmentConversationService] Horário selecionado:', selectedTime);
+
+      // Mostrar médicos disponíveis
+      console.log('👨‍⚕️ [AppointmentConversationService] Buscando médicos disponíveis...');
+      const availableDoctors = this.getAvailableDoctors(state);
+      
+      console.log('📊 [AppointmentConversationService] Médicos encontrados:', {
+        count: availableDoctors.length,
+        doctors: availableDoctors.map(d => d.nome_exibicao)
+      });
+
+      if (availableDoctors.length === 0) {
+        return this.createResponse(
+          'Desculpe, não há médicos disponíveis para esta data e especialidade. Por favor, escolha outra data ou especialidade.',
+          'collecting_specialty',
+          state,
+          true
+        );
+      }
+
+      const doctorList = availableDoctors.map((doctor, index) => 
+        `${index + 1}. ${doctor.nome_exibicao} - ${doctor.especialidades.join(', ')}`
       ).join('\n');
 
+      state.collectedData.availableDoctors = availableDoctors;
+
       return this.createResponse(
-        `Por favor, escolha um número válido:\n\n` +
-        `${timeOptions}\n\n` +
-        'Digite o número do horário:',
-        'selecting_time',
+        'Excelente! Agora escolha o médico:\n\n' +
+        `${doctorList}\n\n` +
+        'Digite o número do médico:',
+        'selecting_doctor',
         state,
         true
       );
+    } catch (error) {
+      console.error('💥 [AppointmentConversationService] Erro ao processar seleção de horário:', error);
+      return this.createResponse(
+        'Desculpe, ocorreu um erro. Vamos começar novamente.',
+        'initial',
+        state
+      );
     }
-
-    const selectedTime = availableTimes[choice - 1];
-    state.collectedData.selectedTime = selectedTime;
-    state.step = 'selecting_doctor';
-
-    // Mostrar médicos disponíveis
-    const availableDoctors = this.getAvailableDoctors(state);
-    const doctorList = availableDoctors.map((doctor, index) => 
-      `${index + 1}. ${doctor.nome_exibicao} - ${doctor.especialidades.join(', ')}`
-    ).join('\n');
-
-    state.collectedData.availableDoctors = availableDoctors;
-
-    return this.createResponse(
-      'Excelente! Agora escolha o médico:\n\n' +
-      `${doctorList}\n\n` +
-      'Digite o número do médico:',
-      'selecting_doctor',
-      state,
-      true
-    );
   }
 
   /**
