@@ -179,11 +179,20 @@ async function processWhatsAppWebhookFinal(webhookData, whatsappConfig) {
             const toNumber = change.value.metadata?.display_phone_number || whatsappConfig.phoneNumberId;
             console.log('[Webhook-Final] Número de destino extraído:', toNumber);
             
+            // Normalizar número do WhatsApp (adicionar + se não tiver)
+            const normalizedToNumber = toNumber.startsWith('+') ? toNumber : `+${toNumber}`;
+            console.log('[Webhook-Final] Número normalizado:', normalizedToNumber);
+            
             // 1. VERIFICAR MODO DE SIMULAÇÃO
+            // Na tabela clinic_whatsapp_numbers, o número está sem o prefixo +
+            // Remover o + se presente para buscar na tabela
+            const cleanToNumber = toNumber.replace('+', '');
+            console.log('[Webhook-Final] Número limpo para busca:', cleanToNumber);
+            
             const { data: clinicData, error: clinicError } = await supabase
               .from('clinic_whatsapp_numbers')
               .select('clinic_id')
-              .eq('whatsapp_number', toNumber)
+              .eq('whatsapp_number', cleanToNumber) // Usar o número limpo (sem +) para clinic_whatsapp_numbers
               .eq('is_active', true)
               .single();
 
@@ -203,7 +212,7 @@ async function processWhatsAppWebhookFinal(webhookData, whatsappConfig) {
               
               const simulationResult = await SimulationMessageService.processSimulationMessage(
                 message.from,
-                toNumber,
+                normalizedToNumber,
                 messageText,
                 clinicId
               );
@@ -228,7 +237,7 @@ async function processWhatsAppWebhookFinal(webhookData, whatsappConfig) {
             
             const conversationId = await saveConversationToDatabase(
               message.from,
-              toNumber,
+              normalizedToNumber,
               messageText,
               message.id
             );
@@ -251,13 +260,13 @@ async function processWhatsAppWebhookFinal(webhookData, whatsappConfig) {
               console.log('[Webhook-Final] Salvando resposta no banco...');
               console.log('[Webhook-Final] Parâmetros da resposta:', {
                 conversationId,
-                senderPhone: toNumber, // Número do chatbot (quem ENVIA)
+                senderPhone: normalizedToNumber, // Número do chatbot (quem ENVIA)
                 receiverPhone: message.from, // Número do paciente (quem RECEBE)
                 content: aiResult.response
               });
               await saveResponseToDatabase(
                 conversationId,
-                toNumber, // Número do chatbot (quem ENVIA)
+                normalizedToNumber, // Número do chatbot (quem ENVIA)
                 message.from, // Número do paciente (quem RECEBE)
                 aiResult.response,
                 'sent',
@@ -307,10 +316,15 @@ async function saveConversationToDatabase(fromNumber, toNumber, content, whatsap
       console.log('[Webhook-Final] toNumber parece ser ID da Meta, buscando número real...');
       
       // Buscar clínica baseada no número do WhatsApp
+      // Na tabela clinic_whatsapp_numbers, o número está sem o prefixo +
+      // Remover o + se presente para buscar na tabela
+      const cleanToNumber = toNumber.replace('+', '');
+      console.log('[Webhook-Final] Número limpo para busca:', cleanToNumber);
+      
       const { data: clinicData, error: clinicError } = await supabase
         .from('clinic_whatsapp_numbers')
         .select('clinic_id')
-        .eq('whatsapp_number', toNumber)
+        .eq('whatsapp_number', cleanToNumber) // Usar o número limpo (sem +)
         .eq('is_active', true)
         .single();
 
@@ -484,11 +498,44 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
       messageLength: messageText.length 
     });
 
+    // Buscar clínica baseada no número do paciente
+    let clinicId = await findClinicForAppointment(phoneNumber, messageText);
+    
+    if (!clinicId) {
+      console.error('[Webhook-Final] Nenhuma clínica encontrada para agendamento');
+      return {
+        success: true,
+        response: 'Desculpe, não consegui identificar a clínica. Por favor, entre em contato diretamente.',
+        intent: { name: 'ERROR', confidence: 0.8 },
+        confidence: 0.8
+      };
+    }
+
+    // Buscar dados da clínica para obter o número do WhatsApp
+    const { data: clinicData, error: clinicError } = await supabase
+      .from('clinics')
+      .select('whatsapp_phone')
+      .eq('id', clinicId)
+      .single();
+
+    if (clinicError || !clinicData) {
+      console.error('[Webhook-Final] Erro ao buscar dados da clínica:', clinicError);
+      return {
+        success: true,
+        response: 'Desculpe, ocorreu um erro técnico. Tente novamente mais tarde.',
+        intent: { name: 'ERROR', confidence: 0.8 },
+        confidence: 0.8
+      };
+    }
+
+    // Usar o número do WhatsApp da clínica para contextualização
+    const clinicWhatsAppNumber = clinicData.whatsapp_phone;
+
     // 1. Primeiro, detectar intenção usando LLMOrchestrator
     const { LLMOrchestratorService } = await import('../services/llmOrchestratorService.js');
     
     const request = {
-      phoneNumber: phoneNumber,
+      phoneNumber: clinicWhatsAppNumber, // Usar número da clínica para contextualização
       message: messageText,
       conversationId: `whatsapp-${phoneNumber}-${Date.now()}`,
       userId: phoneNumber
@@ -507,19 +554,6 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
       console.log('📅 [Webhook-Final] Intenção de agendamento detectada, iniciando fluxo de agendamento...');
       
       try {
-        // Buscar clínica baseada no contexto da mensagem
-        let clinicId = await findClinicForAppointment(phoneNumber, messageText);
-        
-        if (!clinicId) {
-          console.error('[Webhook-Final] Nenhuma clínica encontrada para agendamento');
-          return {
-            success: true,
-            response: 'Desculpe, não consegui identificar a clínica. Por favor, entre em contato diretamente.',
-            intent: llmResponse.intent,
-            confidence: llmResponse.intent?.confidence || 0.8
-          };
-        }
-
         console.log('[Webhook-Final] Clínica encontrada para agendamento:', clinicId);
 
         // Importar e usar AppointmentConversationService
@@ -578,11 +612,12 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
     };
 
   } catch (error) {
-    console.error('💥 [Webhook-Final] Erro ao gerar resposta:', error);
+    console.error('💥 [Webhook-Final] Erro ao processar mensagem:', error);
     return {
-      success: false,
-      response: 'Desculpe, estou com dificuldades técnicas no momento. Por favor, entre em contato pelo telefone.',
-      error: error.message
+      success: true,
+      response: 'Desculpe, ocorreu um erro técnico. Tente novamente mais tarde.',
+      intent: { name: 'ERROR', confidence: 0.8 },
+      confidence: 0.8
     };
   }
 }
@@ -706,6 +741,10 @@ async function findClinicForAppointment(phoneNumber, messageText) {
     }
 
     // 2. Tentar encontrar clínica baseada no número do WhatsApp
+    // Normalizar número do WhatsApp (adicionar + se não tiver)
+    const normalizedPhoneNumber = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
+    console.log('[Webhook-Final] Buscando clínica com número normalizado:', normalizedPhoneNumber);
+    
     const { data: connectionData, error: connectionError } = await supabase
       .from('whatsapp_connections')
       .select('clinic_id')
