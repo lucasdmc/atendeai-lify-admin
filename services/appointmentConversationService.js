@@ -12,6 +12,15 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Fallback para __dirname se não estiver disponível
+const getDirname = () => {
+  try {
+    return __dirname;
+  } catch (error) {
+    return process.cwd();
+  }
+};
+
 export class AppointmentConversationService {
   static conversationStates = new Map();
   static clinicData = null;
@@ -92,8 +101,8 @@ export class AppointmentConversationService {
       const possiblePaths = [
         path.join(process.cwd(), 'src', 'data', `contextualizacao-${fileId}.json`),
         path.join(process.cwd(), 'atendeai-lify-admin', 'src', 'data', `contextualizacao-${fileId}.json`),
-        path.join(__dirname, '..', 'src', 'data', `contextualizacao-${fileId}.json`),
-        path.join(__dirname, '..', 'atendeai-lify-admin', 'src', 'data', `contextualizacao-${fileId}.json`),
+        path.join(getDirname(), '..', 'src', 'data', `contextualizacao-${fileId}.json`),
+        path.join(getDirname(), '..', 'atendeai-lify-admin', 'src', 'data', `contextualizacao-${fileId}.json`),
         path.join(process.cwd(), 'dist', 'src', 'data', `contextualizacao-${fileId}.json`),
         path.join(process.cwd(), 'build', 'src', 'data', `contextualizacao-${fileId}.json`),
         path.join(process.cwd(), 'public', 'data', `contextualizacao-${fileId}.json`),
