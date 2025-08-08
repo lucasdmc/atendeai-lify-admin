@@ -464,24 +464,86 @@ Return a JSON with: { "intent": "INTENT_NAME", "confidence": 0.0-1.0, "entities"
         // ✅ BUSCA DINÂMICA - Buscar clínica específica pelo telefone
         console.log(`🔍 [LLMOrchestrator] Buscando clínica por WhatsApp: ${phoneNumber}`);
         
-        const { data: clinicData, error } = await supabase
+        // Primeiro, tentar buscar clínica pelo número do WhatsApp
+        // Tentar com e sem o prefixo +
+        let clinicData = null;
+        let error = null;
+        
+        // Tentar com o número original
+        const { data: clinicData1, error: error1 } = await supabase
           .from('clinics')
           .select('*')
           .eq('whatsapp_phone', phoneNumber)
           .single();
-
-        if (error) {
-          console.log(`⚠️ [LLMOrchestrator] Clínica não encontrada para WhatsApp: ${phoneNumber}`);
-          // Fallback para busca genérica
-          const { data: fallbackData } = await supabase
+        
+        if (!error1 && clinicData1) {
+          clinicData = clinicData1;
+        } else {
+          // Tentar com + no início
+          const numberWithPlus = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
+          const { data: clinicData2, error: error2 } = await supabase
             .from('clinics')
             .select('*')
-            .eq('has_contextualization', true)
+            .eq('whatsapp_phone', numberWithPlus)
             .single();
-          data = fallbackData;
-        } else {
-          data = clinicData;
+          
+          if (!error2 && clinicData2) {
+            clinicData = clinicData2;
+          } else {
+            // Tentar sem o + no início
+            const numberWithoutPlus = phoneNumber.startsWith('+') ? phoneNumber.substring(1) : phoneNumber;
+            const { data: clinicData3, error: error3 } = await supabase
+              .from('clinics')
+              .select('*')
+              .eq('whatsapp_phone', numberWithoutPlus)
+              .single();
+            
+            if (!error3 && clinicData3) {
+              clinicData = clinicData3;
+            } else {
+              error = error3;
+            }
+          }
         }
+
+        if (error || !clinicData) {
+          console.log(`⚠️ [LLMOrchestrator] Clínica não encontrada para WhatsApp: ${phoneNumber}`);
+          
+          // Tentar buscar por conversas anteriores do paciente
+          const { data: conversationData, error: conversationError } = await supabase
+            .from('whatsapp_conversations_improved')
+            .select('clinic_id')
+            .eq('patient_phone_number', phoneNumber)
+            .order('last_message_at', { ascending: false })
+            .limit(1)
+            .single();
+
+          if (!conversationError && conversationData) {
+            console.log(`🔍 [LLMOrchestrator] Buscando clínica via conversa anterior: ${conversationData.clinic_id}`);
+            const { data: clinicFromConversation, error: clinicError } = await supabase
+              .from('clinics')
+              .select('*')
+              .eq('id', conversationData.clinic_id)
+              .single();
+            
+            if (!clinicError && clinicFromConversation) {
+              clinicData = clinicFromConversation;
+            }
+          }
+          
+          // Se ainda não encontrou, usar fallback genérico
+          if (!clinicData) {
+            console.log('⚠️ [LLMOrchestrator] Usando busca genérica como fallback');
+            const { data: fallbackData } = await supabase
+              .from('clinics')
+              .select('*')
+              .eq('has_contextualization', true)
+              .single();
+            clinicData = fallbackData;
+          }
+        }
+        
+        data = clinicData;
       } else {
         // Fallback para busca genérica (compatibilidade)
         console.log('⚠️ [LLMOrchestrator] Sem telefone fornecido, usando busca genérica');
@@ -954,20 +1016,41 @@ DIRETRIZES FUNDAMENTAIS:
         return true; // Se não há horário configurado, assume que está aberto
       }
 
+      // Usar timezone do Brasil para verificar horário de funcionamento
       const now = new Date();
-      const currentDay = this.getDayOfWeek(now.getDay());
-      const currentTime = now.getHours() * 100 + now.getMinutes(); // Formato HHMM
+      const brazilTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
+      
+      console.log('🕒 Verificando horário de funcionamento:', {
+        utc: now.toISOString(),
+        brazil: brazilTime.toLocaleString(),
+        brazilHours: brazilTime.getHours(),
+        brazilMinutes: brazilTime.getMinutes()
+      });
+      
+      const currentDay = this.getDayOfWeek(brazilTime.getDay());
+      const currentTime = brazilTime.getHours() * 100 + brazilTime.getMinutes(); // Formato HHMM
 
       const todaySchedule = clinicContext.workingHours[currentDay];
       
       if (!todaySchedule || !todaySchedule.abertura || !todaySchedule.fechamento) {
+        console.log('🕒 Fechado - sem horário configurado para:', currentDay);
         return false; // Fechado se não há horário configurado
       }
 
       const openingTime = this.parseTime(todaySchedule.abertura);
       const closingTime = this.parseTime(todaySchedule.fechamento);
 
-      return currentTime >= openingTime && currentTime <= closingTime;
+      const isWithin = currentTime >= openingTime && currentTime <= closingTime;
+      
+      console.log('🕒 Resultado da verificação:', {
+        currentDay,
+        currentTime,
+        openingTime,
+        closingTime,
+        isWithin
+      });
+
+      return isWithin;
     } catch (error) {
       console.error('❌ Erro ao verificar horário de funcionamento:', error);
       return true; // Por segurança, assume que está aberto

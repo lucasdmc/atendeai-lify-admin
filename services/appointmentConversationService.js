@@ -475,20 +475,21 @@ export class AppointmentConversationService {
    * Processa coleta da especialidade
    */
   static async handleSpecialtyCollection(message, state) {
+    console.log('🏥 [AppointmentConversationService] Processando especialidade:', message);
+    
     const specialty = message.trim();
     state.collectedData.specialty = specialty;
-    state.step = 'searching_available_dates';
-
-    // Buscar as próximas 4 datas disponíveis no Google Calendar
-    console.log('📅 [AppointmentConversationService] Buscando datas disponíveis...');
-    const availableDates = await this.getAvailableDates(state);
     
-    if (availableDates.length === 0) {
+    // Usar as datas já disponíveis que foram mostradas na primeira mensagem
+    const availableDates = state.collectedData.availableDates;
+    
+    if (!availableDates || availableDates.length === 0) {
+      console.error('❌ [AppointmentConversationService] Datas não encontradas no estado');
       return this.createResponse(
-        'Desculpe, não encontrei datas disponíveis nos próximos dias. Por favor, entre em contato pelo telefone (47) 3231-0200.',
-        'error',
-        state,
-        false
+        'Desculpe, ocorreu um erro. Vamos começar novamente.\n\n' +
+        'Digite "quero agendar uma consulta" para iniciar.',
+        'initial',
+        state
       );
     }
 
@@ -502,10 +503,10 @@ export class AppointmentConversationService {
       return `${index + 1}. ${formattedDate}`;
     }).join('\n');
 
-    state.collectedData.availableDates = availableDates;
+    state.step = 'selecting_date';
 
     return this.createResponse(
-      'Excelente! Encontrei as seguintes datas disponíveis:\n\n' +
+      'Excelente! Agora escolha uma das datas disponíveis:\n\n' +
       `${dateOptions}\n\n` +
       'Digite o número da data que prefere:',
       'selecting_date',
@@ -518,61 +519,85 @@ export class AppointmentConversationService {
    * Processa seleção da data
    */
   static async handleDateSelection(message, state) {
-    const choice = parseInt(message.trim());
-    const availableDates = state.collectedData.availableDates;
+    try {
+      console.log('📅 [AppointmentConversationService] Processando seleção de data:', message);
+      
+      const choice = parseInt(message.trim());
+      const availableDates = state.collectedData.availableDates;
 
-    if (isNaN(choice) || choice < 1 || choice > availableDates.length) {
-      const dateOptions = availableDates.map((date, index) => {
-        const formattedDate = date.toLocaleDateString('pt-BR', {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'long'
-        });
-        return `${index + 1}. ${formattedDate}`;
-      }).join('\n');
+      console.log('📊 [AppointmentConversationService] Dados da seleção:', {
+        choice,
+        availableDatesLength: availableDates?.length || 0,
+        availableDates: availableDates?.map(d => d.toLocaleDateString('pt-BR'))
+      });
+
+      if (isNaN(choice) || choice < 1 || choice > availableDates.length) {
+        const dateOptions = availableDates.map((date, index) => {
+          const formattedDate = date.toLocaleDateString('pt-BR', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long'
+          });
+          return `${index + 1}. ${formattedDate}`;
+        }).join('\n');
+
+        return this.createResponse(
+          `Por favor, escolha um número válido:\n\n` +
+          `${dateOptions}\n\n` +
+          'Digite o número da data:',
+          'selecting_date',
+          state,
+          true
+        );
+      }
+
+      const selectedDate = availableDates[choice - 1];
+      state.collectedData.targetDate = selectedDate;
+      state.step = 'searching_available_times';
+
+      console.log('✅ [AppointmentConversationService] Data selecionada:', selectedDate.toLocaleDateString('pt-BR'));
+
+      // Buscar horários disponíveis para a data selecionada
+      console.log('⏰ [AppointmentConversationService] Buscando horários disponíveis...');
+      const availableTimes = await this.getAvailableTimesForDate(selectedDate, state);
+      
+      console.log('📊 [AppointmentConversationService] Horários encontrados:', {
+        count: availableTimes.length,
+        times: availableTimes.map(t => `${t.startTime} - ${t.endTime}`)
+      });
+
+      if (availableTimes.length === 0) {
+        return this.createResponse(
+          'Desculpe, não há horários disponíveis para esta data. Gostaria de escolher outra data?',
+          'selecting_date',
+          state,
+          true
+        );
+      }
+
+      // Formatar horários para exibição
+      const timeOptions = availableTimes.map((time, index) => 
+        `${index + 1}. ${time.startTime} - ${time.endTime}`
+      ).join('\n');
+
+      state.collectedData.availableTimes = availableTimes;
 
       return this.createResponse(
-        `Por favor, escolha um número válido:\n\n` +
-        `${dateOptions}\n\n` +
-        'Digite o número da data:',
-        'selecting_date',
+        `Perfeito! Encontrei os seguintes horários disponíveis:\n\n` +
+        `${timeOptions}\n\n` +
+        'Digite o número do horário que prefere:',
+        'selecting_time',
         state,
         true
       );
-    }
-
-    const selectedDate = availableDates[choice - 1];
-    state.collectedData.targetDate = selectedDate;
-    state.step = 'searching_available_times';
-
-    // Buscar horários disponíveis para a data selecionada
-    console.log('⏰ [AppointmentConversationService] Buscando horários disponíveis...');
-    const availableTimes = await this.getAvailableTimesForDate(selectedDate, state);
-    
-    if (availableTimes.length === 0) {
+    } catch (error) {
+      console.error('💥 [AppointmentConversationService] Erro ao processar seleção de data:', error);
       return this.createResponse(
-        'Desculpe, não há horários disponíveis para esta data. Gostaria de escolher outra data?',
-        'selecting_date',
-        state,
-        true
+        'Desculpe, ocorreu um erro. Vamos começar novamente.',
+        'initial',
+        state
       );
     }
-
-    // Formatar horários para exibição
-    const timeOptions = availableTimes.map((time, index) => 
-      `${index + 1}. ${time.startTime} - ${time.endTime}`
-    ).join('\n');
-
-    state.collectedData.availableTimes = availableTimes;
-
-    return this.createResponse(
-      `Perfeito! Encontrei os seguintes horários disponíveis:\n\n` +
-      `${timeOptions}\n\n` +
-      'Digite o número do horário que prefere:',
-      'selecting_time',
-      state,
-      true
-    );
   }
 
   /**
