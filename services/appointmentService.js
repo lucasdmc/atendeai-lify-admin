@@ -5,6 +5,11 @@
 
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Obter __dirname equivalente para módulos ES
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export class AppointmentService {
   static clinicData = null;
@@ -16,12 +21,30 @@ export class AppointmentService {
     if (this.clinicData) return this.clinicData;
     
     try {
+      // Mapear UUIDs de clínicas para nomes de arquivos
+      const clinicIdMapping = {
+        '4a73f615-b636-4134-8937-c20b5db5acac': 'cardioprime',
+        '9b11dfd6-d638-48e3-bc84-f3880f987da2': 'esadi',
+        'cardioprime': 'cardioprime',
+        'esadi': 'esadi',
+        'cardioprime_blumenau_2024': 'cardioprime'
+      };
+      
+      // Usar o mapeamento ou o clinicId original
+      const fileId = clinicIdMapping[clinicId] || clinicId;
+      
+      console.log(`[AppointmentService] Mapeando clinicId ${clinicId} para arquivo: ${fileId}`);
+      
       // Tentar múltiplos caminhos possíveis
       const possiblePaths = [
-        path.join(process.cwd(), 'src', 'data', `contextualizacao-${clinicId}.json`),
-        path.join(process.cwd(), 'atendeai-lify-admin', 'src', 'data', `contextualizacao-${clinicId}.json`),
-        path.join(__dirname, '..', 'src', 'data', `contextualizacao-${clinicId}.json`),
-        path.join(__dirname, '..', 'atendeai-lify-admin', 'src', 'data', `contextualizacao-${clinicId}.json`)
+        path.join(process.cwd(), 'src', 'data', `contextualizacao-${fileId}.json`),
+        path.join(process.cwd(), 'atendeai-lify-admin', 'src', 'data', `contextualizacao-${fileId}.json`),
+        path.join(__dirname, '..', 'src', 'data', `contextualizacao-${fileId}.json`),
+        path.join(__dirname, '..', 'atendeai-lify-admin', 'src', 'data', `contextualizacao-${fileId}.json`),
+        path.join(process.cwd(), 'dist', 'src', 'data', `contextualizacao-${fileId}.json`),
+        path.join(process.cwd(), 'build', 'src', 'data', `contextualizacao-${fileId}.json`),
+        path.join(process.cwd(), 'public', 'data', `contextualizacao-${fileId}.json`),
+        path.join(process.cwd(), 'data', `contextualizacao-${fileId}.json`)
       ];
       
       let rawData = null;
@@ -40,7 +63,7 @@ export class AppointmentService {
       }
       
       if (!rawData) {
-        throw new Error('Nenhum caminho válido encontrado para os dados da clínica');
+        throw new Error(`Nenhum caminho válido encontrado para os dados da clínica (clinicId: ${clinicId}, fileId: ${fileId})`);
       }
       
       console.log(`[AppointmentService] Dados carregados com sucesso de: ${usedPath}`);
