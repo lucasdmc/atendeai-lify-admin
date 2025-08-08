@@ -258,16 +258,13 @@ export class AppointmentConversationService {
         case 'initial':
           return await this.handleInitialStep(message, state);
         
-        case 'collecting_name':
-          return await this.handleNameCollection(message, state);
-        
-        case 'collecting_phone':
-          return await this.handlePhoneCollection(message, state);
+        case 'collecting_patient_data':
+          return await this.handlePatientDataCollection(message, state);
         
         case 'collecting_specialty':
           return await this.handleSpecialtyCollection(message, state);
         
-        case 'searching_available_dates':
+        case 'selecting_date':
           return await this.handleDateSelection(message, state);
         
         case 'selecting_time':
@@ -313,43 +310,134 @@ export class AppointmentConversationService {
       );
     }
 
-    // Iniciar coleta de dados
-    state.step = 'collecting_name';
+    // Buscar as próximas 4 datas disponíveis no Google Calendar
+    console.log('📅 [AppointmentConversationService] Buscando datas disponíveis...');
+    const availableDates = await this.getAvailableDates(state);
+    
+    if (availableDates.length === 0) {
+      return this.createResponse(
+        'Desculpe, não encontrei datas disponíveis nos próximos dias. Por favor, entre em contato pelo telefone (47) 3231-0200.',
+        'error',
+        state,
+        false
+      );
+    }
+
+    // Formatar datas para exibição
+    const dateOptions = availableDates.map((date, index) => {
+      const formattedDate = date.toLocaleDateString('pt-BR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long'
+      });
+      return `${index + 1}. ${formattedDate}`;
+    }).join('\n');
+
+    // Iniciar coleta de dados com datas disponíveis
+    state.step = 'collecting_patient_data';
     state.collectedData = {
       patientPhone: state.patientPhone,
-      serviceType: intent.entities?.serviceType || 'consulta'
+      serviceType: intent.entities?.serviceType || 'consulta',
+      availableDates: availableDates
     };
 
     return this.createResponse(
-      'Perfeito! Vou ajudá-lo a agendar sua consulta. Primeiro, preciso de algumas informações:\n\n' +
-      '📝 Qual é o seu nome completo?',
-      'collecting_name',
+      'Perfeito! Vou ajudá-lo a agendar sua consulta.\n\n' +
+      '📅 **Datas disponíveis:**\n' +
+      `${dateOptions}\n\n` +
+      '📝 **Agora preciso dos seus dados para o agendamento:**\n\n' +
+      '1️⃣ **Nome completo:**\n' +
+      '2️⃣ **CPF:**\n' +
+      '3️⃣ **Data de nascimento (DD/MM/AAAA):**\n' +
+      '4️⃣ **Convênio ou particular:**\n\n' +
+      'Por favor, informe todos os dados separados por vírgula nesta ordem:\n' +
+      'Exemplo: João Silva, 123.456.789-00, 15/03/1985, particular',
+      'collecting_patient_data',
       state,
       true
     );
   }
 
   /**
-   * Processa coleta do nome
+   * Processa coleta de dados do paciente
    */
-  static async handleNameCollection(message, state) {
-    const name = message.trim();
-    if (name.length < 2) {
+  static async handlePatientDataCollection(message, state) {
+    console.log('📝 [AppointmentConversationService] Processando dados do paciente...');
+    
+    const data = message.trim();
+    const parts = data.split(',').map(part => part.trim());
+    
+    if (parts.length !== 4) {
       return this.createResponse(
-        'Por favor, informe seu nome completo:',
-        'collecting_name',
+        'Por favor, informe todos os dados separados por vírgula:\n\n' +
+        '📝 **Nome completo:**\n' +
+        '📋 **CPF:**\n' +
+        '📅 **Data de nascimento (DD/MM/AAAA):**\n' +
+        '🏥 **Convênio ou particular:**\n\n' +
+        'Exemplo: João Silva, 123.456.789-00, 15/03/1985, particular',
+        'collecting_patient_data',
         state,
         true
       );
     }
-
+    
+    const [name, cpf, birthDate, insurance] = parts;
+    
+    // Validações básicas
+    if (name.length < 2) {
+      return this.createResponse(
+        'Por favor, informe um nome válido.',
+        'collecting_patient_data',
+        state,
+        true
+      );
+    }
+    
+    if (!cpf || cpf.length < 11) {
+      return this.createResponse(
+        'Por favor, informe um CPF válido.',
+        'collecting_patient_data',
+        state,
+        true
+      );
+    }
+    
+    // Validar formato da data
+    const dateMatch = birthDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!dateMatch) {
+      return this.createResponse(
+        'Por favor, informe a data de nascimento no formato DD/MM/AAAA.',
+        'collecting_patient_data',
+        state,
+        true
+      );
+    }
+    
+    // Salvar dados do paciente
     state.collectedData.patientName = name;
-    state.step = 'collecting_phone';
+    state.collectedData.patientCpf = cpf;
+    state.collectedData.patientBirthDate = birthDate;
+    state.collectedData.patientInsurance = insurance;
+    
+    console.log('✅ [AppointmentConversationService] Dados do paciente coletados:', {
+      name,
+      cpf,
+      birthDate,
+      insurance
+    });
+    
+    // Mostrar especialidades disponíveis
+    const specialties = state.clinicData.clinica.informacoes_basicas.especialidades_secundarias;
+    const specialtyList = specialties.map((spec, index) => `${index + 1}. ${spec}`).join('\n');
+
+    state.step = 'collecting_specialty';
 
     return this.createResponse(
-      'Ótimo! Agora preciso do seu telefone para contato:\n\n' +
-      '📞 Seu telefone (se diferente deste WhatsApp):',
-      'collecting_phone',
+      '✅ Dados recebidos com sucesso!\n\n' +
+      'Agora me diga qual especialidade você precisa:\n\n' +
+      `${specialtyList}\n\n` +
+      'Digite o número da especialidade ou o nome:',
+      'collecting_specialty',
       state,
       true
     );
@@ -793,13 +881,16 @@ export class AppointmentConversationService {
       day: 'numeric'
     });
 
-    return `👤 Paciente: ${data.patientName}
-📞 Telefone: ${data.contactPhone}
-🏥 Especialidade: ${data.specialty}
-📅 Data: ${formattedDate}
-⏰ Horário: ${data.selectedTime.startTime} - ${data.selectedTime.endTime}
-👨‍⚕️ Médico: ${data.selectedDoctor.nome_exibicao}
-🏥 Clínica: ${state.clinicData.clinica.informacoes_basicas.nome}`;
+    return `👤 **Paciente:** ${data.patientName}
+📋 **CPF:** ${data.patientCpf}
+📅 **Data de Nascimento:** ${data.patientBirthDate}
+🏥 **Convênio:** ${data.patientInsurance}
+📞 **Telefone:** ${data.patientPhone}
+🏥 **Especialidade:** ${data.specialty}
+📅 **Data:** ${formattedDate}
+⏰ **Horário:** ${data.selectedTime.startTime} - ${data.selectedTime.endTime}
+👨‍⚕️ **Médico:** ${data.selectedDoctor.nome_exibicao}
+🏥 **Clínica:** ${state.clinicData.clinica.informacoes_basicas.nome}`;
   }
 
   /**
