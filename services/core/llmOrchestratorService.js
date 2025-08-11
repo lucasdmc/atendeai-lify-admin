@@ -65,9 +65,9 @@ export default class LLMOrchestratorService {
       }
       
       // ✅ BUSCAR CONTEXTO APENAS DO JSON (sem banco de dados)
-      // Por enquanto, usar clínica padrão 'cardioprime'
-      // TODO: Implementar seleção de clínica baseada no número do WhatsApp
-      const clinicContext = await this.getClinicContext('cardioprime');
+      // 🔧 CORREÇÃO: Identificar clínica baseada no número do WhatsApp
+      const clinicKey = ClinicContextManager.getClinicByWhatsApp(phoneNumber);
+      const clinicContext = await this.getClinicContext(clinicKey);
       
       // Detectar intenção avançada com histórico e contexto
       const conversationHistory = memory.history || [];
@@ -94,7 +94,27 @@ export default class LLMOrchestratorService {
       
       // VERIFICAR SE É INTENÇÃO DE AGENDAMENTO
       if (this.isAppointmentIntent(intent)) {
-        console.log('📅 Intenção de agendamento detectada, delegando para AppointmentFlowManager');
+        console.log('📅 Intenção de agendamento detectada');
+        
+        // 🔧 CORREÇÃO: Validar horário de funcionamento ANTES de processar agendamento
+        if (!isWithinBusinessHours) {
+          console.log('🕒 Tentativa de agendamento fora do horário de funcionamento');
+          const outOfHoursMessage = clinicContext.agentConfig?.mensagem_fora_horario || 
+            'No momento estamos fora do horário de atendimento. Retornaremos seu contato no próximo horário comercial.';
+          
+          return {
+            response: outOfHoursMessage,
+            intent: intent,
+            toolsUsed: ['clinic_context', 'business_hours_validation'],
+            metadata: {
+              clinic: clinicContext.name,
+              agent: clinicContext.agentConfig?.nome,
+              businessHoursValidation: 'REJECTED_OUT_OF_HOURS'
+            }
+          };
+        }
+        
+        console.log('✅ Horário validado, delegando para AppointmentFlowManager');
         
         try {
           const appointmentResult = await this.appointmentFlowManager.handleAppointmentIntent(

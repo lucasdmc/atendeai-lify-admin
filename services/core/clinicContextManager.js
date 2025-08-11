@@ -5,21 +5,22 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+// ✅ CORREÇÃO: __dirname para módulos ES
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default class ClinicContextManager {
-  // Cache de contextualizações JSON
+  // ✅ CACHE EM MEMÓRIA: JSONs carregados na inicialização
   static jsonContexts = new Map();
-  
+
   /**
-   * Inicializa o gerenciador carregando todos os JSONs
+   * Inicializa o gerenciador de contexto
    */
   static async initialize() {
     try {
       console.log('🏥 [ClinicContextManager] Inicializando...');
       
-      // ✅ APENAS: Carregar todos os JSONs de contextualização
+      // ✅ CARREGAR APENAS JSONs da tela de clínicas
       await this.loadAllJsonContexts();
       
       console.log('✅ [ClinicContextManager] Inicializado com sucesso');
@@ -27,7 +28,7 @@ export default class ClinicContextManager {
       console.error('❌ [ClinicContextManager] Erro na inicialização:', error);
     }
   }
-  
+
   /**
    * Carrega todos os JSONs de contextualização
    */
@@ -56,105 +57,117 @@ export default class ClinicContextManager {
       console.error('❌ [ClinicContextManager] Erro ao carregar JSONs da tela de clínicas:', error);
     }
   }
-  
+
   /**
-   * Obtém contexto de uma clínica por chave (ex: 'cardioprime', 'esadi')
+   * Obtém contexto de uma clínica específica
    */
   static getClinicContext(clinicKey) {
     try {
-      console.log(`🔍 [ClinicContextManager] Buscando contexto para: ${clinicKey}`);
+      // ✅ BUSCAR APENAS NO CACHE DE JSONs
+      const jsonContext = this.jsonContexts.get(clinicKey);
       
-      const context = this.jsonContexts.get(clinicKey);
-      
-      if (!context) {
-        console.log(`⚠️ [ClinicContextManager] JSON não encontrado para: ${clinicKey}`);
-        return this.getDefaultContext(clinicKey);
+      if (jsonContext) {
+        console.log(`✅ [ClinicContextManager] Contexto encontrado para: ${clinicKey}`);
+        return this.extractClinicDataFromJson(jsonContext, clinicKey);
       }
       
-      // ✅ RETORNAR APENAS OS DADOS DO JSON
-      const clinicContext = this.extractClinicDataFromJson(context, clinicKey);
-      
-      console.log(`✅ [ClinicContextManager] Contexto obtido para: ${clinicKey}`);
-      return clinicContext;
+      // ✅ FALLBACK: Contexto padrão se não encontrar JSON
+      console.log(`⚠️ [ClinicContextManager] JSON não encontrado para: ${clinicKey}, usando contexto padrão`);
+      return this.getDefaultContext(clinicKey);
       
     } catch (error) {
-      console.error('❌ [ClinicContextManager] Erro ao obter contexto:', error);
+      console.error(`❌ [ClinicContextManager] Erro ao obter contexto para ${clinicKey}:`, error);
       return this.getDefaultContext(clinicKey);
     }
   }
-  
+
   /**
-   * Extrai dados da clínica APENAS do JSON
+   * Extrai dados estruturados do JSON da clínica
    */
   static extractClinicDataFromJson(jsonContext, clinicKey) {
-    const clinica = jsonContext.clinica || {};
-    const agente = jsonContext.agente_ia || {};
-    
-    return {
-      // ✅ IDENTIFICAÇÃO
-      id: clinicKey,
-      key: clinicKey,
+    try {
+      const clinica = jsonContext.clinica || {};
+      const agente = jsonContext.agente || {};
       
-      // ✅ INFORMAÇÕES BÁSICAS DO JSON
-      name: clinica.informacoes_basicas?.nome || clinicKey,
-      description: clinica.informacoes_basicas?.descricao || '',
-      mission: clinica.informacoes_basicas?.missao || '',
-      values: clinica.informacoes_basicas?.valores || [],
-      differentiators: clinica.informacoes_basicas?.diferenciais || [],
-      specialties: clinica.informacoes_basicas?.especialidades_secundarias || [],
-      
-      // ✅ LOCALIZAÇÃO DO JSON
-      address: clinica.localizacao?.endereco_principal ? 
-        `${clinica.localizacao.endereco_principal.logradouro}, ${clinica.localizacao.endereco_principal.numero} - ${clinica.localizacao.endereco_principal.bairro}, ${clinica.localizacao.endereco_principal.cidade}/${clinica.localizacao.endereco_principal.estado}` : '',
-      
-      // ✅ CONTATOS DO JSON
-      phone: clinica.contatos?.telefone_principal || '',
-      whatsapp: clinica.contatos?.whatsapp || '',
-      email: clinica.contatos?.email_principal || '',
-      website: clinica.contatos?.website || '',
-      
-      // ✅ HORÁRIOS DO JSON
-      workingHours: clinica.horario_funcionamento || {},
-      
-      // ✅ PROFISSIONAIS DO JSON
-      professionals: clinica.profissionais || [],
-      
-      // ✅ SERVIÇOS DO JSON
-      services: clinica.servicos || [],
-      
-      // ✅ CONFIGURAÇÕES DO AGENTE IA (PRIORIDADE ALTA)
-      agentConfig: {
-        nome: agente.configuracao?.nome || 'Assistente Virtual',
-        personalidade: agente.configuracao?.personalidade || 'Profissional e prestativo',
-        tom_comunicacao: agente.configuracao?.tom_comunicacao || 'Formal mas acessível',
-        nivel_formalidade: agente.configuracao?.nivel_formalidade || 'Médio',
-        saudacao_inicial: agente.configuracao?.saudacao_inicial || `Olá! Sou o assistente virtual da ${clinica.informacoes_basicas?.nome || clinicKey}. Como posso ajudá-lo hoje?`,
-        mensagem_despedida: agente.configuracao?.mensagem_despedida || 'Obrigado por escolher nossa clínica. Até breve!',
-        mensagem_fora_horario: agente.configuracao?.mensagem_fora_horario || 'No momento estamos fora do horário de atendimento. Retornaremos seu contato no próximo horário comercial.'
-      },
-      
-      agentBehavior: agente.comportamento || {
-        proativo: true,
-        oferece_sugestoes: true,
-        solicita_feedback: true,
-        escalacao_automatica: true,
-        limite_tentativas: 3,
-        contexto_conversa: true
-      },
-      
-      agentRestrictions: agente.restricoes || {
-        nao_pode_diagnosticar: true,
-        nao_pode_prescrever: true,
-        emergencias_cardiacas: []
-      },
-      
-      // ✅ METADADOS
-      hasJsonContext: true,
-      source: 'JSON_FILE',
-      lastUpdated: new Date().toISOString()
-    };
+      return {
+        // ✅ IDENTIFICAÇÃO
+        id: clinicKey,
+        key: clinicKey,
+        name: clinica.informacoes_basicas?.nome || clinicKey,
+        
+        // ✅ INFORMAÇÕES BÁSICAS DO JSON
+        basicInfo: {
+          nome: clinica.informacoes_basicas?.nome || clinicKey,
+          tipo: clinica.informacoes_basicas?.tipo || 'Clínica',
+          especialidade: clinica.informacoes_basicas?.especialidade || 'Geral',
+          descricao: clinica.informacoes_basicas?.descricao || ''
+        },
+        
+        // ✅ ENDEREÇO DO JSON
+        address: {
+          rua: clinica.endereco?.rua || '',
+          numero: clinica.endereco?.numero || '',
+          complemento: clinica.endereco?.complemento || '',
+          bairro: clinica.endereco?.bairro || '',
+          cidade: clinica.endereco?.cidade || '',
+          estado: clinica.endereco?.estado || '',
+          cep: clinica.endereco?.cep || ''
+        },
+        
+        // ✅ CONTATOS DO JSON
+        contacts: {
+          telefone: clinica.contatos?.telefone_principal || '',
+          whatsapp: clinica.contatos?.whatsapp || '',
+          email: clinica.contatos?.email_principal || '',
+          website: clinica.contatos?.website || ''
+        },
+        
+        // ✅ HORÁRIOS DO JSON
+        workingHours: clinica.horario_funcionamento || {},
+        
+        // ✅ PROFISSIONAIS DO JSON
+        professionals: clinica.profissionais || [],
+        
+        // ✅ SERVIÇOS DO JSON
+        services: clinica.servicos || [],
+        
+        // ✅ CONFIGURAÇÕES DO AGENTE IA (PRIORIDADE ALTA)
+        agentConfig: {
+          nome: agente.configuracao?.nome || 'Assistente Virtual',
+          personalidade: agente.configuracao?.personalidade || 'Profissional e prestativo',
+          tom_comunicacao: agente.configuracao?.tom_comunicacao || 'Formal mas acessível',
+          nivel_formalidade: agente.configuracao?.nivel_formalidade || 'Médio',
+          saudacao_inicial: agente.configuracao?.saudacao_inicial || `Olá! Sou o assistente virtual da ${clinica.informacoes_basicas?.nome || clinicKey}. Como posso ajudá-lo hoje?`,
+          mensagem_despedida: agente.configuracao?.mensagem_despedida || 'Obrigado por escolher nossa clínica. Até breve!',
+          mensagem_fora_horario: agente.configuracao?.mensagem_fora_horario || 'No momento estamos fora do horário de atendimento. Retornaremos seu contato no próximo horário comercial.'
+        },
+        
+        agentBehavior: agente.comportamento || {
+          proativo: true,
+          oferece_sugestoes: true,
+          solicita_feedback: true,
+          escalacao_automatica: true,
+          limite_tentativas: 3,
+          contexto_conversa: true
+        },
+        
+        agentRestrictions: agente.restricoes || {
+          nao_pode_diagnosticar: true,
+          nao_pode_prescrever: true,
+          emergencias_cardiacas: []
+        },
+        
+        // ✅ METADADOS
+        hasJsonContext: true,
+        source: 'JSON_FILE',
+        lastUpdated: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error(`❌ [ClinicContextManager] Erro ao extrair dados do JSON para ${clinicKey}:`, error);
+      return this.getDefaultContext(clinicKey);
+    }
   }
-  
+
   /**
    * Contexto padrão quando não há JSON
    */
@@ -177,7 +190,7 @@ export default class ClinicContextManager {
       lastUpdated: new Date().toISOString()
     };
   }
-  
+
   /**
    * Lista todas as clínicas disponíveis (APENAS dos JSONs)
    */
@@ -187,14 +200,57 @@ export default class ClinicContextManager {
       name: this.jsonContexts.get(key)?.clinica?.informacoes_basicas?.nome || key
     }));
   }
-  
+
   /**
    * Verifica se uma clínica tem contextualização JSON
    */
   static hasJsonContext(clinicKey) {
     return this.jsonContexts.has(clinicKey);
   }
-  
+
+  /**
+   * 🔧 NOVA FUNÇÃO: Identifica clínica baseado no número do WhatsApp
+   * Esta função mapeia números de WhatsApp para clínicas
+   */
+  static getClinicByWhatsApp(phoneNumber) {
+    try {
+      // ✅ MAPEAMENTO DIRETO: Números de WhatsApp para chaves de clínica
+      const whatsappMapping = {
+        '+554730915628': 'cardioprime',  // CardioPrime
+        '+554730915629': 'esadi',        // ESADI
+        // ✅ ADICIONAR NOVOS NÚMEROS AQUI CONFORME NECESSÁRIO
+      };
+
+      // ✅ NORMALIZAR NÚMERO (remover espaços, traços, etc.)
+      const normalizedPhone = phoneNumber.replace(/[\s\-\(\)]/g, '');
+      
+      // ✅ BUSCAR MAPEAMENTO
+      const clinicKey = whatsappMapping[normalizedPhone];
+      
+      if (clinicKey) {
+        console.log(`🔍 [ClinicContextManager] Clínica identificada: ${phoneNumber} → ${clinicKey}`);
+        return clinicKey;
+      }
+
+      // ✅ FALLBACK: Tentar encontrar por padrão
+      for (const [mappedPhone, key] of Object.entries(whatsappMapping)) {
+        if (normalizedPhone.includes(mappedPhone.replace(/[\s\-\(\)]/g, '')) || 
+            mappedPhone.includes(normalizedPhone)) {
+          console.log(`🔍 [ClinicContextManager] Clínica encontrada por padrão: ${phoneNumber} → ${key}`);
+          return key;
+        }
+      }
+
+      // ✅ FALLBACK FINAL: Usar clínica padrão se não encontrar
+      console.log(`⚠️ [ClinicContextManager] Clínica não encontrada para ${phoneNumber}, usando padrão: cardioprime`);
+      return 'cardioprime';
+      
+    } catch (error) {
+      console.error(`❌ [ClinicContextManager] Erro ao identificar clínica por WhatsApp:`, error);
+      return 'cardioprime'; // Fallback seguro
+    }
+  }
+
   /**
    * Obtém estatísticas de uso
    */
