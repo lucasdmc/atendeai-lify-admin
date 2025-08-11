@@ -505,17 +505,14 @@ DIRETRIZES FUNDAMENTAIS:
 
 INFORMAÇÕES COMPLETAS DA CLÍNICA:
 - Nome: ${clinicContext.name}
-- Endereço: ${clinicContext.address || 'Não informado'}
-- Telefone: ${clinicContext.phone || 'Não informado'}
-- Email: ${clinicContext.email || 'Não informado'}
-- Website: ${clinicContext.website || 'Não informado'}
-- Descrição: ${clinicContext.description || 'Não informado'}
-- Missão: ${clinicContext.mission || 'Não informado'}
-- Valores: ${clinicContext.values && clinicContext.values.length > 0 ? clinicContext.values.join(', ') : 'Não informado'}
-- Diferenciais: ${clinicContext.differentiators && clinicContext.differentiators.length > 0 ? clinicContext.differentiators.join(', ') : 'Não informado'}
-- Especialidades: ${clinicContext.specialties && clinicContext.specialties.length > 0 ? clinicContext.specialties.join(', ') : 'Não informado'}
-- Serviços: ${clinicContext.services && clinicContext.services.length > 0 ? clinicContext.services.join(', ') : 'Não informado'}
-- Profissionais: ${clinicContext.professionals && clinicContext.professionals.length > 0 ? clinicContext.professionals.map(p => p.nome_completo || p.nome).join(', ') : 'Não informado'}
+- Endereço: ${clinicContext.address?.rua ? `${clinicContext.address.rua}, ${clinicContext.address.numero} - ${clinicContext.address.bairro}, ${clinicContext.address.cidade}/${clinicContext.address.estado}` : 'Não informado'}
+- Telefone: ${clinicContext.contacts?.telefone || 'Não informado'}
+- Email: ${clinicContext.contacts?.email_principal || 'Não informado'}
+- Website: ${clinicContext.contacts?.website || 'Não informado'}
+- Descrição: ${clinicContext.basicInfo?.descricao || 'Não informado'}
+- Especialidade: ${clinicContext.basicInfo?.especialidade || 'Não informado'}
+- Serviços: ${clinicContext.services && clinicContext.services.length > 0 ? clinicContext.services.map(s => s.nome).join(', ') : 'Não informado'}
+- Profissionais: ${clinicContext.professionals && clinicContext.professionals.length > 0 ? clinicContext.professionals.map(p => `${p.nome_exibicao || p.nome_completo} (${p.especialidades?.join(', ') || 'Especialidade não informada'})`).join('\n  * ') : 'Não informado'}
 
 HORÁRIOS DE FUNCIONAMENTO:
 ${Object.entries(clinicContext.workingHours || {}).map(([day, hours]) => {
