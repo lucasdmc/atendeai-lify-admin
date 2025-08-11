@@ -66,8 +66,27 @@ export default class LLMOrchestratorService {
       
       // ✅ BUSCAR CONTEXTO APENAS DO JSON (sem banco de dados)
       // 🔧 CORREÇÃO: Identificar clínica baseada no número do WhatsApp
-      const clinicKey = ClinicContextManager.getClinicByWhatsApp(phoneNumber);
-      const clinicContext = await ClinicContextManager.getClinicContext(clinicKey);
+      const clinicKey = await ClinicContextManager.getClinicByWhatsApp(phoneNumber);
+      
+      if (!clinicKey) {
+        console.log('❌ [LLMOrchestrator] Nenhuma clínica encontrada para WhatsApp:', phoneNumber);
+        return {
+          response: 'Desculpe, não consegui identificar a clínica. Por favor, entre em contato diretamente.',
+          intent: { name: 'ERROR', confidence: 0.0 },
+          toolsUsed: ['clinic_identification'],
+          error: 'Clínica não identificada'
+        };
+      }
+      
+      let clinicContext;
+      try {
+        clinicContext = await ClinicContextManager.getClinicContext(clinicKey);
+        console.log(`✅ [LLMOrchestrator] Contexto obtido para clínica: ${clinicKey}`);
+      } catch (contextError) {
+        console.error(`❌ [LLMOrchestrator] Erro ao obter contexto da clínica ${clinicKey}:`, contextError.message);
+        // ❌ SEM FALLBACKS HARDCODED - PROPAGAR ERRO
+        throw new Error(`Não foi possível obter contexto da clínica ${clinicKey}: ${contextError.message}`);
+      }
       
       // Detectar intenção avançada com histórico e contexto
       const conversationHistory = memory.history || [];

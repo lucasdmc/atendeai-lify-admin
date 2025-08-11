@@ -68,14 +68,13 @@ export default class ClinicContextManager {
       );
       
       // ✅ BUSCAR CLÍNICA NO BANCO DE DADOS
-      // 🔧 CORREÇÃO: Buscar por nome exato ou por chave similar
       let { data: clinic, error } = await supabase
         .from('clinics')
         .select('*')
         .eq('name', clinicKey)
         .single();
       
-      // 🔧 CORREÇÃO: Se não encontrar, tentar buscar por nome similar
+      // ✅ SE NÃO ENCONTRAR, TENTAR BUSCA POR NOME SIMILAR
       if (error && error.code === 'PGRST116') {
         console.log(`🔍 [ClinicContextManager] Tentando busca por nome similar para: ${clinicKey}`);
         
@@ -85,36 +84,33 @@ export default class ClinicContextManager {
           .ilike('name', `%${clinicKey}%`);
         
         if (!searchError && clinics && clinics.length > 0) {
-          clinic = clinics[0]; // Usar a primeira clínica encontrada
+          clinic = clinics[0];
           error = null;
           console.log(`✅ [ClinicContextManager] Clínica encontrada por busca similar: ${clinic.name}`);
         }
       }
       
-      if (error) {
-        console.error(`❌ [ClinicContextManager] Erro ao buscar clínica ${clinicKey}:`, error);
-        return this.getDefaultContext(clinicKey);
+      // ❌ SEM FALLBACKS HARDCODED - SE NÃO ENCONTRAR, ERRO
+      if (error || !clinic) {
+        console.error(`❌ [ClinicContextManager] Clínica ${clinicKey} não encontrada no banco`);
+        throw new Error(`Clínica ${clinicKey} não encontrada no banco de dados`);
       }
       
-      if (!clinic) {
-        console.log(`⚠️ [ClinicContextManager] Clínica ${clinicKey} não encontrada no banco`);
-        return this.getDefaultContext(clinicKey);
-      }
-      
-      // ✅ VERIFICAR SE TEM JSON DE CONTEXTUALIZAÇÃO
+      // ❌ SEM FALLBACKS HARDCODED - SE NÃO TEM JSON, ERRO
       if (!clinic.contextualization_json || Object.keys(clinic.contextualization_json).length === 0) {
-        console.log(`⚠️ [ClinicContextManager] Clínica ${clinicKey} não tem JSON de contextualização`);
-        return this.getDefaultContext(clinicKey);
+        console.error(`❌ [ClinicContextManager] Clínica ${clinicKey} não tem JSON de contextualização`);
+        throw new Error(`Clínica ${clinicKey} não tem JSON de contextualização configurado`);
       }
       
       console.log(`✅ [ClinicContextManager] JSON encontrado para ${clinicKey} no banco de dados`);
       
-      // ✅ EXTRAIR DADOS DO JSON DO BANCO
+      // ✅ EXTRAIR DADOS DO JSON DO BANCO (FONTE ÚNICA)
       return this.extractClinicDataFromJson(clinic.contextualization_json, clinicKey);
       
     } catch (error) {
       console.error(`❌ [ClinicContextManager] Erro ao obter contexto para ${clinicKey}:`, error);
-      return this.getDefaultContext(clinicKey);
+      // ❌ SEM FALLBACKS - PROPAGAR ERRO
+      throw error;
     }
   }
 
@@ -210,28 +206,7 @@ export default class ClinicContextManager {
     }
   }
 
-  /**
-   * Contexto padrão quando não há JSON
-   */
-  static getDefaultContext(clinicKey) {
-    return {
-      id: clinicKey,
-      key: clinicKey,
-      name: clinicKey,
-      agentConfig: {
-        nome: 'Assistente Virtual',
-        personalidade: 'Profissional e prestativo',
-        tom_comunicacao: 'Formal mas acessível',
-        nivel_formalidade: 'Médio',
-        saudacao_inicial: `Olá! Sou o assistente virtual da ${clinicKey}. Como posso ajudá-lo hoje?`,
-        mensagem_despedida: 'Obrigado pelo contato. Até breve!',
-        mensagem_fora_horario: 'Estamos fora do horário de atendimento. Retornaremos seu contato no próximo horário comercial.'
-      },
-      hasJsonContext: false,
-      source: 'DEFAULT',
-      lastUpdated: new Date().toISOString()
-    };
-  }
+  // ❌ MÉTODO REMOVIDO: getDefaultContext era fallback hardcoded (NUNCA PEDIDO)
 
   /**
    * Lista todas as clínicas disponíveis (APENAS dos JSONs)
@@ -254,42 +229,45 @@ export default class ClinicContextManager {
    * 🔧 NOVA FUNÇÃO: Identifica clínica baseado no número do WhatsApp
    * Esta função mapeia números de WhatsApp para clínicas
    */
-  static getClinicByWhatsApp(phoneNumber) {
+  static async getClinicByWhatsApp(phoneNumber) {
     try {
-      // ✅ MAPEAMENTO DIRETO: Números de WhatsApp para chaves de clínica
-      const whatsappMapping = {
-        '+554730915628': 'cardioprime',  // CardioPrime
-        '+554730915629': 'esadi',        // ESADI
-        // ✅ ADICIONAR NOVOS NÚMEROS AQUI CONFORME NECESSÁRIO
-      };
-
-      // ✅ NORMALIZAR NÚMERO (remover espaços, traços, etc.)
-      const normalizedPhone = phoneNumber.replace(/[\s\-\(\)]/g, '');
+      console.log(`🔍 [ClinicContextManager] Mapeando WhatsApp: ${phoneNumber}`);
       
-      // ✅ BUSCAR MAPEAMENTO
-      const clinicKey = whatsappMapping[normalizedPhone];
+      // ✅ NORMALIZAR NÚMERO DE TELEFONE
+      const normalizedPhone = phoneNumber.replace(/\D/g, '');
+      const fullPhone = normalizedPhone.startsWith('55') ? `+${normalizedPhone}` : `+55${normalizedPhone}`;
       
-      if (clinicKey) {
-        console.log(`🔍 [ClinicContextManager] Clínica identificada: ${phoneNumber} → ${clinicKey}`);
-        return clinicKey;
+      // ✅ BUSCAR CLÍNICA NO BANCO DE DADOS POR NÚMERO DE WHATSAPP
+      const { createClient } = await import('@supabase/supabase-js');
+      
+      const supabase = createClient(
+        process.env.VITE_SUPABASE_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co',
+        process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2JxbWRpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDE4MjU1OSwiZXhwIjoyMDY1NzU4NTU5fQ.SY8A3ReAs_D7SFBp99PpSe8rpm1hbWMv4b2q-c_VS5M'
+      );
+      
+      const { data: clinic, error } = await supabase
+        .from('clinics')
+        .select('name, whatsapp_phone')
+        .eq('whatsapp_phone', fullPhone)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error(`❌ [ClinicContextManager] Erro ao buscar clínica por WhatsApp:`, error);
+        return null;
       }
-
-      // ✅ FALLBACK: Tentar encontrar por padrão
-      for (const [mappedPhone, key] of Object.entries(whatsappMapping)) {
-        if (normalizedPhone.includes(mappedPhone.replace(/[\s\-\(\)]/g, '')) || 
-            mappedPhone.includes(normalizedPhone)) {
-          console.log(`🔍 [ClinicContextManager] Clínica encontrada por padrão: ${phoneNumber} → ${key}`);
-          return key;
-        }
+      
+      if (clinic) {
+        console.log(`✅ [ClinicContextManager] Clínica encontrada para ${phoneNumber}: ${clinic.name}`);
+        return clinic.name.toLowerCase().replace(/\s+/g, '-');
       }
-
-      // ✅ FALLBACK FINAL: Usar clínica padrão se não encontrar
-      console.log(`⚠️ [ClinicContextManager] Clínica não encontrada para ${phoneNumber}, usando padrão: cardioprime`);
-      return 'cardioprime';
+      
+      // ✅ SE NÃO ENCONTRAR, RETORNAR NULL (SEM FALLBACK HARDCODED)
+      console.log(`⚠️ [ClinicContextManager] Nenhuma clínica encontrada para WhatsApp: ${phoneNumber}`);
+      return null;
       
     } catch (error) {
-      console.error(`❌ [ClinicContextManager] Erro ao identificar clínica por WhatsApp:`, error);
-      return 'cardioprime'; // Fallback seguro
+      console.error(`❌ [ClinicContextManager] Erro ao mapear WhatsApp ${phoneNumber}:`, error);
+      return null; // SEM FALLBACK HARDCODED
     }
   }
 

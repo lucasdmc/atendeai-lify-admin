@@ -110,7 +110,7 @@ O sistema agora integra perfeitamente o **sistema de contextualização JSON da 
 ### 📁 Arquivos de Contextualização (ÚNICA FONTE)
 ```
 data/
-├── cardioprime-blumenau.json  # Clínica CardioPrime (configuração correta)
+├── Sistema multiclínica configurado via tela de clínicas
 └── contextualizacao-esadi.json        # Clínica ESADI (da tela de clínicas)
 ```
 

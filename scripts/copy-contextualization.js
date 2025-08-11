@@ -25,7 +25,7 @@ targetDirs.forEach(targetDir => {
 
 // Copiar arquivos de contextualização
 const contextualizationFiles = [
-  'cardioprime-blumenau.json',
+  // ✅ SISTEMA MULTICLÍNICA: Sem arquivos hardcoded
   'contextualizacao-esadi.json'
 ];
 

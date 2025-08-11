@@ -92,7 +92,8 @@ export class PersonalizationService {
       };
     } catch (error) {
       console.error('Error loading personalization context:', error);
-      return this.getDefaultContext(phoneNumber);
+              // ❌ SEM FALLBACKS HARDCODED - PROPAGAR ERRO
+        throw new Error(`Não foi possível carregar contexto de personalização para ${phoneNumber}`);
     }
   }
 
@@ -494,30 +495,5 @@ export class PersonalizationService {
     return age;
   }
 
-  /**
-   * Retorna contexto padrão
-   */
-  private static getDefaultContext(phoneNumber: string): PersonalizationContext {
-    return {
-      patientProfile: {
-        name: 'Paciente',
-        phone: phoneNumber,
-        appointmentCount: 0,
-        communicationPreference: 'formal'
-      },
-      behaviorPatterns: {
-        averageResponseTime: 0,
-        preferredChannels: ['whatsapp'],
-        appointmentFrequency: 0,
-        cancellationRate: 0,
-        noShowRate: 0
-      },
-      opportunities: {
-        crossSell: [],
-        upSell: [],
-        preventiveCare: [],
-        followUp: []
-      }
-    };
-  }
+  // ❌ MÉTODO REMOVIDO: getDefaultContext era fallback hardcoded (NUNCA PEDIDO)
 }

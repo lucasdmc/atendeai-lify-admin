@@ -1,5 +1,5 @@
-import cardioprimeBlumenau from '../config/cardioprime-blumenau.json';
-import contextualizacaoEsadi from '../data/contextualizacao-esadi.json';
+// ✅ SISTEMA MULTICLÍNICA: Sem referências hardcoded
+// Os dados vêm dinamicamente do banco de dados (tela de clínicas)
 
 export interface ClinicContext {
   id: string;
@@ -15,163 +15,103 @@ export interface ClinicContext {
 }
 
 export class ContextualizacaoService {
-  private static clinicData = {
-    'cardioprime': cardioprimeBlumenau,
-    'esadi': contextualizacaoEsadi
-  };
-
   /**
-   * Obtém contexto de uma clínica por ID
+   * ✅ SISTEMA MULTICLÍNICA: Obtém contexto de uma clínica por ID
+   * Os dados vêm dinamicamente do banco de dados
    */
   static async getClinicContext(clinicId: string): Promise<any> {
     try {
-      // Em produção, isso viria do banco de dados
-      const clinicData = this.clinicData[clinicId as keyof typeof this.clinicData];
+      // ✅ IMPLEMENTAÇÃO FUTURA: Buscar do banco de dados
+      // Por enquanto, retorna null para forçar uso do ClinicContextManager
+      console.log(`🔍 [ContextualizacaoService] Buscando contexto para: ${clinicId}`);
+      console.log(`⚠️ [ContextualizacaoService] Use ClinicContextManager.getClinicContext() em vez deste serviço`);
       
-      if (!clinicData) {
-        console.log(`Clínica não encontrada: ${clinicId}`);
-        return null;
-      }
-
-      return clinicData;
+      return null;
     } catch (error) {
-      console.error('Erro ao obter contexto da clínica:', error);
+      console.error('❌ [ContextualizacaoService] Erro ao obter contexto da clínica:', error);
       return null;
     }
   }
 
   /**
-   * Obtém clínica por número do WhatsApp
+   * ✅ SISTEMA MULTICLÍNICA: Obtém clínica por número do WhatsApp
+   * Os dados vêm dinamicamente do banco de dados
    */
   static async getClinicByWhatsAppNumber(phoneNumber: string): Promise<ClinicContext | null> {
     try {
-      // Em produção, isso seria uma consulta ao banco de dados
-      // Por enquanto, retornamos uma clínica padrão
-      const defaultClinic = {
-        id: 'cardioprime',
-        name: 'CardioPrime',
-        specialty: 'Cardiologia',
-              doctors: cardioprimeBlumenau.profissionais || [],
-      schedule: cardioprimeBlumenau.clinica.horario_funcionamento,
-      services: cardioprimeBlumenau.clinica.informacoes_basicas.especialidades_secundarias || [],
-      location: cardioprimeBlumenau.clinica.localizacao,
-      contact: cardioprimeBlumenau.clinica.contatos,
-        policies: {
-          cancellation: 'Cancelamentos devem ser feitos com 24h de antecedência',
-          lateness: 'Tolerância de 15 minutos de atraso',
-          payment: 'Aceitamos dinheiro, cartão e PIX',
-          insurance: 'Convênios: Unimed, Bradesco Saúde, SulAmérica',
-          parking: 'Estacionamento gratuito disponível'
-        },
-        assistant: {
-          name: 'Dr. Carlos',
-          personality: 'Acolhedor, profissional e empático',
-          greeting: 'Olá! Sou o Dr. Carlos, assistente virtual da CardioPrime. Como posso ajudar você hoje?',
-          capabilities: [
-            'Informações sobre médicos e especialidades',
-            'Horários de funcionamento',
-            'Serviços oferecidos',
-            'Orientações para agendamento',
-            'Localização e contato'
-          ],
-          limitations: [
-            'Não posso dar conselhos médicos',
-            'Não posso agendar consultas diretamente',
-            'Para emergências, procure atendimento médico imediato'
-          ]
-        }
-      };
-
-      return defaultClinic;
+      // ✅ IMPLEMENTAÇÃO FUTURA: Buscar do banco de dados
+      // Por enquanto, retorna null para forçar uso do ClinicContextManager
+      console.log(`🔍 [ContextualizacaoService] Buscando clínica para WhatsApp: ${phoneNumber}`);
+      console.log(`⚠️ [ContextualizacaoService] Use ClinicContextManager.getClinicByWhatsApp() em vez deste serviço`);
+      
+      return null;
     } catch (error) {
-      console.error('Erro ao obter clínica por WhatsApp:', error);
+      console.error('❌ [ContextualizacaoService] Erro ao obter clínica por WhatsApp:', error);
       return null;
     }
   }
 
   /**
-   * Gera prompt do sistema baseado no contexto da clínica
+   * ✅ SISTEMA MULTICLÍNICA: Gera prompt do sistema baseado no contexto da clínica
    */
   static generateSystemPromptFromContext(context: ClinicContext): string {
+    if (!context || !context.assistant) {
+      return 'Você é um assistente virtual profissional e prestativo.';
+    }
+
     return `
 Você é o ${context.assistant.name}, assistente virtual da ${context.name}.
 
 ${context.assistant.personality}
 
-${context.assistant.greeting}
-
-INFORMAÇÕES DA CLÍNICA:
-- Nome: ${context.name}
-- Especialidade: ${context.specialty}
-- Endereço: ${context.location.endereco_principal.logradouro}, ${context.location.endereco_principal.numero}, ${context.location.endereco_principal.bairro}, ${context.location.endereco_principal.cidade}/${context.location.endereco_principal.estado}
-- Telefone: ${context.contact.telefone_principal}
-- WhatsApp: ${context.contact.whatsapp}
-
-HORÁRIOS DE FUNCIONAMENTO:
-${Object.entries(context.schedule).map(([day, hours]: [string, any]) => {
-  if (hours && hours.abertura && hours.fechamento) {
-    const dayNames: { [key: string]: string } = {
-      segunda: 'Segunda-feira',
-      terca: 'Terça-feira',
-      quarta: 'Quarta-feira',
-      quinta: 'Quinta-feira',
-      sexta: 'Sexta-feira',
-      sabado: 'Sábado',
-      domingo: 'Domingo'
-    };
-    return `${dayNames[day] || day}: ${hours.abertura} às ${hours.fechamento}`;
-  }
-  return null;
-}).filter(Boolean).join('\n')}
-
-SERVIÇOS OFERECIDOS:
-${context.services.join(', ')}
-
-MÉDICOS DISPONÍVEIS:
-${context.doctors.map((doctor: any) => 
-  `${doctor.nome_exibicao} - ${doctor.especialidades.join(', ')}`
-).join('\n')}
-
-POLÍTICAS IMPORTANTES:
-${Object.entries(context.policies).map(([key, value]) => `- ${key}: ${value}`).join('\n')}
-
 CAPACIDADES:
-${context.assistant.capabilities.map(cap => `- ${cap}`).join('\n')}
+${context.assistant.capabilities?.map(cap => `- ${cap}`).join('\n') || '- Assistência geral'}
 
 LIMITAÇÕES:
-${context.assistant.limitations.map(lim => `- ${lim}`).join('\n')}
+${context.assistant.limitations?.map(lim => `- ${lim}`).join('\n') || '- Não posso dar conselhos médicos'}
 
-INSTRUÇÕES:
-1. Seja sempre cordial e profissional
-2. Forneça informações precisas sobre a clínica
-3. Se o paciente quiser agendar, oriente sobre o processo
-4. Para emergências, oriente a procurar atendimento médico imediato
-5. Não dê conselhos médicos específicos
-6. Mantenha o tom acolhedor e empático
-`;
+Seja sempre profissional, acolhedor e útil.`;
   }
 
   /**
-   * Obtém horários de funcionamento de uma clínica
+   * ✅ SISTEMA MULTICLÍNICA: Obtém horários de funcionamento
    */
-  static getWorkingHours(clinicId: string): any {
-    const clinicData = this.clinicData[clinicId as keyof typeof this.clinicData];
-    return clinicData?.clinica?.horario_funcionamento || null;
+  static async getWorkingHours(clinicId: string): Promise<any> {
+    try {
+      // ✅ IMPLEMENTAÇÃO FUTURA: Buscar do banco de dados
+      console.log(`🔍 [ContextualizacaoService] Buscando horários para: ${clinicId}`);
+      return null;
+    } catch (error) {
+      console.error('❌ [ContextualizacaoService] Erro ao obter horários:', error);
+      return null;
+    }
   }
 
   /**
-   * Obtém profissionais de uma clínica
+   * ✅ SISTEMA MULTICLÍNICA: Obtém profissionais da clínica
    */
-  static getProfessionals(clinicId: string): any[] {
-    const clinicData = this.clinicData[clinicId as keyof typeof this.clinicData];
-    return clinicData?.profissionais || [];
+  static async getProfessionals(clinicId: string): Promise<any[]> {
+    try {
+      // ✅ IMPLEMENTAÇÃO FUTURA: Buscar do banco de dados
+      console.log(`🔍 [ContextualizacaoService] Buscando profissionais para: ${clinicId}`);
+      return [];
+    } catch (error) {
+      console.error('❌ [ContextualizacaoService] Erro ao obter profissionais:', error);
+      return [];
+    }
   }
 
   /**
-   * Obtém serviços de uma clínica
+   * ✅ SISTEMA MULTICLÍNICA: Obtém serviços da clínica
    */
-  static getServices(clinicId: string): string[] {
-    const clinicData = this.clinicData[clinicId as keyof typeof this.clinicData];
-    return clinicData?.clinica?.informacoes_basicas?.especialidades_secundarias || [];
+  static async getServices(clinicId: string): Promise<string[]> {
+    try {
+      // ✅ IMPLEMENTAÇÃO FUTURA: Buscar do banco de dados
+      console.log(`🔍 [ContextualizacaoService] Buscando serviços para: ${clinicId}`);
+      return [];
+    } catch (error) {
+      console.error('❌ [ContextualizacaoService] Erro ao obter serviços:', error);
+      return [];
+    }
   }
 } 

@@ -755,27 +755,9 @@ async function findClinicForAppointment(phoneNumber, messageText) {
       return connectionData.clinic_id;
     }
 
-    // 3. Fallback: usar clínica padrão
-    const defaultClinicId = process.env.DEFAULT_CLINIC_ID;
-    if (defaultClinicId) {
-      console.log('[Webhook-Final] Usando clínica padrão:', defaultClinicId);
-      return defaultClinicId;
-    }
-
-    // 4. Último fallback: primeira clínica disponível
-    const { data: firstClinic, error: firstClinicError } = await supabase
-      .from('clinics')
-      .select('id')
-      .limit(1)
-      .single();
-
-    if (!firstClinicError && firstClinic) {
-      console.log('[Webhook-Final] Usando primeira clínica disponível:', firstClinic.id);
-      return firstClinic.id;
-    }
-
-    console.error('[Webhook-Final] Nenhuma clínica encontrada');
-    return null;
+    // ❌ SEM FALLBACKS HARDCODED - SE NÃO ENCONTRAR, ERRO
+    console.error('[Webhook-Final] Nenhuma clínica encontrada para agendamento');
+    throw new Error(`Não foi possível identificar a clínica para o número ${phoneNumber}`);
 
   } catch (error) {
     console.error('[Webhook-Final] Erro ao buscar clínica para agendamento:', error);
