@@ -188,17 +188,27 @@ export default class AppointmentFlowManager {
     try {
       const userName = memory.userProfile?.name || 'você';
       
+      console.log('🔍 [AppointmentFlowManager] Iniciando criação de agendamento:', {
+        userName,
+        clinicName: clinicContext.name,
+        hasServices: !!clinicContext.services,
+        hasServicesDetails: !!clinicContext.servicesDetails
+      });
+      
       // Extrair serviços do JSON de contextualização
       const availableServices = this.extractServicesFromContext(clinicContext);
       
       if (!availableServices || availableServices.length === 0) {
+        console.warn('⚠️ [AppointmentFlowManager] Nenhum serviço disponível para agendamento');
         return {
-          response: `Desculpe, ${userName}! No momento não temos serviços disponíveis para agendamento online. Entre em contato conosco pelo telefone ${clinicContext.phone || 'da clínica'} para mais informações.`,
+          response: `Desculpe, ${userName}! No momento não consegui carregar os serviços disponíveis para agendamento online. 😔\n\nEntre em contato conosco pelo telefone ${clinicContext.contacts?.telefone || clinicContext.contacts?.whatsapp || 'da clínica'} para mais informações.`,
           intent: { name: 'APPOINTMENT_ERROR', confidence: 1.0 },
           toolsUsed: ['appointment_flow'],
           metadata: { flowStep: 'error', error: 'no_services_available' }
         };
       }
+
+      console.log('✅ [AppointmentFlowManager] Serviços carregados com sucesso:', availableServices.length);
 
       // Atualizar estado do fluxo
       flowState.step = 'service_selection';
@@ -230,28 +240,78 @@ export default class AppointmentFlowManager {
    */
   extractServicesFromContext(clinicContext) {
     try {
-      // Verificar se há seção de serviços no JSON
-      if (!clinicContext.services || !Array.isArray(clinicContext.services)) {
-        console.warn('⚠️ Seção de serviços não encontrada no contexto da clínica');
-        return [];
+      console.log('🔍 [AppointmentFlowManager] Extraindo serviços do contexto:', {
+        hasServices: !!clinicContext.services,
+        hasServicesDetails: !!clinicContext.servicesDetails,
+        servicesType: typeof clinicContext.services,
+        servicesDetailsType: typeof clinicContext.servicesDetails
+      });
+      
+      // 🔧 CORREÇÃO: Usar a estrutura correta retornada pelo ClinicContextManager
+      let availableServices = [];
+      
+      // Tentar diferentes estruturas possíveis
+      if (clinicContext.servicesDetails && clinicContext.servicesDetails.consultas) {
+        // Estrutura do JSON de contextualização
+        const consultas = clinicContext.servicesDetails.consultas || [];
+        const exames = clinicContext.servicesDetails.exames || [];
+        const procedimentos = clinicContext.servicesDetails.procedimentos || [];
+        
+        // Converter para formato padrão
+        availableServices = [
+          ...consultas.map(s => ({
+            id: s.id || s.nome?.toLowerCase().replace(/\s+/g, '_'),
+            name: s.nome || 'Consulta sem nome',
+            type: 'consulta',
+            duration: parseInt(s.duracao) || 30,
+            price: parseFloat(s.preco_particular) || 0,
+            description: s.descricao || '',
+            category: s.categoria || 'consulta',
+            available: true
+          })),
+          ...exames.map(s => ({
+            id: s.id || s.nome?.toLowerCase().replace(/\s+/g, '_'),
+            name: s.nome || 'Exame sem nome',
+            type: 'exame',
+            duration: parseInt(s.duracao) || 60,
+            price: parseFloat(s.preco_particular) || 0,
+            description: s.descricao || '',
+            category: s.categoria || 'exame',
+            available: true
+          })),
+          ...procedimentos.map(s => ({
+            id: s.id || s.nome?.toLowerCase().replace(/\s+/g, '_'),
+            name: s.nome || 'Procedimento sem nome',
+            type: 'procedimento',
+            duration: parseInt(s.duracao) || 45,
+            price: parseFloat(s.preco_particular) || 0,
+            description: s.descricao || '',
+            category: s.categoria || 'procedimento',
+            available: true
+          }))
+        ];
+      } else if (clinicContext.services && Array.isArray(clinicContext.services)) {
+        // Estrutura alternativa
+        availableServices = clinicContext.services.filter(service => 
+          service.available !== false && service.enabled !== false
+        ).map(service => ({
+          id: service.id || service.name?.toLowerCase().replace(/\s+/g, '_'),
+          name: service.name || 'Serviço sem nome',
+          type: service.type || 'consulta',
+          duration: parseInt(service.duration) || 30,
+          price: parseFloat(service.price) || 0,
+          description: service.description || '',
+          category: service.category || 'geral',
+          available: true
+        }));
       }
-
-      // Filtrar apenas serviços disponíveis
-      const availableServices = clinicContext.services.filter(service => 
-        service.available !== false && service.enabled !== false
-      );
-
-      // Validar estrutura dos serviços
-      return availableServices.map(service => ({
-        id: service.id || service.name?.toLowerCase().replace(/\s+/g, '_'),
-        name: service.name || 'Serviço sem nome',
-        type: service.type || 'consulta',
-        duration: parseInt(service.duration) || 30,
-        price: parseFloat(service.price) || 0,
-        description: service.description || '',
-        category: service.category || 'geral',
-        available: true
-      }));
+      
+      console.log('✅ [AppointmentFlowManager] Serviços extraídos:', {
+        total: availableServices.length,
+        services: availableServices.map(s => ({ name: s.name, type: s.type, duration: s.duration }))
+      });
+      
+      return availableServices;
       
     } catch (error) {
       console.error('❌ Erro ao extrair serviços do contexto:', error);
@@ -269,6 +329,13 @@ export default class AppointmentFlowManager {
     const greeting = userName !== 'você' ? `Ótimo, ${userName}!` : 'Perfeito!';
     
     let response = `${greeting} Vou te ajudar a agendar sua consulta na ${clinicContext.name}. 😊\n\n`;
+    
+    // 🔧 CORREÇÃO: Verificar se há serviços disponíveis
+    if (!availableServices || availableServices.length === 0) {
+      response += `Infelizmente não consegui carregar os serviços disponíveis no momento. 😔\n\n`;
+      response += `Por favor, entre em contato conosco pelo telefone ${clinicContext.contacts?.telefone || clinicContext.contacts?.whatsapp || 'da clínica'} para agendar sua consulta.`;
+      return response;
+    }
     
     response += `Para isso, preciso saber que tipo de consulta você precisa:\n\n`;
     

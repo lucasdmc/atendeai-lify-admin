@@ -382,40 +382,112 @@ export default class LLMOrchestratorService {
     }
   }
 
+  /**
+   * Detecta intenção da mensagem usando LLM avançado
+   * @param {string} message - Mensagem do usuário
+   * @param {Array} conversationHistory - Histórico da conversa
+   * @param {Object} clinicContext - Contexto da clínica
+   */
   static async detectIntent(message, conversationHistory = [], clinicContext = {}) {
     try {
-      console.log('🔍 Detectando intenção para:', message);
-      
-      // ✅ DETECÇÃO SIMPLIFICADA COM PALAVRAS-CHAVE
-      const lowerMessage = message.toLowerCase();
-      
-      // Agendamento
-      if (this.containsAppointmentKeywords(lowerMessage)) {
-        console.log('✅ Intenção de AGENDAMENTO detectada');
-        return { name: 'APPOINTMENT', confidence: 0.9 };
+      console.log('🎯 [LLMOrchestrator] Detectando intenção avançada com LLM:', { 
+        messageLength: message.length,
+        historyLength: conversationHistory.length,
+        hasClinicContext: !!clinicContext
+      });
+
+      // 🔧 CORREÇÃO: Usar sistema avançado de detecção de intenção
+      const prompt = `You are an intent recognition system for a medical clinic's WhatsApp chatbot.
+Analyze the user message and conversation history to identify the intent.
+
+Available intents:
+- APPOINTMENT_CREATE: User wants to schedule an appointment
+- APPOINTMENT_RESCHEDULE: User wants to change an existing appointment
+- APPOINTMENT_CANCEL: User wants to cancel an appointment
+- APPOINTMENT_LIST: User wants to see their appointments
+- INFO_HOURS: Asking about clinic hours
+- INFO_LOCATION: Asking about clinic address/location
+- INFO_SERVICES: Asking about available services/specialties
+- INFO_DOCTORS: Asking about doctors/professionals
+- INFO_PRICES: Asking about prices/insurance
+- INFO_GENERAL: General information questions
+- GREETING: Greeting messages
+- FAREWELL: Goodbye messages
+- HUMAN_HANDOFF: User wants to speak with a human
+- UNCLEAR: Intent is not clear
+
+Extract entities like: dates, times, doctor names, services, symptoms, etc.
+
+Current message: "${message}"
+
+Conversation history:
+${conversationHistory.map(h => `${h.role}: ${h.content}`).join('\n')}
+
+Clinic context:
+- Services: ${JSON.stringify(clinicContext.services || [])}
+- Doctors: ${JSON.stringify(clinicContext.professionals || [])}
+
+Return a JSON with: { "intent": "INTENT_NAME", "confidence": 0.0-1.0, "entities": {}, "reasoning": "brief explanation" }`;
+
+      // 🔧 CORREÇÃO: Usar OpenAI para detecção inteligente
+      const { OpenAI } = await import('openai');
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini', // Usar modelo mais econômico para detecção
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.1,
+        max_tokens: 200,
+      });
+
+      const response = completion.choices[0]?.message?.content;
+      console.log('🤖 [LLMOrchestrator] Resposta do LLM para detecção:', response);
+
+      let intentData;
+      try {
+        // Limpar a resposta removendo markdown e extraindo apenas o JSON
+        let cleanResponse = response;
+        
+        // Remover ```json e ``` se presentes
+        cleanResponse = cleanResponse.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+        
+        // Se ainda não for JSON válido, tentar extrair JSON do texto
+        if (!cleanResponse.trim().startsWith('{')) {
+          const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            cleanResponse = jsonMatch[0];
+          }
+        }
+        
+        intentData = JSON.parse(cleanResponse.trim());
+      } catch (parseError) {
+        console.error('❌ [LLMOrchestrator] Erro ao fazer parse da resposta LLM:', parseError);
+        console.error('❌ [LLMOrchestrator] Resposta original:', response);
+        console.log('🔄 Usando fallback com keywords...');
+        return this.fallbackIntentRecognition(message);
       }
-      
-      // Informações
-      if (this.containsInfoKeywords(lowerMessage)) {
-        console.log('✅ Intenção de INFORMAÇÃO detectada');
-        return { name: 'INFORMATION', confidence: 0.8 };
-      }
-      
-      // Saudação
-      if (this.containsGreetingKeywords(lowerMessage)) {
-        console.log('✅ Intenção de SAUDAÇÃO detectada');
-        return { name: 'GREETING', confidence: 0.9 };
-      }
-      
-      console.log('⚠️ Nenhuma intenção específica detectada, usando fallback');
-      // ✅ FALLBACK INTELIGENTE
-      const fallbackIntent = this.fallbackIntentRecognition(message);
-      console.log('🔄 Fallback retornou:', fallbackIntent);
-      return fallbackIntent;
-      
+
+      console.log('✅ [LLMOrchestrator] Intenção detectada pelo LLM:', {
+        intent: intentData.intent,
+        confidence: intentData.confidence,
+        entities: intentData.entities,
+        reasoning: intentData.reasoning
+      });
+
+      return {
+        name: intentData.intent,
+        confidence: intentData.confidence || 0.8,
+        entities: intentData.entities || {},
+        requiresAction: this.isAppointmentIntent(intentData.intent),
+        category: this.mapIntentToCategory(intentData.intent)
+      };
+
     } catch (error) {
-      console.error('❌ Erro na detecção de intenção:', error);
-      return { name: 'UNKNOWN', confidence: 0.0 };
+      console.error('❌ [LLMOrchestrator] Erro na detecção avançada de intenção:', error);
+      console.log('🔄 Usando fallback com keywords...');
+      return this.fallbackIntentRecognition(message);
     }
   }
 
@@ -444,8 +516,26 @@ export default class LLMOrchestratorService {
   }
 
   static containsAppointmentKeywords(message) {
-    const keywords = ['agendar', 'consulta', 'marcar', 'agendamento'];
-    return keywords.some(keyword => message.includes(keyword));
+    // 🔧 CORREÇÃO: Expandir keywords para melhor detecção de agendamento
+    const keywords = [
+      'agendar', 'consulta', 'marcar', 'agendamento', 'marcação',
+      'realizar', 'fazer', 'quero', 'preciso', 'gostaria',
+      'agendar consulta', 'marcar consulta', 'agendar exame',
+      'marcar exame', 'agendar horário', 'marcar horário',
+      'agendar atendimento', 'marcar atendimento'
+    ];
+    
+    const lowerMessage = message.toLowerCase();
+    const hasKeyword = keywords.some(keyword => lowerMessage.includes(keyword));
+    
+    console.log('🔍 Verificando keywords de agendamento:', {
+      message: message,
+      lowerMessage: lowerMessage,
+      keywords: keywords,
+      hasKeyword: hasKeyword
+    });
+    
+    return hasKeyword;
   }
 
   static containsInfoKeywords(message) {
@@ -465,30 +555,59 @@ export default class LLMOrchestratorService {
       return false;
     }
     
-    const result = (
-      intent.name === 'APPOINTMENT' || 
-      intent.name === 'SCHEDULE_INFO' ||
-      (typeof intent.name === 'string' && intent.name.includes('APPOINTMENT'))
-    );
+    // 🔧 CORREÇÃO: Expandir reconhecimento para intenções específicas do LLM
+    const appointmentIntents = [
+      'APPOINTMENT', 'APPOINTMENT_CREATE', 'APPOINTMENT_SCHEDULE',
+      'SCHEDULE_INFO', 'SCHEDULING', 'BOOKING', 'BOOK_APPOINTMENT',
+      // Novas intenções específicas do LLM
+      'APPOINTMENT_RESCHEDULE', 'APPOINTMENT_CANCEL', 'APPOINTMENT_LIST'
+    ];
+    
+    const result = appointmentIntents.includes(intent.name) || 
+                  (typeof intent.name === 'string' && intent.name.includes('APPOINTMENT')) ||
+                  (typeof intent.name === 'string' && intent.name.includes('SCHEDULE')) ||
+                  (typeof intent.name === 'string' && intent.name.includes('BOOKING'));
     
     console.log('🔍 Verificando se é intenção de agendamento:', {
       intent: intent.name,
-      isAppointment: result
+      isAppointment: result,
+      checkedIntents: appointmentIntents
     });
     
     return result;
   }
 
   static mapIntentToCategory(intentName) {
+    // 🔧 CORREÇÃO: Expandir categorias para intenções específicas do LLM
     const categories = {
+      // Intenções de agendamento
       'APPOINTMENT': 'scheduling',
+      'APPOINTMENT_CREATE': 'scheduling',
+      'APPOINTMENT_SCHEDULE': 'scheduling',
+      'APPOINTMENT_RESCHEDULE': 'scheduling',
+      'APPOINTMENT_CANCEL': 'scheduling',
+      'APPOINTMENT_LIST': 'scheduling',
+      
+      // Intenções de informação
       'INFORMATION': 'information',
+      'INFO_HOURS': 'information',
+      'INFO_LOCATION': 'information',
+      'INFO_SERVICES': 'information',
+      'INFO_DOCTORS': 'information',
+      'INFO_PRICES': 'information',
+      'INFO_GENERAL': 'information',
+      
+      // Intenções de conversação
       'GREETING': 'conversation',
+      'FAREWELL': 'conversation',
+      
+      // Intenções especiais
       'SCHEDULE_INFO': 'information',
-      'PRICING_INFO': 'information',
-      'LOCATION_INFO': 'information',
-      'CONTACT_INFO': 'information',
-      'GENERAL_QUERY': 'general'
+      'SCHEDULING': 'scheduling',
+      'BOOKING': 'scheduling',
+      'BOOK_APPOINTMENT': 'scheduling',
+      'HUMAN_HANDOFF': 'escalation',
+      'UNCLEAR': 'clarification'
     };
     
     return categories[intentName] || 'general';
@@ -1064,35 +1183,51 @@ IMPORTANTE:
     // 4. Adicionar quebras de linha após cada item de lista
     cleaned = cleaned.replace(/(\d+\.\s*[^:]+:\s*[^.]+\.)/gi, '$1\n');
     
-    // 5. Corrigir quebras de linha incorretas em nomes com negrito
-    cleaned = cleaned.replace(/\*\s*\n\s*([^*]+)\*/gi, '*$1*');
+    // 🔧 CORREÇÃO ESPECÍFICA: Quebras de linha incorretas em nomes com negrito
+    // Corrigir padrões como "*Dr.\n\nRoberto Silva*" para "*Dr. Roberto Silva*"
+    cleaned = cleaned.replace(/\*\s*([^*]+)\s*\n+\s*([^*]+)\*/gi, '*$1 $2*');
     
-    // 6. Garantir que o título tenha quebra de linha adequada
+    // 🔧 CORREÇÃO ESPECÍFICA: Formatação de listas com traços
+    // Corrigir padrões como "- *Dr.\n\nRoberto Silva*:" para "- *Dr. Roberto Silva*:"
+    cleaned = cleaned.replace(/-\s*\*\s*([^*]+)\s*\n+\s*([^*]+)\*:/gi, '- *$1 $2*:');
+    
+    // 🔧 CORREÇÃO ESPECÍFICA: Quebras de linha em títulos de seções
+    // Corrigir padrões como "CardioPrime conta com os seguintes profissionais:" quebrado
+    cleaned = cleaned.replace(/([^:]+:)\s*\n+\s*-/gi, '$1\n\n-');
+    
+    // 5. Garantir que o título tenha quebra de linha adequada
     cleaned = cleaned.replace(/(CardioPrime oferece os seguintes exames:)/gi, '$1\n');
     cleaned = cleaned.replace(/(contamos com dois profissionais especializados em cardiologia:)/gi, '$1\n');
+    cleaned = cleaned.replace(/(conta com os seguintes profissionais:)/gi, '$1\n');
     
-    // 7. Garantir que a conclusão tenha quebra de linha adequada
+    // 6. Garantir que a conclusão tenha quebra de linha adequada
     cleaned = cleaned.replace(/(Esses exames são essenciais)/gi, '\n$1');
     cleaned = cleaned.replace(/(Ambos estão disponíveis)/gi, '\n$1');
+    cleaned = cleaned.replace(/(Ambos são dedicados)/gi, '\n$1');
     
-    // 8. Garantir que a ação tenha quebra de linha adequada
+    // 7. Garantir que a ação tenha quebra de linha adequada
     cleaned = cleaned.replace(/(Caso tenha interesse)/gi, '\n$1');
     cleaned = cleaned.replace(/(Se precisar agendar)/gi, '\n$1');
+    cleaned = cleaned.replace(/(Se precisar de mais informações)/gi, '\n$1');
     
-    // 9. Normalizar quebras de linha (máximo 2 consecutivas)
+    // 8. Normalizar quebras de linha (máximo 2 consecutivas)
     cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
     
-    // 10. Garantir espaçamento adequado entre seções
+    // 9. Garantir espaçamento adequado entre seções
     cleaned = cleaned.replace(/([.!?])\s*([A-Z])/gi, '$1\n\n$2');
     
-    // 11. Remover quebras de linha extras no final
+    // 10. Remover quebras de linha extras no final
     cleaned = cleaned.replace(/\n+$/, '');
     
-    // 12. Limpar espaços múltiplos
+    // 11. Limpar espaços múltiplos
     cleaned = cleaned.replace(/\s+/g, ' ');
     
-    // 13. Normalizar quebras de linha finais
+    // 12. Normalizar quebras de linha finais
     cleaned = cleaned.replace(/\n\s*\n/g, '\n\n');
+    
+    // 🔧 CORREÇÃO FINAL: Garantir que listas com traços tenham formatação adequada
+    // Adicionar quebras de linha após cada item de lista com traços
+    cleaned = cleaned.replace(/(-\s*\*[^*]+\*[^.]*\.)\s*(-)/gi, '$1\n\n$2');
     
     console.log('✅ [LLMOrchestrator] Formatação corrigida automaticamente');
     return cleaned.trim();
