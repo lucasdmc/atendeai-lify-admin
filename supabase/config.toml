@@ -1,0 +1,59 @@
+# A string de conexão do banco de dados, você pode obter isso no dashboard do Supabase.
+# Você pode usar o URI ou a string de conexão individual.
+# db_url = "postgresql://postgres:[password]@[host]:[port]/postgres"
+
+[api]
+enabled = true
+# Porta para a API REST, padrão é 54321
+port = 54321
+# Esquemas para expor na API REST, padrão é ["public", "storage", "graphql_public"]
+schemas = ["public", "storage", "graphql_public"]
+# Host extra para a API REST, padrão é "0.0.0.0"
+extra_search_path = ["public", "extensions"]
+# Máximo de linhas retornadas de uma tabela, padrão é 1000
+max_rows = 1000
+
+[db]
+# Porta para o banco de dados Postgres, padrão é 54322
+port = 54322
+# Porta para o banco de dados Postgres, padrão é 54322
+shadow_port = 54320
+# Porta para o banco de dados Postgres, padrão é 54322
+major_version = 15
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+# Porta para o Studio, padrão é 54323
+port = 54323
+# Porta para o Studio, padrão é 54323
+api_url = "http://localhost:54321"
+
+# Email para o usuário admin do banco de dados, padrão é "supabase_admin@supabase.com"
+[inbucket]
+enabled = true
+# Porta para o Inbucket, padrão é 54324
+port = 54324
+# Porta para o Inbucket, padrão é 54324
+smtp_port = 54325
+# Porta para o Inbucket, padrão é 54324
+pop3_port = 54326
+
+[storage]
+enabled = true
+
+[auth]
+enabled = true
+# Porta para o Auth, padrão é 54328
+site_url = "http://localhost:3000"
+# Porta para o Auth, padrão é 54328
+additional_redirect_urls = ["https://localhost:3000"]
+# Porta para o Auth, padrão é 54328
+jwt_expiry = 3600
+# Porta para o Auth, padrão é 54328
+enable_signup = true
+
+[analytics]
+enabled = false
