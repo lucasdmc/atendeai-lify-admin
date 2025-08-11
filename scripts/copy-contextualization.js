@@ -25,7 +25,7 @@ targetDirs.forEach(targetDir => {
 
 // Copiar arquivos de contextualização
 const contextualizationFiles = [
-  'contextualizacao-cardioprime.json',
+  'cardioprime-blumenau.json',
   'contextualizacao-esadi.json'
 ];
 

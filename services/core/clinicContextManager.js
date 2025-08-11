@@ -34,46 +34,83 @@ export default class ClinicContextManager {
    */
   static async loadAllJsonContexts() {
     try {
-      // ✅ ÚNICA FONTE: Arquivos da pasta data (JSONs da tela de clínicas)
-      const dataDir = path.join(__dirname, '../../data');
-      const files = fs.readdirSync(dataDir);
+      console.log('🏥 [ClinicContextManager] Inicializando...');
+      console.log('📄 [ClinicContextManager] SISTEMA CONFIGURADO PARA USAR APENAS JSON DA TELA DE CLÍNICAS');
       
-      for (const file of files) {
-        if (file.startsWith('contextualizacao-') && file.endsWith('.json')) {
-          const clinicKey = file.replace('contextualizacao-', '').replace('.json', '');
-          const filePath = path.join(dataDir, file);
-          const content = fs.readFileSync(filePath, 'utf8');
-          const context = JSON.parse(content);
-          
-          // ✅ MAPEAMENTO DIRETO: Chave do arquivo
-          this.jsonContexts.set(clinicKey, context);
-          console.log(`📄 [ClinicContextManager] JSON da tela de clínicas carregado: ${clinicKey}`);
-        }
-      }
+      // ✅ FONTE ÚNICA: JSON inserido na tela de clínicas (banco de dados)
+      // ❌ NÃO USAR: Arquivos estáticos
+      // ❌ NÃO USAR: Diretórios de configuração
       
-      console.log(`✅ [ClinicContextManager] Total de JSONs carregados: ${this.jsonContexts.size}`);
+      console.log('📄 [ClinicContextManager] JSONs serão carregados dinamicamente do banco de dados');
+      console.log('📄 [ClinicContextManager] quando necessário através de getClinicContext()');
+      
+      // ✅ INICIALIZAÇÃO COMPLETA: Sistema pronto para carregar JSONs dinamicamente
+      console.log('✅ [ClinicContextManager] Sistema inicializado para JSON dinâmico da tela de clínicas');
       
     } catch (error) {
-      console.error('❌ [ClinicContextManager] Erro ao carregar JSONs da tela de clínicas:', error);
+      console.error('❌ [ClinicContextManager] Erro na inicialização:', error);
     }
   }
 
   /**
    * Obtém contexto de uma clínica específica
    */
-  static getClinicContext(clinicKey) {
+  static async getClinicContext(clinicKey) {
     try {
-      // ✅ BUSCAR APENAS NO CACHE DE JSONs
-      const jsonContext = this.jsonContexts.get(clinicKey);
+      console.log(`🔍 [ClinicContextManager] Buscando contexto para: ${clinicKey}`);
       
-      if (jsonContext) {
-        console.log(`✅ [ClinicContextManager] Contexto encontrado para: ${clinicKey}`);
-        return this.extractClinicDataFromJson(jsonContext, clinicKey);
+      // ✅ FONTE ÚNICA: Buscar JSON do banco de dados (tela de clínicas)
+      const { createClient } = await import('@supabase/supabase-js');
+      
+      const supabase = createClient(
+        process.env.VITE_SUPABASE_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co',
+        process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDE4MjU1OSwiZXhwIjoyMDY1NzU4NTU5fQ.SY8A3ReAs_D7SFBp99PpSe8rpm1hbWMv4b2q-c_VS5M'
+      );
+      
+      // ✅ BUSCAR CLÍNICA NO BANCO DE DADOS
+      // 🔧 CORREÇÃO: Buscar por nome exato ou por chave similar
+      let { data: clinic, error } = await supabase
+        .from('clinics')
+        .select('*')
+        .eq('name', clinicKey)
+        .single();
+      
+      // 🔧 CORREÇÃO: Se não encontrar, tentar buscar por nome similar
+      if (error && error.code === 'PGRST116') {
+        console.log(`🔍 [ClinicContextManager] Tentando busca por nome similar para: ${clinicKey}`);
+        
+        const { data: clinics, error: searchError } = await supabase
+          .from('clinics')
+          .select('*')
+          .ilike('name', `%${clinicKey}%`);
+        
+        if (!searchError && clinics && clinics.length > 0) {
+          clinic = clinics[0]; // Usar a primeira clínica encontrada
+          error = null;
+          console.log(`✅ [ClinicContextManager] Clínica encontrada por busca similar: ${clinic.name}`);
+        }
       }
       
-      // ✅ FALLBACK: Contexto padrão se não encontrar JSON
-      console.log(`⚠️ [ClinicContextManager] JSON não encontrado para: ${clinicKey}, usando contexto padrão`);
-      return this.getDefaultContext(clinicKey);
+      if (error) {
+        console.error(`❌ [ClinicContextManager] Erro ao buscar clínica ${clinicKey}:`, error);
+        return this.getDefaultContext(clinicKey);
+      }
+      
+      if (!clinic) {
+        console.log(`⚠️ [ClinicContextManager] Clínica ${clinicKey} não encontrada no banco`);
+        return this.getDefaultContext(clinicKey);
+      }
+      
+      // ✅ VERIFICAR SE TEM JSON DE CONTEXTUALIZAÇÃO
+      if (!clinic.contextualization_json || Object.keys(clinic.contextualization_json).length === 0) {
+        console.log(`⚠️ [ClinicContextManager] Clínica ${clinicKey} não tem JSON de contextualização`);
+        return this.getDefaultContext(clinicKey);
+      }
+      
+      console.log(`✅ [ClinicContextManager] JSON encontrado para ${clinicKey} no banco de dados`);
+      
+      // ✅ EXTRAIR DADOS DO JSON DO BANCO
+      return this.extractClinicDataFromJson(clinic.contextualization_json, clinicKey);
       
     } catch (error) {
       console.error(`❌ [ClinicContextManager] Erro ao obter contexto para ${clinicKey}:`, error);
@@ -87,7 +124,12 @@ export default class ClinicContextManager {
   static extractClinicDataFromJson(jsonContext, clinicKey) {
     try {
       const clinica = jsonContext.clinica || {};
-      const agente = jsonContext.agente || {};
+      const agente = jsonContext.agente_ia || {}; // 🔧 CORREÇÃO: agente_ia em vez de agente
+      
+      console.log(`🔍 [ClinicContextManager] Extraindo dados para ${clinicKey}:`);
+      console.log(`   - Tem clinica: ${!!clinica}`);
+      console.log(`   - Tem agente_ia: ${!!agente}`);
+      console.log(`   - Tem configuracao: ${!!agente.configuracao}`);
       
       return {
         // ✅ IDENTIFICAÇÃO
@@ -105,13 +147,13 @@ export default class ClinicContextManager {
         
         // ✅ ENDEREÇO DO JSON
         address: {
-          rua: clinica.endereco?.rua || '',
-          numero: clinica.endereco?.numero || '',
-          complemento: clinica.endereco?.complemento || '',
-          bairro: clinica.endereco?.bairro || '',
-          cidade: clinica.endereco?.cidade || '',
-          estado: clinica.endereco?.estado || '',
-          cep: clinica.endereco?.cep || ''
+          rua: clinica.localizacao?.endereco_principal?.logradouro || '',
+          numero: clinica.localizacao?.endereco_principal?.numero || '',
+          complemento: clinica.localizacao?.endereco_principal?.complemento || '',
+          bairro: clinica.localizacao?.endereco_principal?.bairro || '',
+          cidade: clinica.localizacao?.endereco_principal?.cidade || '',
+          estado: clinica.localizacao?.endereco_principal?.estado || '',
+          cep: clinica.localizacao?.endereco_principal?.cep || ''
         },
         
         // ✅ CONTATOS DO JSON

@@ -1,4 +1,4 @@
-import contextualizacaoCardioprime from '../data/contextualizacao-cardioprime.json';
+import cardioprimeBlumenau from '../config/cardioprime-blumenau.json';
 import contextualizacaoEsadi from '../data/contextualizacao-esadi.json';
 
 export interface ClinicContext {
@@ -16,7 +16,7 @@ export interface ClinicContext {
 
 export class ContextualizacaoService {
   private static clinicData = {
-    'cardioprime': contextualizacaoCardioprime,
+    'cardioprime': cardioprimeBlumenau,
     'esadi': contextualizacaoEsadi
   };
 
@@ -51,11 +51,11 @@ export class ContextualizacaoService {
         id: 'cardioprime',
         name: 'CardioPrime',
         specialty: 'Cardiologia',
-        doctors: contextualizacaoCardioprime.profissionais || [],
-        schedule: contextualizacaoCardioprime.clinica.horario_funcionamento,
-        services: contextualizacaoCardioprime.clinica.informacoes_basicas.especialidades_secundarias || [],
-        location: contextualizacaoCardioprime.clinica.localizacao,
-        contact: contextualizacaoCardioprime.clinica.contatos,
+              doctors: cardioprimeBlumenau.profissionais || [],
+      schedule: cardioprimeBlumenau.clinica.horario_funcionamento,
+      services: cardioprimeBlumenau.clinica.informacoes_basicas.especialidades_secundarias || [],
+      location: cardioprimeBlumenau.clinica.localizacao,
+      contact: cardioprimeBlumenau.clinica.contatos,
         policies: {
           cancellation: 'Cancelamentos devem ser feitos com 24h de antecedência',
           lateness: 'Tolerância de 15 minutos de atraso',

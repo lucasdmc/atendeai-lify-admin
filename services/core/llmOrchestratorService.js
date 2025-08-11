@@ -67,7 +67,7 @@ export default class LLMOrchestratorService {
       // ✅ BUSCAR CONTEXTO APENAS DO JSON (sem banco de dados)
       // 🔧 CORREÇÃO: Identificar clínica baseada no número do WhatsApp
       const clinicKey = ClinicContextManager.getClinicByWhatsApp(phoneNumber);
-      const clinicContext = await this.getClinicContext(clinicKey);
+      const clinicContext = await ClinicContextManager.getClinicContext(clinicKey);
       
       // Detectar intenção avançada com histórico e contexto
       const conversationHistory = memory.history || [];
@@ -94,7 +94,7 @@ export default class LLMOrchestratorService {
       
       // VERIFICAR SE É INTENÇÃO DE AGENDAMENTO
       if (this.isAppointmentIntent(intent)) {
-        console.log('📅 Intenção de agendamento detectada');
+        console.log('📅 Intenção de agendamento detectada para:', message);
         
         // 🔧 CORREÇÃO: Validar horário de funcionamento ANTES de processar agendamento
         if (!isWithinBusinessHours) {
@@ -122,6 +122,7 @@ export default class LLMOrchestratorService {
             await this.initializeAppointmentFlow();
           }
           
+          console.log('🔄 Chamando AppointmentFlowManager.handleAppointmentIntent...');
           const appointmentResult = await this.appointmentFlowManager.handleAppointmentIntent(
             phoneNumber,
             message,
@@ -129,6 +130,8 @@ export default class LLMOrchestratorService {
             clinicContext,
             memory
           );
+          
+          console.log('📋 Resultado do AppointmentFlowManager:', appointmentResult);
           
           if (appointmentResult && appointmentResult.success) {
             console.log('✅ Agendamento processado com sucesso pelo AppointmentFlowManager');
@@ -207,20 +210,7 @@ export default class LLMOrchestratorService {
     }
   }
 
-  // ✅ FUNÇÃO SIMPLIFICADA PARA OBTER CONTEXTO
-  static async getClinicContext(clinicKey = 'cardioprime') {
-    try {
-      console.log(`🏥 [LLMOrchestrator] Buscando contextualização para: ${clinicKey}`);
-      
-      // ✅ USAR APENAS JSON - ClinicContextManager simplificado
-      return ClinicContextManager.getClinicContext(clinicKey);
-      
-    } catch (error) {
-      console.error('❌ [LLMOrchestrator] Erro ao obter contexto:', error);
-      // Fallback para contexto padrão
-      return ClinicContextManager.getDefaultContext(clinicKey);
-    }
-  }
+  // ✅ FUNÇÃO REMOVIDA: Agora usa ClinicContextManager diretamente
 
   // ✅ FUNÇÕES AUXILIARES
   static extractUserName(message) {
@@ -327,28 +317,34 @@ export default class LLMOrchestratorService {
 
   static async detectIntent(message, conversationHistory = [], clinicContext = {}) {
     try {
-      console.log('🔍 Detectando intenção...');
+      console.log('🔍 Detectando intenção para:', message);
       
       // ✅ DETECÇÃO SIMPLIFICADA COM PALAVRAS-CHAVE
       const lowerMessage = message.toLowerCase();
       
       // Agendamento
       if (this.containsAppointmentKeywords(lowerMessage)) {
+        console.log('✅ Intenção de AGENDAMENTO detectada');
         return { name: 'APPOINTMENT', confidence: 0.9 };
       }
       
       // Informações
       if (this.containsInfoKeywords(lowerMessage)) {
+        console.log('✅ Intenção de INFORMAÇÃO detectada');
         return { name: 'INFORMATION', confidence: 0.8 };
       }
       
       // Saudação
       if (this.containsGreetingKeywords(lowerMessage)) {
+        console.log('✅ Intenção de SAUDAÇÃO detectada');
         return { name: 'GREETING', confidence: 0.9 };
       }
       
+      console.log('⚠️ Nenhuma intenção específica detectada, usando fallback');
       // ✅ FALLBACK INTELIGENTE
-      return this.fallbackIntentRecognition(message);
+      const fallbackIntent = this.fallbackIntentRecognition(message);
+      console.log('🔄 Fallback retornou:', fallbackIntent);
+      return fallbackIntent;
       
     } catch (error) {
       console.error('❌ Erro na detecção de intenção:', error);
@@ -381,7 +377,7 @@ export default class LLMOrchestratorService {
   }
 
   static containsAppointmentKeywords(message) {
-    const keywords = ['agendar', 'consulta', 'marcar', 'horário', 'disponível', 'agendamento'];
+    const keywords = ['agendar', 'consulta', 'marcar', 'agendamento'];
     return keywords.some(keyword => message.includes(keyword));
   }
 
@@ -396,11 +392,24 @@ export default class LLMOrchestratorService {
   }
 
   static isAppointmentIntent(intent) {
-    return intent && (
+    // 🔧 CORREÇÃO: Verificar se intent existe e tem propriedades válidas
+    if (!intent || !intent.name) {
+      console.log('🔍 Intent inválido ou sem nome:', intent);
+      return false;
+    }
+    
+    const result = (
       intent.name === 'APPOINTMENT' || 
       intent.name === 'SCHEDULE_INFO' ||
-      intent.name.includes('APPOINTMENT')
+      (typeof intent.name === 'string' && intent.name.includes('APPOINTMENT'))
     );
+    
+    console.log('🔍 Verificando se é intenção de agendamento:', {
+      intent: intent.name,
+      isAppointment: result
+    });
+    
+    return result;
   }
 
   static mapIntentToCategory(intentName) {

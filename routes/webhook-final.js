@@ -535,7 +535,7 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
     // que gerencia todo o fluxo de agendamento de forma integrada
     console.log('📅 [Webhook-Final] Verificando se há fluxo de agendamento ativo...');
 
-    // 1. Primeiro, detectar intenção usando LLMOrchestrator dos serviços core
+    // 🔧 CORREÇÃO: Usar LLMOrchestratorService UMA VEZ APENAS
     const { LLMOrchestratorService } = await import('../services/core/index.js');
     
     const request = {
@@ -545,23 +545,23 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
       userId: phoneNumber
     };
 
-    console.log('[Webhook-Final] Chamando LLMOrchestratorService para detecção de intenção...');
+    console.log('[Webhook-Final] Chamando LLMOrchestratorService para processar mensagem...');
     const llmResponse = await LLMOrchestratorService.processMessage(request);
 
-    console.log('✅ [Webhook-Final] Intenção detectada:', {
+    console.log('✅ [Webhook-Final] Resposta processada:', {
       intent: llmResponse.intent?.name,
-      confidence: llmResponse.intent?.confidence
+      confidence: llmResponse.intent?.confidence,
+      hasResponse: !!llmResponse.response
     });
 
-    // 2. Verificar se é intenção de agendamento
-    if (llmResponse.intent?.name?.startsWith('APPOINTMENT_')) {
-      console.log('📅 [Webhook-Final] Intenção de agendamento detectada, iniciando fluxo de agendamento...');
-      
-      try {
-        console.log('[Webhook-Final] Clínica encontrada para agendamento:', clinicId);
-
-        // Usar LLMOrchestratorService para processar agendamento
-        const appointmentResult = await LLMOrchestratorService.processMessage(request);
+    // 🔧 CORREÇÃO: Retornar diretamente a resposta do LLMOrchestratorService
+    return {
+      success: true,
+      response: llmResponse.response,
+      intent: llmResponse.intent,
+      confidence: llmResponse.intent?.confidence || 0.8,
+      toolsUsed: llmResponse.toolsUsed || ['llm_orchestrator']
+    };
 
         console.log('✅ [Webhook-Final] Resposta do agendamento gerada:', {
           response: appointmentResult.message,
