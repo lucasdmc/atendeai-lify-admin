@@ -93,10 +93,33 @@ export default class LLMOrchestratorService {
         throw new Error('Nenhuma clínica com contextualização encontrada');
       }
       
-      // 🔧 CORREÇÃO: Para simplificar, vamos usar a primeira clínica ativa
-      // Em produção, isso deveria ser baseado no número de WhatsApp que está recebendo
-      const clinicKey = activeClinics[0].name;
-      console.log(`✅ [LLMOrchestrator] Usando clínica: ${clinicKey} (ID: ${activeClinics[0].id})`);
+      // 🔧 CORREÇÃO: Identificar clínica baseada no número do WhatsApp
+      // O webhook deve passar o número da clínica que está recebendo a mensagem
+      // Por enquanto, vamos buscar a clínica mais apropriada baseada no contexto
+      let clinicKey;
+      
+      // Se temos apenas uma clínica, usar ela
+      if (activeClinics.length === 1) {
+        clinicKey = activeClinics[0].name;
+        console.log(`✅ [LLMOrchestrator] Usando única clínica disponível: ${clinicKey}`);
+      } else {
+        // Se temos múltiplas clínicas, tentar identificar a mais apropriada
+        // Por padrão, usar a CardioPrime se disponível
+        const cardioprime = activeClinics.find(clinic => 
+          clinic.name.toLowerCase().includes('cardioprime')
+        );
+        
+        if (cardioprime) {
+          clinicKey = cardioprime.name;
+          console.log(`✅ [LLMOrchestrator] Usando CardioPrime: ${clinicKey}`);
+        } else {
+          // Se não encontrar CardioPrime, usar a primeira clínica
+          clinicKey = activeClinics[0].name;
+          console.log(`⚠️ [LLMOrchestrator] CardioPrime não encontrada, usando: ${clinicKey}`);
+        }
+      }
+      
+      console.log(`✅ [LLMOrchestrator] Clínica selecionada: ${clinicKey}`);
       
       let clinicContext;
       try {
