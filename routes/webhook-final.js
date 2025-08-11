@@ -531,52 +531,9 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
     // Usar o número do WhatsApp da clínica para contextualização
     const clinicWhatsAppNumber = clinicData.whatsapp_phone;
 
-    // IMPORTAR AppointmentConversationService primeiro para verificar se está em agendamento
-    const { AppointmentConversationService } = await import('../services/appointmentConversationService.js');
-    
-    // Verificar se já existe uma conversa de agendamento ativa
-    const existingAppointmentState = AppointmentConversationService.getConversationState(phoneNumber);
-    
-    if (existingAppointmentState && existingAppointmentState.step !== 'initial') {
-      console.log('📅 [Webhook-Final] Conversa de agendamento ativa detectada, continuando fluxo...');
-      
-      try {
-        const appointmentResult = await AppointmentConversationService.processMessage(
-          messageText,
-          phoneNumber,
-          clinicId
-        );
-
-        console.log('✅ [Webhook-Final] Resposta do agendamento (fluxo ativo):', {
-          response: appointmentResult.message,
-          step: appointmentResult.nextStep,
-          requiresInput: appointmentResult.requiresInput
-        });
-
-        return {
-          success: true,
-          response: appointmentResult.message,
-          intent: { name: 'APPOINTMENT_ACTIVE', confidence: 0.9 },
-          confidence: 0.9,
-          appointmentStep: appointmentResult.nextStep,
-          requiresAction: appointmentResult.requiresInput
-        };
-
-      } catch (appointmentError) {
-        console.error('💥 [Webhook-Final] Erro no processamento de agendamento ativo:', appointmentError);
-        
-        // Limpar estado corrompido e recomeçar
-        AppointmentConversationService.clearConversation(phoneNumber);
-        
-        return {
-          success: true,
-          response: 'Desculpe, ocorreu um erro no agendamento. Vamos começar novamente.\n\n' +
-                   'Digite "quero agendar uma consulta" para iniciar.',
-          intent: { name: 'ERROR', confidence: 0.8 },
-          confidence: 0.8
-        };
-      }
-    }
+    // NOTA: AppointmentConversationService foi substituído pelo LLMOrchestratorService
+    // que gerencia todo o fluxo de agendamento de forma integrada
+    console.log('📅 [Webhook-Final] Verificando se há fluxo de agendamento ativo...');
 
     // 1. Primeiro, detectar intenção usando LLMOrchestrator dos serviços core
     const { LLMOrchestratorService } = await import('../services/core/index.js');
@@ -603,11 +560,8 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
       try {
         console.log('[Webhook-Final] Clínica encontrada para agendamento:', clinicId);
 
-        const appointmentResult = await AppointmentConversationService.processMessage(
-          messageText,
-          phoneNumber,
-          clinicId
-        );
+        // Usar LLMOrchestratorService para processar agendamento
+        const appointmentResult = await LLMOrchestratorService.processMessage(request);
 
         console.log('✅ [Webhook-Final] Resposta do agendamento gerada:', {
           response: appointmentResult.message,
