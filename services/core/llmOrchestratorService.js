@@ -562,8 +562,40 @@ INFORMAÇÕES COMPLETAS DA CLÍNICA:
 - Website: ${clinicContext.contacts?.website || 'Não informado'}
 - Descrição: ${clinicContext.basicInfo?.descricao || 'Não informado'}
 - Especialidade: ${clinicContext.basicInfo?.especialidade || 'Não informado'}
-- Serviços: ${clinicContext.services && clinicContext.services.length > 0 ? clinicContext.services.map(s => s.nome).join(', ') : 'Não informado'}
-- Profissionais: ${clinicContext.professionals && clinicContext.professionals.length > 0 ? clinicContext.professionals.map(p => `${p.nome_exibicao || p.nome_completo} (${p.especialidades?.join(', ') || 'Especialidade não informada'})`).join('\n  * ') : 'Não informado'}
+
+SERVIÇOS DISPONÍVEIS (INFORMAÇÕES COMPLETAS):
+${clinicContext.servicesDetails ? 
+  Object.entries(clinicContext.servicesDetails).map(([category, items]) => {
+    if (items && Array.isArray(items) && items.length > 0) {
+      return `${category.charAt(0).toUpperCase() + category.slice(1)}:\n${items.map(item => `  * ${item.nome || item.nome_servico}${item.duracao ? ` (${item.duracao})` : ''}${item.tipo ? ` - ${item.tipo}` : ''}${item.descricao ? `: ${item.descricao}` : ''}`).join('\n')}`;
+    }
+    return '';
+  }).filter(Boolean).join('\n\n') : 
+  (clinicContext.services && clinicContext.services.length > 0 ? 
+    clinicContext.services.map(s => `* ${s.nome || s.nome_servico}`).join('\n') : 
+    'Não informado'
+  )
+}
+
+PROFISSIONAIS DA CLÍNICA (INFORMAÇÕES COMPLETAS):
+${clinicContext.professionalsDetails && clinicContext.professionalsDetails.length > 0 ? 
+  clinicContext.professionalsDetails.map(prof => 
+    `* ${prof.nome_completo || prof.nome_exibicao || prof.nome}${prof.especialidade ? ` - ${prof.especialidade}` : ''}${prof.cre ? ` (CRE: ${prof.cre})` : ''}${prof.descricao ? `: ${prof.descricao}` : ''}`
+  ).join('\n') : 
+  (clinicContext.professionals && clinicContext.professionals.length > 0 ? 
+    clinicContext.professionals.map(p => `* ${p.nome_exibicao || p.nome_completo || p.nome}`).join('\n') : 
+    'Não informado'
+  )
+}
+
+INFORMAÇÕES ADICIONAIS:
+${clinicContext.additionalInfo ? Object.entries(clinicContext.additionalInfo).map(([key, value]) => `- ${key}: ${value}`).join('\n') : 'Não disponível'}
+
+CONVÊNIOS ACEITOS:
+${clinicContext.insurance && clinicContext.insurance.length > 0 ? clinicContext.insurance.map(conv => `* ${conv.nome || conv}`).join('\n') : 'Não informado'}
+
+FORMAS DE PAGAMENTO:
+${clinicContext.paymentMethods ? Object.entries(clinicContext.paymentMethods).map(([method, details]) => `* ${method}: ${details}`).join('\n') : 'Não informado'}
 
 HORÁRIOS DE FUNCIONAMENTO:
 ${Object.entries(clinicContext.workingHours || {}).map(([day, hours]) => {
