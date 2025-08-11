@@ -63,8 +63,29 @@ export default class GoogleCalendarService {
         }
       }
 
-      // Criar nova autenticação
+      // ✅ USAR SERVICE ACCOUNT (credenciais já configuradas)
+      if (this.credentials.type === 'service_account') {
+        console.log('🔐 Usando autenticação via Service Account...');
+        
+        const auth = new google.auth.GoogleAuth({
+          keyFile: './config/google-credentials.json',
+          scopes: ['https://www.googleapis.com/auth/calendar', 'https://www.googleapis.com/auth/calendar.events']
+        });
+        
+        this.auth = await auth.getClient();
+        this.calendar = google.calendar({ version: 'v3', auth: this.auth });
+        this.tokens.set(clinicId, this.auth);
+        
+        console.log('✅ Autenticação via Service Account realizada com sucesso');
+        return true;
+      }
+
+      // Fallback para OAuth2 (se necessário)
       const { client_secret, client_id, redirect_uris } = this.credentials.web || this.credentials.installed;
+      if (!client_secret || !client_id) {
+        throw new Error('Credenciais OAuth2 não configuradas corretamente');
+      }
+      
       const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
 
       // Tentar carregar token salvo
@@ -79,15 +100,15 @@ export default class GoogleCalendarService {
           this.auth = oAuth2Client;
           this.calendar = google.calendar({ version: 'v3', auth: this.auth });
           this.tokens.set(clinicId, oAuth2Client);
-          console.log('✅ Token carregado com sucesso para', clinicId);
+          console.log('✅ Token OAuth2 carregado com sucesso para', clinicId);
           return true;
         }
       } catch (tokenError) {
-        console.log('⚠️ Token não encontrado ou inválido, será necessário reautenticar');
+        console.log('⚠️ Token OAuth2 não encontrado ou inválido');
       }
 
-      // Se chegou aqui, precisa de nova autenticação
-      throw new Error(`Token inválido para clínica ${clinicId}. Execute o processo de autenticação.`);
+      // Se chegou aqui, precisa de nova autenticação OAuth2
+      throw new Error(`Token OAuth2 inválido para clínica ${clinicId}. Execute o processo de autenticação.`);
       
     } catch (error) {
       console.error(`❌ Erro na autenticação para clínica ${clinicId}:`, error);
@@ -169,6 +190,12 @@ export default class GoogleCalendarService {
     try {
       console.log(`📅 Buscando horários disponíveis para ${clinicId}...`);
       
+      // ✅ MODO DE TESTE: Se as credenciais são de desenvolvimento, usar slots simulados
+      if (this.credentials.private_key === '-----BEGIN PRIVATE KEY-----\nDEVELOPMENT_MODE\n-----END PRIVATE KEY-----\n') {
+        console.log('🧪 MODO DE TESTE: Usando slots simulados (credenciais de desenvolvimento)');
+        return this.generateTestSlots(clinicContext, serviceConfig);
+      }
+      
       // Garantir autenticação
       await this.authenticateForClinic(clinicId, clinicContext);
       
@@ -201,8 +228,10 @@ export default class GoogleCalendarService {
         appointmentRules
       );
       
-      console.log(`✅ Encontrados ${availableSlots.length} horários disponíveis`);
-      return availableSlots;
+      // Limitar a 4 slots conforme solicitado
+      const limitedSlots = availableSlots.slice(0, 4);
+      console.log(`✅ Encontrados ${limitedSlots.length} horários disponíveis (limitado a 4)`);
+      return limitedSlots;
       
     } catch (error) {
       console.error('❌ Erro ao buscar horários disponíveis:', error);
@@ -792,6 +821,57 @@ export default class GoogleCalendarService {
       console.error('❌ Erro ao obter calendários:', error);
       throw error;
     }
+  }
+
+  /**
+   * Gera slots de teste para modo de desenvolvimento
+   * @param {Object} clinicContext - Contexto da clínica
+   * @param {Object} serviceConfig - Configuração do serviço
+   */
+  generateTestSlots(clinicContext, serviceConfig) {
+    console.log('🧪 Gerando slots de teste para modo de desenvolvimento...');
+    
+    const slots = [];
+    const now = new Date();
+    const serviceDuration = serviceConfig.duration || 30;
+    
+    // Gerar próximos 4 dias úteis com horários reais
+    for (let i = 1; i <= 7; i++) {
+      const date = new Date(now);
+      date.setDate(now.getDate() + i);
+      
+      // Pular fins de semana
+      if (date.getDay() === 0 || date.getDay() === 6) continue;
+      
+      // Gerar horários baseados no horário de funcionamento da clínica
+      const workingHours = clinicContext.horario_funcionamento || {};
+      const dayName = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'][date.getDay()];
+      const dayConfig = workingHours[dayName];
+      
+      if (dayConfig && dayConfig.abertura && dayConfig.fechamento) {
+        const startHour = parseInt(dayConfig.abertura.split(':')[0]);
+        const endHour = parseInt(dayConfig.fechamento.split(':')[0]);
+        
+        // Gerar 1 horário por dia (total de 4)
+        if (slots.length < 4) {
+          const slotTime = new Date(date);
+          slotTime.setHours(startHour + 2, 0, 0, 0); // 2 horas após abertura
+          
+          slots.push({
+            datetime: slotTime,
+            displayDate: this.formatDateForDisplay(slotTime),
+            displayTime: this.formatTimeForDisplay(slotTime),
+            available: true,
+            duration: serviceDuration
+          });
+        }
+      }
+      
+      if (slots.length >= 4) break;
+    }
+    
+    console.log(`🧪 Slots de teste gerados: ${slots.length}`);
+    return slots;
   }
 
   /**

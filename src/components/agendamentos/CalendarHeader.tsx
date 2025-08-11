@@ -29,6 +29,7 @@ interface CalendarHeaderProps {
   isConnected: boolean
   onToggleSidebar: () => void
   sidebarOpen: boolean
+  clinicName?: string // Nome da clínica selecionada
 }
 
 const CalendarHeader = ({
@@ -43,7 +44,8 @@ const CalendarHeader = ({
   calendarsCount,
   isConnected,
   onToggleSidebar,
-  sidebarOpen
+  sidebarOpen,
+  clinicName
 }: CalendarHeaderProps) => {
   const [showNewEventModal, setShowNewEventModal] = useState(false)
 
@@ -83,9 +85,16 @@ const CalendarHeader = ({
             <div className="p-2 bg-blue-50 rounded-lg">
               <Calendar className="h-5 w-5 text-blue-600" />
             </div>
-            <h1 className="text-xl font-semibold text-gray-900">
-              Calendário
-            </h1>
+            <div>
+              <h1 className="text-xl font-semibold text-gray-900">
+                Calendário
+              </h1>
+              {clinicName && (
+                <p className="text-sm text-gray-600">
+                  {clinicName}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Status indicators */}

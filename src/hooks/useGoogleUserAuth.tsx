@@ -1,14 +1,17 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { useClinic } from '@/contexts/ClinicContext'
 import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
 import { GoogleAuthState } from '@/types/calendar'
 import { googleAuthManager } from '@/services/google/auth'
 import { useGoogleAuthRedirect } from '@/hooks/useGoogleAuthRedirect'
 import { googleTokenManager } from '@/services/google/tokens'
+import { CalendarMigrationService } from '@/services/calendarMigrationService'
 
 export const useGoogleUserAuth = () => {
   const { user } = useAuth()
+  const { selectedClinicId } = useClinic()
   const { toast } = useToast()
   
   const [state, setState] = useState<GoogleAuthState>({
@@ -28,12 +31,41 @@ export const useGoogleUserAuth = () => {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }))
       
+      // Verificar se há migração necessária
+      if (selectedClinicId) {
+        try {
+          const { needsMigration, unmigratedCount } = await CalendarMigrationService.checkMigrationNeeded(user.id)
+          
+          if (needsMigration) {
+            console.log(`🔄 ${unmigratedCount} calendários precisam ser migrados para a clínica ${selectedClinicId}`)
+            
+            // Executar migração automática
+            const migrationResult = await CalendarMigrationService.autoMigrateCalendars(user.id, selectedClinicId)
+            
+            if (migrationResult) {
+              console.log('✅ Migração automática concluída:', migrationResult)
+            }
+          }
+        } catch (error) {
+          console.error('❌ Erro ao verificar migração:', error)
+          // Continuar mesmo com erro na migração
+        }
+      }
+      
       // Buscar calendários do usuário na tabela user_calendars
-      const { data: userCalendars, error: calendarsError } = await supabase
+      // Filtrar por clínica se uma estiver selecionada
+      let query = supabase
         .from('user_calendars')
         .select('*')
         .eq('user_id', user.id)
         .eq('is_active', true)
+      
+      // Se uma clínica está selecionada, filtrar por ela
+      if (selectedClinicId) {
+        query = query.eq('clinic_id', selectedClinicId)
+      }
+      
+      const { data: userCalendars, error: calendarsError } = await query
 
       if (calendarsError) {
         console.error('Erro ao buscar calendários:', calendarsError)
@@ -51,10 +83,27 @@ export const useGoogleUserAuth = () => {
       const tokens = await googleTokenManager.getStoredTokens()
       const hasValidTokens = tokens && new Date(tokens.expires_at) > new Date()
       
+      // Se houve migração, recarregar calendários para incluir os migrados
+      let finalUserCalendars = userCalendars
+      if (selectedClinicId && userCalendars && userCalendars.length === 0) {
+        // Tentar buscar novamente após migração
+        const { data: migratedCalendars } = await supabase
+          .from('user_calendars')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('clinic_id', selectedClinicId)
+          .eq('is_active', true)
+        
+        if (migratedCalendars && migratedCalendars.length > 0) {
+          finalUserCalendars = migratedCalendars
+          console.log('✅ Calendários migrados encontrados:', migratedCalendars.length)
+        }
+      }
+      
       setState(prev => ({
         ...prev,
-        isAuthenticated: Boolean(userCalendars && userCalendars.length > 0 && hasValidTokens),
-        userCalendars: (userCalendars || []).map(cal => ({
+        isAuthenticated: Boolean(finalUserCalendars && finalUserCalendars.length > 0 && hasValidTokens),
+        userCalendars: (finalUserCalendars || []).map(cal => ({
           ...cal,
           is_primary: cal.is_primary ?? false,
           is_active: cal.is_active ?? true,
@@ -143,6 +192,7 @@ export const useGoogleUserAuth = () => {
         calendar_color: cal.backgroundColor || '#4285f4',
         is_primary: cal.primary || index === 0, // Primeiro calendário como principal
         is_active: true,
+        clinic_id: selectedClinicId, // Associar à clínica selecionada
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token || null,
         expires_at: tokens.expires_at,

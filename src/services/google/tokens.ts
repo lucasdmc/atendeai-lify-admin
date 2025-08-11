@@ -8,7 +8,18 @@ export interface CalendarToken {
   scope?: string;
 }
 
+export interface TokenValidationResult {
+  isValid: boolean;
+  needsRefresh: boolean;
+  accessToken: string | null;
+  error?: string;
+}
+
 export class GoogleTokenManager {
+  private tokenRefreshPromise: Promise<CalendarToken | null> | null = null;
+  private lastValidationTime: number = 0;
+  private readonly VALIDATION_CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+
   async exchangeCodeForTokens(code: string): Promise<CalendarToken> {
     console.log('=== TOKEN EXCHANGE PROCESS ===');
     console.log('Exchanging authorization code for tokens via Supabase Edge Function...');
@@ -46,6 +57,9 @@ export class GoogleTokenManager {
         expires_at: data.expires_at,
         scope: data.scope,
       };
+      
+      // Salvar tokens imediatamente após a troca
+      await this.saveTokens(tokens);
       
       console.log('=== END TOKEN EXCHANGE ===');
       return tokens;
@@ -98,6 +112,24 @@ export class GoogleTokenManager {
     }
 
     console.log('Tokens saved successfully via Supabase');
+    
+    // Resetar cache de validação
+    this.lastValidationTime = 0;
+    
+    // Iniciar serviço de background para renovação automática
+    this.startBackgroundService();
+  }
+
+  private async startBackgroundService() {
+    try {
+      // Importar dinamicamente para evitar dependência circular
+      const { backgroundTokenService } = await import('./backgroundTokenService');
+      if (!backgroundTokenService.isActive()) {
+        await backgroundTokenService.start();
+      }
+    } catch (error) {
+      console.warn('Could not start background token service:', error);
+    }
   }
 
   async getStoredTokens(): Promise<CalendarToken | null> {
@@ -128,6 +160,10 @@ export class GoogleTokenManager {
       }
 
       console.log('Stored tokens found successfully');
+      
+      // Iniciar serviço de background se tokens existirem
+      this.startBackgroundService();
+      
       return {
         access_token: data.access_token,
         refresh_token: data.refresh_token || '',
@@ -141,6 +177,28 @@ export class GoogleTokenManager {
   }
 
   async refreshTokens(refreshToken: string): Promise<CalendarToken> {
+    // Evitar múltiplas requisições simultâneas de refresh
+    if (this.tokenRefreshPromise) {
+      console.log('Token refresh already in progress, waiting...');
+      const result = await this.tokenRefreshPromise;
+      if (result) {
+        return result;
+      }
+      // Se retornou null, continuar com nova tentativa
+    }
+
+    this.tokenRefreshPromise = this._performTokenRefresh(refreshToken);
+    const result = await this.tokenRefreshPromise;
+    this.tokenRefreshPromise = null;
+    
+    if (!result) {
+      throw new Error('Failed to refresh tokens');
+    }
+    
+    return result;
+  }
+
+  private async _performTokenRefresh(refreshToken: string): Promise<CalendarToken | null> {
     console.log('Refreshing access token via Google API...');
     
     const { data: { user } } = await supabase.auth.getUser();
@@ -148,68 +206,221 @@ export class GoogleTokenManager {
       throw new Error('User not authenticated');
     }
 
-    // Renovar tokens diretamente via Google API
-    const response = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        client_id: config.google.clientId,
-        client_secret: '', // Client secret não deve estar no frontend
-        refresh_token: refreshToken,
-        grant_type: 'refresh_token',
-      }),
-    });
+    try {
+      // Renovar tokens diretamente via Google API
+      const response = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          client_id: config.google.clientId,
+          client_secret: '', // Client secret não deve estar no frontend
+          refresh_token: refreshToken,
+          grant_type: 'refresh_token',
+        }),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (!response.ok) {
-      console.error('Token refresh failed:', data);
-      throw new Error(data.error || 'Failed to refresh tokens');
+      if (!response.ok) {
+        console.error('Token refresh failed:', data);
+        
+        // Se o refresh token for inválido, limpar tokens do banco
+        if (data.error === 'invalid_grant') {
+          console.log('Refresh token invalid, clearing stored tokens');
+          await this.deleteConnection();
+        }
+        
+        throw new Error(data.error || 'Failed to refresh tokens');
+      }
+
+      console.log('Token refresh successful');
+      
+      // Calcular nova data de expiração
+      const expiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString();
+      
+      const newTokens = {
+        access_token: data.access_token,
+        refresh_token: data.refresh_token || refreshToken, // Manter o refresh token original se não for fornecido
+        expires_at: expiresAt,
+        scope: data.scope,
+      };
+
+      // Salvar tokens atualizados
+      await this.saveTokens(newTokens);
+      
+      return newTokens;
+    } catch (error) {
+      console.error('Error in token refresh:', error);
+      return null;
+    }
+  }
+
+  async validateAndGetToken(): Promise<TokenValidationResult> {
+    const now = Date.now();
+    
+    // Usar cache de validação para evitar verificações excessivas
+    if (now - this.lastValidationTime < this.VALIDATION_CACHE_DURATION) {
+      console.log('Using cached token validation result');
+      // Retornar resultado em cache se disponível
+      return this.getCachedValidationResult();
     }
 
-    console.log('Token refresh successful');
+    console.log('Performing fresh token validation...');
     
-    // Calcular nova data de expiração
-    const expiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString();
-    
+    try {
+      const tokens = await this.getStoredTokens();
+      if (!tokens) {
+        this.lastValidationTime = now;
+        return {
+          isValid: false,
+          needsRefresh: false,
+          accessToken: null,
+          error: 'No tokens found'
+        };
+      }
+
+      const expiresAt = new Date(tokens.expires_at);
+      const nowDate = new Date();
+      
+      // Buffer de 10 minutos para renovação proativa
+      const refreshBuffer = new Date(expiresAt.getTime() - 10 * 60 * 1000);
+      
+      if (nowDate >= expiresAt) {
+        // Token expirado
+        if (tokens.refresh_token) {
+          console.log('Token expired, attempting refresh...');
+          try {
+            const refreshedTokens = await this.refreshTokens(tokens.refresh_token);
+            this.lastValidationTime = now;
+            return {
+              isValid: true,
+              needsRefresh: false,
+              accessToken: refreshedTokens.access_token
+            };
+          } catch (refreshError) {
+            console.error('Failed to refresh expired token:', refreshError);
+            this.lastValidationTime = now;
+            return {
+              isValid: false,
+              needsRefresh: false,
+              accessToken: null,
+              error: 'Token expired and refresh failed'
+            };
+          }
+        } else {
+          this.lastValidationTime = now;
+          return {
+            isValid: false,
+            needsRefresh: false,
+            accessToken: null,
+            error: 'Token expired and no refresh token available'
+          };
+        }
+      } else if (nowDate >= refreshBuffer) {
+        // Token expirando em breve, renovar proativamente
+        console.log('Token expiring soon, refreshing proactively...');
+        if (tokens.refresh_token) {
+          try {
+            const refreshedTokens = await this.refreshTokens(tokens.refresh_token);
+            this.lastValidationTime = now;
+            return {
+              isValid: true,
+              needsRefresh: false,
+              accessToken: refreshedTokens.access_token
+            };
+          } catch (refreshError) {
+            console.error('Proactive refresh failed, but token still valid:', refreshError);
+            this.lastValidationTime = now;
+            return {
+              isValid: true,
+              needsRefresh: false,
+              accessToken: tokens.access_token
+            };
+          }
+        } else {
+          this.lastValidationTime = now;
+          return {
+            isValid: true,
+            needsRefresh: false,
+            accessToken: tokens.access_token
+          };
+        }
+      } else {
+        // Token válido
+        this.lastValidationTime = now;
+        return {
+          isValid: true,
+          needsRefresh: false,
+          accessToken: tokens.access_token
+        };
+      }
+    } catch (error) {
+      console.error('Error in token validation:', error);
+      this.lastValidationTime = now;
+      return {
+        isValid: false,
+        needsRefresh: false,
+        accessToken: null,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  private getCachedValidationResult(): TokenValidationResult {
+    // Implementar lógica de cache se necessário
+    // Por enquanto, sempre fazer validação fresca
     return {
-      access_token: data.access_token,
-      refresh_token: data.refresh_token || refreshToken, // Manter o refresh token original se não for fornecido
-      expires_at: expiresAt,
-      scope: data.scope,
+      isValid: false,
+      needsRefresh: false,
+      accessToken: null,
+      error: 'Cache not implemented'
     };
   }
 
   async getValidAccessToken(): Promise<string | null> {
-    console.log('Getting valid access token...');
-    const tokens = await this.getStoredTokens();
-    if (!tokens) {
-      console.log('No stored tokens available');
-      return null;
-    }
+    const validation = await this.validateAndGetToken();
+    return validation.accessToken;
+  }
 
-    const now = new Date();
-    const expiresAt = new Date(tokens.expires_at);
-    
-    // Adiciona margem de 5 minutos para evitar expiração durante o uso
-    const expirationBuffer = new Date(expiresAt.getTime() - 5 * 60 * 1000);
+  async isSessionValid(): Promise<boolean> {
+    const validation = await this.validateAndGetToken();
+    return validation.isValid;
+  }
 
-    if (now >= expirationBuffer && tokens.refresh_token) {
-      console.log('Token expired or expiring soon, refreshing...');
-      try {
-        const refreshedTokens = await this.refreshTokens(tokens.refresh_token);
-        return refreshedTokens.access_token;
-      } catch (error) {
-        console.error('Failed to refresh token:', error);
-        // Se falhar ao renovar, retorna null para forçar nova autenticação
-        return null;
+  async getSessionStatus(): Promise<{
+    isConnected: boolean;
+    isValid: boolean;
+    expiresAt?: string;
+    needsReauth: boolean;
+  }> {
+    try {
+      const tokens = await this.getStoredTokens();
+      if (!tokens) {
+        return {
+          isConnected: false,
+          isValid: false,
+          needsReauth: false
+        };
       }
-    }
 
-    console.log('Using existing valid token');
-    return tokens.access_token;
+      const validation = await this.validateAndGetToken();
+      
+      return {
+        isConnected: true,
+        isValid: validation.isValid,
+        expiresAt: tokens.expires_at,
+        needsReauth: !validation.isValid && !tokens.refresh_token
+      };
+    } catch (error) {
+      console.error('Error getting session status:', error);
+      return {
+        isConnected: false,
+        isValid: false,
+        needsReauth: false
+      };
+    }
   }
 
   async deleteConnection(): Promise<void> {

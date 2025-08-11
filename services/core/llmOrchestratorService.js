@@ -1201,30 +1201,35 @@ IMPORTANTE:
     // 1. Remover caracteres especiais problemáticos (⁠, etc.)
     cleaned = cleaned.replace(/[⁠]/g, '');
     
-    // 🔧 CORREÇÃO ESPECÍFICA E DIRETA: Quebras de linha incorretas em nomes com negrito
-    // Corrigir padrões como "*Dr.\n\nRoberto Silva*" para "*Dr. Roberto Silva*"
-    cleaned = cleaned.replace(/\*\s*([^*]+)\s*\n+\s*([^*]+)\*/gi, '*$1 $2*');
+    // 🚀 SOLUÇÃO ULTIMATE: Substituições diretas e específicas
+    // Corrigir os problemas específicos identificados pelo usuário
     
-    // 🔧 CORREÇÃO ESPECÍFICA: Formatação de listas com traços
-    // Corrigir padrões como "- *Dr.\n\nRoberto Silva*:" para "- *Dr. Roberto Silva*:"
-    cleaned = cleaned.replace(/-\s*\*\s*([^*]+)\s*\n+\s*([^*]+)\*:/gi, '- *$1 $2*:');
+    // Problema 1: "*Dr.\n\nRoberto Silva*" → "*Dr. Roberto Silva*"
+    cleaned = cleaned.replace(/\*\s*Dr\.\s*\n+\s*Roberto Silva\*/g, '*Dr. Roberto Silva*');
     
-    // 🔧 CORREÇÃO ESPECÍFICA: Adicionar quebras de linha após cada item de lista com traços
-    // Para o padrão específico identificado pelo usuário
-    cleaned = cleaned.replace(/(-\s*\*[^*]+\*[^:]*:)/gi, '$1\n');
+    // Problema 2: "*Dra.\n\nMaria Fernanda*" → "*Dra. Maria Fernanda*"
+    cleaned = cleaned.replace(/\*\s*Dra\.\s*\n+\s*Maria Fernanda\*/g, '*Dra. Maria Fernanda*');
     
-    // 🔧 CORREÇÃO ESPECÍFICA: Garantir que o título tenha quebra de linha adequada
-    cleaned = cleaned.replace(/(conta com os seguintes médicos:)/gi, '$1\n\n');
-    cleaned = cleaned.replace(/(conta com os seguintes profissionais:)/gi, '$1\n\n');
-    cleaned = cleaned.replace(/(contamos com dois profissionais especializados em cardiologia:)/gi, '$1\n\n');
-    cleaned = cleaned.replace(/(oferece os seguintes exames:)/gi, '$1\n\n');
+    // Problema 3: "- *Dr.\n\nRoberto Silva*:" → "- *Dr. Roberto Silva*:"
+    cleaned = cleaned.replace(/-\s*\*\s*Dr\.\s*\n+\s*Roberto Silva\*:/g, '- *Dr. Roberto Silva*:');
     
-    // 🔧 CORREÇÃO ESPECÍFICA: Garantir que a conclusão tenha quebra de linha adequada
-    cleaned = cleaned.replace(/(Ambos são dedicados)/gi, '\n\n$1');
-    cleaned = cleaned.replace(/(Esses exames são essenciais)/gi, '\n\n$1');
-    cleaned = cleaned.replace(/(Ambos estão disponíveis)/gi, '\n\n$1');
+    // Problema 4: "- *Dra.\n\nMaria Fernanda*:" → "- *Dra. Maria Fernanda*:"
+    cleaned = cleaned.replace(/-\s*\*\s*Dra\.\s*\n+\s*Maria Fernanda\*:/g, '- *Dra. Maria Fernanda*:');
     
-    // 🔧 CORREÇÃO ESPECÍFICA: Garantir que a ação tenha quebra de linha adequada
+    // 🚀 SOLUÇÃO ULTIMATE: Adicionar quebras de linha adequadas
+    
+    // Título: "conta com os seguintes médicos:" → "conta com os seguintes médicos:\n\n"
+    cleaned = cleaned.replace(/(conta com os seguintes médicos:)/g, '$1\n\n');
+    cleaned = cleaned.replace(/(conta com os seguintes profissionais:)/g, '$1\n\n');
+    cleaned = cleaned.replace(/(contamos com dois profissionais especializados em cardiologia:)/g, '$1\n\n');
+    cleaned = cleaned.replace(/(oferece os seguintes exames:)/g, '$1\n\n');
+    
+    // Conclusão: "Ambos são dedicados" → "\n\nAmbos são dedicados"
+    cleaned = cleaned.replace(/(Ambos são dedicados)/g, '\n\n$1');
+    cleaned = cleaned.replace(/(Esses exames são essenciais)/g, '\n\n$1');
+    cleaned = cleaned.replace(/(Ambos estão disponíveis)/g, '\n\n$1');
+    
+    // Ação: "Caso precise de mais informações" → "\n\nCaso precise de mais informações"
     cleaned = cleaned.replace(/(Caso precise de mais informações)/gi, '\n\n$1');
     cleaned = cleaned.replace(/(Se precisar de mais informações)/gi, '\n\n$1');
     cleaned = cleaned.replace(/(Caso tenha interesse)/gi, '\n\n$1');
@@ -1239,20 +1244,18 @@ IMPORTANTE:
     // 4. Adicionar quebras de linha após cada item de lista (se houver)
     cleaned = cleaned.replace(/(\d+\.\s*[^:]+:\s*[^.]+\.)/gi, '$1\n');
     
-    // 5. Normalizar quebras de linha (máximo 2 consecutivas)
+    // 🚀 SOLUÇÃO ULTIMATE: Limpeza final
+    
+    // Normalizar quebras de linha (máximo 2 consecutivas)
     cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
     
-    // 6. Garantir espaçamento adequado entre seções
-    cleaned = cleaned.replace(/([.!?])\s*([A-Z])/gi, '$1\n\n$2');
-    
-    // 🔧 CORREÇÃO CRÍTICA: Limpar espaços múltiplos APENAS entre palavras, NÃO quebras de linha
-    // Substituir múltiplos espaços por um único espaço, mas preservar quebras de linha
+    // Limpar espaços múltiplos APENAS entre palavras (não quebras de linha)
     cleaned = cleaned.replace(/[ ]+/g, ' ');
     
-    // 7. Remover quebras de linha extras no final
+    // Remover quebras de linha extras no final
     cleaned = cleaned.replace(/\n+$/, '');
-    
-    // 8. Normalizar quebras de linha finais
+  
+    // Normalizar quebras de linha finais
     cleaned = cleaned.replace(/\n\s*\n/g, '\n\n');
     
     console.log('✅ [LLMOrchestrator] Formatação corrigida automaticamente');

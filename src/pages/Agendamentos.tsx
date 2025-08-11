@@ -6,12 +6,15 @@ import { LoadingPage } from '@/components/ui/loading'
 import GoogleAuthSetup from '@/components/agendamentos/GoogleAuthSetup'
 import { GoogleCalendarSelector } from '@/components/agendamentos/GoogleCalendarSelector'
 import { useAuth } from '@/hooks/useAuth'
+import { useClinic } from '@/contexts/ClinicContext'
 import CalendarMainView from '@/components/agendamentos/CalendarMainView'
 import CalendarSidebar from '@/components/agendamentos/CalendarSidebar'
 import CalendarHeader from '@/components/agendamentos/CalendarHeader'
+import { CalendarMigrationStatus } from '@/components/agendamentos/CalendarMigrationStatus'
 
 const Agendamentos = () => {
   const { user } = useAuth()
+  const { selectedClinicId, selectedClinic } = useClinic()
   const {
     isAuthenticated,
     userCalendars,
@@ -55,7 +58,8 @@ const Agendamentos = () => {
     if (
       userCalendars.length > 0 &&
       selectedCalendars.length === 0 &&
-      isAuthenticated
+      isAuthenticated &&
+      selectedClinicId // Só selecionar se uma clínica estiver selecionada
     ) {
       const activeCalendars = userCalendars
         .filter(cal => cal.is_active)
@@ -65,7 +69,7 @@ const Agendamentos = () => {
         setSelectedCalendars(activeCalendars);
       }
     }
-  }, [userCalendars, isAuthenticated]);
+  }, [userCalendars, isAuthenticated, selectedClinicId]);
 
   // Toggle de calendário
   const handleCalendarToggle = useCallback((calendarId: string) => {
@@ -192,6 +196,27 @@ const Agendamentos = () => {
     )
   }
 
+  // Verificar se uma clínica está selecionada
+  if (!selectedClinicId) {
+    return (
+      <div className="h-screen bg-background flex items-center justify-center">
+        <div className="text-center p-8">
+          <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+            Nenhuma Clínica Selecionada
+          </h2>
+          <p className="text-gray-600 mb-6">
+            Para acessar os agendamentos, selecione uma clínica no seletor acima.
+          </p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-800">
+              💡 <strong>Dica:</strong> Os calendários agora são associados às clínicas específicas para melhor organização.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen bg-background overflow-hidden">
       {/* Header */}
@@ -208,24 +233,28 @@ const Agendamentos = () => {
         isConnected={isAuthenticated}
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         sidebarOpen={sidebarOpen}
+        clinicName={selectedClinic?.name} // Adicionar nome da clínica
       />
 
-      {/* Layout principal */}
-      <div className="flex h-[calc(100vh-64px)]">
-        {/* Sidebar */}
-        <CalendarSidebar
-          isOpen={sidebarOpen}
-          userCalendars={userCalendars}
-          selectedCalendars={selectedCalendars}
-          onCalendarToggle={handleCalendarToggle}
-          onAddCalendar={initiateAuth}
-          onDisconnectCalendars={disconnectCalendars}
-          events={events}
-          isLoading={eventsLoading}
-        />
+              {/* Layout principal */}
+        <div className="flex h-[calc(100vh-64px)]">
+          {/* Sidebar */}
+          <CalendarSidebar
+            isOpen={sidebarOpen}
+            userCalendars={userCalendars}
+            selectedCalendars={selectedCalendars}
+            onCalendarToggle={handleCalendarToggle}
+            onAddCalendar={initiateAuth}
+            onDisconnectCalendars={disconnectCalendars}
+            events={events}
+            isLoading={eventsLoading}
+            clinicName={selectedClinic?.name}
+          />
 
-        {/* Área principal do calendário */}
-        <div className="flex-1 flex flex-col min-w-0">
+          {/* Área principal do calendário */}
+          <div className="flex-1 flex flex-col min-w-0">
+            {/* Status da migração */}
+            <CalendarMigrationStatus />
           {/* Erro de calendários de grupo */}
           {eventsError && selectedCalendars.some(cal => cal.includes('@group.calendar.google.com')) && (
             <div className="p-4 bg-yellow-50 border-b border-yellow-200">

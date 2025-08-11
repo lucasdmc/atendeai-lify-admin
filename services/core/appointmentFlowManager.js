@@ -636,8 +636,8 @@ export default class AppointmentFlowManager {
       
       // Verificar se a clínica tem configuração do Google Calendar
       if (!clinicContext.googleCalendar?.enabled) {
-        console.warn('⚠️ Google Calendar não configurado para esta clínica');
-        return this.generateMockSlots(clinicContext, selectedService); // Fallback temporário
+        console.error('❌ Google Calendar não configurado para esta clínica');
+        throw new Error('Google Calendar não configurado. Configure a integração na tela de clínicas.');
       }
 
       // Buscar slots reais no Google Calendar
@@ -648,13 +648,15 @@ export default class AppointmentFlowManager {
         14 // 14 dias à frente
       );
 
-      return slots;
+      // Limitar a 4 slots conforme solicitado
+      const limitedSlots = slots.slice(0, 4);
+      console.log(`✅ Encontrados ${limitedSlots.length} horários disponíveis (limitado a 4)`);
+      
+      return limitedSlots;
       
     } catch (error) {
       console.error('❌ Erro ao buscar horários no Google Calendar:', error);
-      
-      // Fallback para slots baseados nas regras da clínica
-      return this.generateSlotsFromBusinessHours(clinicContext, selectedService);
+      throw error; // Não usar fallbacks - propagar erro para tratamento adequado
     }
   }
 
@@ -832,14 +834,17 @@ export default class AppointmentFlowManager {
     
     response += `📅 **Horários disponíveis:**\n\n`;
 
+    // Garantir que apenas 4 slots sejam mostrados
+    const slotsToShow = availableSlots.slice(0, 4);
+    
     // Agrupar por data
-    const groupedSlots = this.groupSlotsByDate(availableSlots);
+    const groupedSlots = this.groupSlotsByDate(slotsToShow);
     let optionNumber = 1;
 
     Object.entries(groupedSlots).forEach(([date, dateSlots]) => {
       response += `**${date}:**\n`;
       
-      dateSlots.slice(0, 4).forEach(slot => {
+      dateSlots.forEach(slot => {
         response += `${optionNumber}️⃣ 🕒 ${slot.displayTime}\n`;
         optionNumber++;
       });
@@ -881,8 +886,10 @@ export default class AppointmentFlowManager {
     const numberMatch = cleanMessage.match(/^(\d+)$/);
     if (numberMatch) {
       const index = parseInt(numberMatch[1]) - 1;
-      if (index >= 0 && index < availableSlots.length) {
-        return availableSlots[index];
+      // Garantir que apenas 4 slots sejam considerados
+      const slotsToConsider = availableSlots.slice(0, 4);
+      if (index >= 0 && index < slotsToConsider.length) {
+        return slotsToConsider[index];
       }
     }
 
@@ -990,19 +997,21 @@ export default class AppointmentFlowManager {
 
       let eventResult = null;
       
-      // Tentar criar evento no Google Calendar
+      // Criar evento no Google Calendar (OBRIGATÓRIO)
+      if (!clinicContext.googleCalendar?.enabled) {
+        throw new Error('Google Calendar não configurado. Configure a integração na tela de clínicas.');
+      }
+      
       try {
-        if (clinicContext.googleCalendar?.enabled) {
-          eventResult = await this.googleCalendar.createAppointment(
-            clinicContext.id,
-            appointmentData,
-            clinicContext
-          );
-          console.log('✅ Evento criado no Google Calendar:', eventResult.eventId);
-        }
+        eventResult = await this.googleCalendar.createAppointment(
+          clinicContext.id,
+          appointmentData,
+          clinicContext
+        );
+        console.log('✅ Evento criado no Google Calendar:', eventResult.eventId);
       } catch (calendarError) {
-        console.error('⚠️ Erro ao criar evento no Google Calendar:', calendarError);
-        // Continuar mesmo se o Google Calendar falhar
+        console.error('❌ Erro ao criar evento no Google Calendar:', calendarError);
+        throw new Error(`Falha ao criar evento no Google Calendar: ${calendarError.message}`);
       }
 
       // Limpar estado do fluxo
@@ -1253,42 +1262,7 @@ export default class AppointmentFlowManager {
     }
   }
 
-  /**
-   * Gera slots mock temporários (fallback)
-   */
-  generateMockSlots(clinicContext, selectedService) {
-    console.log('⚠️ Usando slots mock como fallback');
-    
-    const slots = [];
-    const now = new Date();
-    
-    // Gerar próximos 7 dias úteis
-    for (let i = 1; i <= 7; i++) {
-      const date = new Date(now);
-      date.setDate(now.getDate() + i);
-      
-      // Pular fins de semana
-      if (date.getDay() === 0 || date.getDay() === 6) continue;
-      
-      // Gerar 3 horários por dia
-      const times = ['09:00', '14:00', '16:00'];
-      times.forEach(time => {
-        const [hours, minutes] = time.split(':').map(Number);
-        const slotTime = new Date(date);
-        slotTime.setHours(hours, minutes, 0, 0);
-        
-        slots.push({
-          datetime: slotTime,
-          displayDate: this.formatDateForDisplay(slotTime),
-          displayTime: this.formatTimeForDisplay(slotTime),
-          available: true,
-          duration: selectedService.duration || 30
-        });
-      });
-    }
-    
-    return slots.slice(0, 10);
-  }
+
 }
 
 // Export padrão para ES modules

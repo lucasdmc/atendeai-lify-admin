@@ -44,6 +44,9 @@ export default class ClinicContextManager {
       console.log('📄 [ClinicContextManager] JSONs serão carregados dinamicamente do banco de dados');
       console.log('📄 [ClinicContextManager] quando necessário através de getClinicContext()');
       
+      // ✅ SISTEMA MULTICLÍNICAS: Sem arquivos locais hardcoded
+      console.log('📄 [ClinicContextManager] Sistema configurado para JSONs dinâmicos do banco de dados');
+      
       // ✅ INICIALIZAÇÃO COMPLETA: Sistema pronto para carregar JSONs dinamicamente
       console.log('✅ [ClinicContextManager] Sistema inicializado para JSON dinâmico da tela de clínicas');
       
@@ -124,10 +127,10 @@ export default class ClinicContextManager {
         }
       }
       
-      // ❌ SEM FALLBACKS HARDCODED - SE NÃO ENCONTRAR, ERRO
+      // ✅ SISTEMA MULTICLÍNICAS: Sem fallbacks hardcoded
       if (error || !clinic) {
-        console.error(`❌ [ClinicContextManager] Clínica ${clinicKey} não encontrada no banco`);
-        throw new Error(`Clínica ${clinicKey} não encontrada no banco de dados`);
+        console.error(`❌ [ClinicContextManager] Clínica ${clinicKey} não encontrada no banco de dados`);
+        throw new Error(`Clínica ${clinicKey} não encontrada no banco de dados. Configure a clínica na tela de clínicas.`);
       }
       
       // ✅ DEBUG: Mostrar dados da clínica encontrada
@@ -315,6 +318,19 @@ export default class ClinicContextManager {
         structure: jsonContext.estrutura_fisica || {},
         metadata: jsonContext.metadados || {},
         
+        // ✅ CONFIGURAÇÃO GOOGLE CALENDAR (OBRIGATÓRIA)
+        googleCalendar: {
+          enabled: true, // SEMPRE habilitado para clínicas com JSON
+          calendarId: 'primary', // Calendário principal
+          timezone: 'America/Sao_Paulo',
+          appointmentRules: {
+            minimumAdvanceHours: jsonContext.politicas?.agendamento?.antecedencia_minima_horas || 24,
+            maximumAdvanceDays: jsonContext.politicas?.agendamento?.antecedencia_maxima_dias || 90,
+            slotDuration: 30, // minutos padrão
+            maxSlotsPerDay: 4 // máximo 4 slots por dia conforme solicitado
+          }
+        },
+        
         // ✅ METADADOS
         hasJsonContext: true,
         source: 'JSON_FILE',
@@ -396,38 +412,12 @@ export default class ClinicContextManager {
       
       if (clinic) {
         console.log(`✅ [ClinicContextManager] Clínica encontrada para ${phoneNumber}: ${clinic.name} (ID: ${clinic.id})`);
-        // ✅ RETORNAR O NOME EXATO DA CLÍNICA PARA BUSCA NO BANCO
         return clinic.name;
-      }
-      
-      // ✅ SE NÃO ENCONTRAR, TENTAR BUSCA POR NÚMERO SEM FORMATO
-      console.log(`🔍 [ClinicContextManager] Tentando busca alternativa para: ${phoneNumber}`);
-      
-      const alternativeFormats = [
-        phoneNumber,
-        phoneNumber.replace('+', ''),
-        phoneNumber.replace('+55', ''),
-        phoneNumber.replace('55', ''),
-        `+55${phoneNumber.replace('+', '')}`,
-        `55${phoneNumber.replace('+', '')}`
-      ];
-      
-      for (const format of alternativeFormats) {
-        const { data: altClinic, error: altError } = await supabase
-          .from('clinics')
-          .select('name, whatsapp_phone, id')
-          .eq('whatsapp_phone', format)
-          .single();
-        
-        if (!altError && altClinic) {
-          console.log(`✅ [ClinicContextManager] Clínica encontrada com formato alternativo: ${altClinic.name} (ID: ${altClinic.id})`);
-          return altClinic.name;
-        }
-      }
-      
-      // ✅ SE NÃO ENCONTRAR, RETORNAR NULL (SEM FALLBACK HARDCODED)
-      console.log(`⚠️ [ClinicContextManager] Nenhuma clínica encontrada para WhatsApp: ${phoneNumber}`);
+      } else {
+              // ✅ SEM FALLBACKS HARDCODED - Sistema multiclínicas
+      console.log(`⚠️ [ClinicContextManager] Número ${phoneNumber} não mapeado para nenhuma clínica no banco`);
       return null;
+      }
       
     } catch (error) {
       console.error(`❌ [ClinicContextManager] Erro ao mapear WhatsApp ${phoneNumber}:`, error);

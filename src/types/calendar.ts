@@ -8,6 +8,7 @@ export interface UserCalendar {
   calendar_color: string | null
   is_primary: boolean
   is_active: boolean
+  clinic_id: string | null // ID da clínica associada ao calendário
   access_token: string
   refresh_token: string | null
   expires_at: string

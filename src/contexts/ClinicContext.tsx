@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { CalendarMigrationService } from '@/services/calendarMigrationService';
 
 interface Clinic {
   id: string;
@@ -181,12 +182,27 @@ export const ClinicProvider = ({ children }: ClinicProviderProps) => {
     fetchClinicData();
   }, [fetchClinicData]);
 
-  const setSelectedClinicId = useCallback((clinicId: string) => {
+  const setSelectedClinicId = useCallback(async (clinicId: string) => {
     setSelectedClinicIdState(clinicId);
     
     // Salvar a seleção no localStorage para usuários admin_lify e suporte_lify
     if (user && (userRole === 'admin_lify' || userRole === 'suporte_lify')) {
       saveLastSelectedClinic(user.id, clinicId);
+    }
+
+    // Migrar automaticamente calendários se necessário
+    if (user) {
+      try {
+        console.log('🔄 Verificando necessidade de migração de calendários...');
+        const migrationResult = await CalendarMigrationService.autoMigrateCalendars(user.id, clinicId);
+        
+        if (migrationResult) {
+          console.log('✅ Migração automática concluída:', migrationResult);
+        }
+      } catch (error) {
+        console.error('❌ Erro na migração automática:', error);
+        // Não bloquear a seleção da clínica por erro na migração
+      }
     }
   }, [user, userRole, saveLastSelectedClinic]);
 

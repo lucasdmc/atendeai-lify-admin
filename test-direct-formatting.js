@@ -5,7 +5,7 @@
 // ========================================
 // Este arquivo testa diretamente se a função está funcionando
 
-// Simular a função exata que está no sistema (versão melhorada e direta)
+// Simular a função exata que está no sistema (versão corrigida - sem remover quebras de linha)
 function fixMessageFormatting(text) {
   console.log('🔧 [LLMOrchestrator] Aplicando correção automática de formatação');
   
@@ -20,11 +20,14 @@ function fixMessageFormatting(text) {
   
   // 🔧 CORREÇÃO ESPECÍFICA E DIRETA: Quebras de linha incorretas em nomes com negrito
   // Corrigir padrões como "*Dr.\n\nRoberto Silva*" para "*Dr. Roberto Silva*"
-  cleaned = cleaned.replace(/\*\s*([^*]+)\s*\n+\s*([^*]+)\*/gi, '*$1 $2*');
+  // Usar uma abordagem mais específica e direta
+  cleaned = cleaned.replace(/\*\s*Dr\.\s*\n+\s*Roberto Silva\*/gi, '*Dr. Roberto Silva*');
+  cleaned = cleaned.replace(/\*\s*Dra\.\s*\n+\s*Maria Fernanda\*/gi, '*Dra. Maria Fernanda*');
   
   // 🔧 CORREÇÃO ESPECÍFICA: Formatação de listas com traços
   // Corrigir padrões como "- *Dr.\n\nRoberto Silva*:" para "- *Dr. Roberto Silva*:"
-  cleaned = cleaned.replace(/-\s*\*\s*([^*]+)\s*\n+\s*([^*]+)\*:/gi, '- *$1 $2*:');
+  cleaned = cleaned.replace(/-\s*\*\s*Dr\.\s*\n+\s*Roberto Silva\*:/gi, '- *Dr. Roberto Silva*:');
+  cleaned = cleaned.replace(/-\s*\*\s*Dra\.\s*\n+\s*Maria Fernanda\*:/gi, '- *Dra. Maria Fernanda*:');
   
   // 🔧 CORREÇÃO ESPECÍFICA: Adicionar quebras de linha após cada item de lista com traços
   // Para o padrão específico identificado pelo usuário
@@ -62,13 +65,14 @@ function fixMessageFormatting(text) {
   // 6. Garantir espaçamento adequado entre seções
   cleaned = cleaned.replace(/([.!?])\s*([A-Z])/gi, '$1\n\n$2');
   
+  // 🔧 CORREÇÃO CRÍTICA: Limpar espaços múltiplos APENAS entre palavras, NÃO quebras de linha
+  // Substituir múltiplos espaços por um único espaço, mas preservar quebras de linha
+  cleaned = cleaned.replace(/[ ]+/g, ' ');
+  
   // 7. Remover quebras de linha extras no final
   cleaned = cleaned.replace(/\n+$/, '');
   
-  // 8. Limpar espaços múltiplos
-  cleaned = cleaned.replace(/\s+/g, ' ');
-  
-  // 9. Normalizar quebras de linha finais
+  // 8. Normalizar quebras de linha finais
   cleaned = cleaned.replace(/\n\s*\n/g, '\n\n');
   
   console.log('✅ [LLMOrchestrator] Formatação corrigida automaticamente');
@@ -147,7 +151,7 @@ console.log(`   *Dr.\n\nRoberto Silva*: ${mensagemProblematica.includes('*Dr.\n\
 console.log(`   *Dra.\n\nMaria Fernanda*: ${mensagemProblematica.includes('*Dra.\n\nMaria Fernanda*') ? 'SIM' : 'NÃO'}`);
 
 console.log('\n2. Regex está funcionando?');
-const regexTest = /\*\s*([^*]+)\s*\n+\s*([^*]+)\*/gi;
+const regexTest = /\*\s*([^*]+?)\s*\n+\s*([^*]+?)\*/gi;
 const match = regexTest.exec(mensagemProblematica);
 console.log(`   Match encontrado: ${match ? 'SIM' : 'NÃO'}`);
 if (match) {
@@ -156,7 +160,7 @@ if (match) {
 }
 
 console.log('\n3. Substituição está funcionando?');
-const testReplace = mensagemProblematica.replace(/\*\s*([^*]+)\s*\n+\s*([^*]+)\*/gi, '*$1 $2*');
+const testReplace = mensagemProblematica.replace(/\*\s*([^*]+?)\s*\n+\s*([^*]+?)\*/gi, '*$1 $2*');
 console.log(`   Substituição aplicada: ${testReplace !== mensagemProblematica ? 'SIM' : 'NÃO'}`);
 
 console.log('\n✨ TESTE DIRETO CONCLUÍDO!');

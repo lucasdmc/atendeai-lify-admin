@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { useClinic } from '@/contexts/ClinicContext'
 import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
 import { GoogleCalendarEvent } from '@/types/calendar'
 
 export const useMultiCalendar = (selectedCalendars: string[]) => {
   const { user } = useAuth()
+  const { selectedClinicId } = useClinic()
   const { toast } = useToast()
   
   const [state, setState] = useState<{
@@ -43,6 +45,7 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
               action: 'list-events',
               calendarId,
               userId: user.id,
+              clinicId: selectedClinicId, // Incluir ID da clínica
               timeMin: timeMin || new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
               timeMax: timeMax || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
               forceRefresh: true
@@ -167,6 +170,7 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
           action: 'create-event',
           calendarId,
           userId: user.id,
+          clinicId: selectedClinicId, // Incluir ID da clínica
           eventData
         }
       })
@@ -227,6 +231,7 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
           calendarId,
           eventId,
           userId: user.id,
+          clinicId: selectedClinicId, // Incluir ID da clínica
           eventData
         }
       })
@@ -274,7 +279,8 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
           action: 'delete-event',
           calendarId,
           eventId,
-          userId: user.id
+          userId: user.id,
+          clinicId: selectedClinicId // Incluir ID da clínica
         }
       })
 
@@ -319,7 +325,8 @@ export const useMultiCalendar = (selectedCalendars: string[]) => {
         body: { 
           action: 'sync-calendar',
           calendarId,
-          userId: user.id
+          userId: user.id,
+          clinicId: selectedClinicId // Incluir ID da clínica
         }
       })
 

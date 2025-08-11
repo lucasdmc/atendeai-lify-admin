@@ -28,6 +28,7 @@ interface CalendarSidebarProps {
   onDisconnectCalendars: (calendarIds?: string[]) => void
   events: GoogleCalendarEvent[]
   isLoading: boolean
+  clinicName?: string // Nome da clínica selecionada
 }
 
 const CalendarSidebar = ({
@@ -37,7 +38,8 @@ const CalendarSidebar = ({
   onCalendarToggle,
   onAddCalendar,
   onDisconnectCalendars,
-  events
+  events,
+  clinicName
 }: CalendarSidebarProps) => {
   const [showUpcoming, setShowUpcoming] = useState(true)
   const [showCalendars, setShowCalendars] = useState(true)
@@ -61,6 +63,14 @@ const CalendarSidebar = ({
 
   return (
     <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full">
+      {/* Clinic info */}
+      {clinicName && (
+        <div className="p-4 border-b border-gray-200 bg-blue-50">
+          <h2 className="text-sm font-medium text-blue-900">Clínica Ativa</h2>
+          <p className="text-sm text-blue-700">{clinicName}</p>
+        </div>
+      )}
+      
       {/* Upcoming events */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-3">

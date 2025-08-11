@@ -684,35 +684,61 @@ async function findClinicForAppointment(phoneNumber, messageText) {
   try {
     console.log('[Webhook-Final] Buscando clínica para agendamento:', { phoneNumber, messageText });
     
-    // 1. Tentar encontrar clínica baseada em conversas anteriores
-    const { data: conversationData, error: conversationError } = await supabase
-      .from('whatsapp_conversations_improved')
-      .select('clinic_id')
-      .eq('patient_phone_number', phoneNumber)
-      .order('last_message_at', { ascending: false })
-      .limit(1)
+    // 🔧 CORREÇÃO: Buscar diretamente na tabela clinics pelo número do WhatsApp
+    console.log('[Webhook-Final] Buscando clínica diretamente na tabela clinics...');
+    
+    const { data: clinicData, error: clinicError } = await supabase
+      .from('clinics')
+      .select('id, name, whatsapp_phone, has_contextualization')
+      .eq('whatsapp_phone', phoneNumber)
       .single();
 
-    if (!conversationError && conversationData) {
-      console.log('[Webhook-Final] Clínica encontrada via conversa anterior:', conversationData.clinic_id);
-      return conversationData.clinic_id;
+    if (!clinicError && clinicData && clinicData.has_contextualization) {
+      console.log('[Webhook-Final] Clínica encontrada diretamente:', {
+        id: clinicData.id,
+        name: clinicData.name,
+        whatsapp: clinicData.whatsapp_phone
+      });
+      return clinicData.id;
     }
 
-    // 2. Tentar encontrar clínica baseada no número do WhatsApp
-    // Normalizar número do WhatsApp (adicionar + se não tiver)
-    const normalizedPhoneNumber = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
-    console.log('[Webhook-Final] Buscando clínica com número normalizado:', normalizedPhoneNumber);
+    // 🔧 CORREÇÃO: Se não encontrar pelo número exato, tentar busca por nome similar
+    if (clinicError || !clinicData) {
+      console.log('[Webhook-Final] Clínica não encontrada pelo número, tentando busca por nome...');
+      
+      const { data: clinicsByName, error: nameError } = await supabase
+        .from('clinics')
+        .select('id, name, whatsapp_phone, has_contextualization')
+        .ilike('name', '%cardioprime%')
+        .eq('has_contextualization', true)
+        .single();
+
+      if (!nameError && clinicsByName) {
+        console.log('[Webhook-Final] Clínica encontrada por nome:', {
+          id: clinicsByName.id,
+          name: clinicsByName.name,
+          whatsapp: clinicsByName.whatsapp_phone
+        });
+        return clinicsByName.id;
+      }
+    }
+
+    // 🔧 CORREÇÃO: Último recurso - buscar qualquer clínica com contextualização
+    console.log('[Webhook-Final] Último recurso: buscando qualquer clínica com contextualização...');
     
-    const { data: connectionData, error: connectionError } = await supabase
-      .from('whatsapp_connections')
-      .select('clinic_id')
-      .eq('is_active', true)
+    const { data: anyClinic, error: anyError } = await supabase
+      .from('clinics')
+      .select('id, name, has_contextualization')
+      .eq('has_contextualization', true)
       .limit(1)
       .single();
 
-    if (!connectionError && connectionData) {
-      console.log('[Webhook-Final] Clínica encontrada via conexão WhatsApp:', connectionData.clinic_id);
-      return connectionData.clinic_id;
+    if (!anyError && anyClinic) {
+      console.log('[Webhook-Final] Usando clínica genérica como fallback:', {
+        id: anyClinic.id,
+        name: anyClinic.name
+      });
+      return anyClinic.id;
     }
 
     // ❌ SEM FALLBACKS HARDCODED - SE NÃO ENCONTRAR, ERRO

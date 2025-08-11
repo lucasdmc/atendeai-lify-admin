@@ -1,7 +1,7 @@
 
-import { googleAuthManager } from './google/auth';
-import { googleTokenManager } from './google/tokens';
-import { googleCalendarManager } from './google/calendar';
+import { googleAuthManager } from '@/services/google/auth';
+import { googleTokenManager } from '@/services/google/tokens';
+import { googleCalendarManager } from '@/services/google/calendar';
 
 export type { GoogleCalendarEvent, CalendarToken } from './google/types';
 
@@ -28,6 +28,18 @@ class GoogleCalendarService {
 
   async getValidAccessToken() {
     return googleTokenManager.getValidAccessToken();
+  }
+
+  async validateAndGetToken() {
+    return googleTokenManager.validateAndGetToken();
+  }
+
+  async isSessionValid() {
+    return googleTokenManager.isSessionValid();
+  }
+
+  async getSessionStatus() {
+    return googleTokenManager.getSessionStatus();
   }
 
   async fetchCalendarEvents(timeMin?: string, timeMax?: string) {
