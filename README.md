@@ -97,6 +97,34 @@ O frontend pode ser deployado em:
 - Netlify
 - VPS tradicional
 
+## 🔗 Sistema de Contextualização Integrado
+
+### ✨ **Nova Integração: JSON da Tela de Clínicas + Serviços Core**
+O sistema agora integra perfeitamente o **sistema de contextualização JSON da tela de clínicas** com os **serviços core** desenvolvidos com o Manus:
+
+- **🏥 ClinicContextManager**: Gerencia toda contextualização das clínicas
+- **📄 JSONs Personalizados**: Personalidade, horários, políticas específicas
+- **🔗 Dados Unificados**: Banco + JSON em um só lugar
+- **🚀 Cache Inteligente**: Performance otimizada com fallback robusto
+
+### 📁 Arquivos de Contextualização (ÚNICA FONTE)
+```
+data/
+├── contextualizacao-cardioprime.json  # Clínica CardioPrime (da tela de clínicas)
+└── contextualizacao-esadi.json        # Clínica ESADI (da tela de clínicas)
+```
+
+**🎯 IMPORTANTE:** Estes são os únicos arquivos que o sistema usa. NUNCA assume ou cria JSONs manualmente.
+
+### 🧪 Testar Integração
+```bash
+node test-clinic-context-integration.js
+```
+
+**📚 Documentação Completa**: [CLINIC_CONTEXT_INTEGRATION.md](./docs/CLINIC_CONTEXT_INTEGRATION.md)
+
+---
+
 ## 📊 Funcionalidades Principais
 
 ### Sistema de Agendamentos

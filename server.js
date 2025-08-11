@@ -4,9 +4,22 @@ import cors from 'cors';
 
 dotenv.config();
 
+// ✅ INICIALIZAR CLINIC CONTEXT MANAGER
+console.log('🚀 [Server] Inicializando AtendeAI Lify Admin...');
+
 const whatsappRoutes = await import('./routes/whatsapp.js');
 const webhookRoutes = await import('./routes/webhook-final.js');
 const simulationRoutes = await import('./routes/simulation-test.js');
+
+// ✅ INICIALIZAR SERVIÇOS CORE
+console.log('🔧 [Server] Inicializando serviços core...');
+try {
+  const { ClinicContextManager } = await import('./services/core/index.js');
+  await ClinicContextManager.initialize();
+  console.log('✅ [Server] ClinicContextManager inicializado com sucesso');
+} catch (error) {
+  console.error('❌ [Server] Erro ao inicializar ClinicContextManager:', error);
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;
