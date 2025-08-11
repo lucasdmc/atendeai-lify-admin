@@ -1,14 +1,15 @@
 {
   "web": {
-    "client_id": "your_google_client_id_here",
+    "client_id": "367439444210-phr1e6oiu8hnh5vm57lpoud5lhrdda2o.apps.googleusercontent.com",
     "project_id": "atendeai-lify",
     "auth_uri": "https://accounts.google.com/o/oauth2/auth",
     "token_uri": "https://oauth2.googleapis.com/token",
     "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-    "client_secret": "your_google_client_secret_here",
+    "client_secret": "GOCSPX-your_actual_client_secret_here",
     "redirect_uris": [
       "http://localhost:8080/agendamentos",
-      "http://localhost:3001/auth/google/callback"
+      "https://atendeai-lify-admin-production.up.railway.app/agendamentos",
+      "https://atendeai.com.br/agendamentos"
     ]
   }
 }
