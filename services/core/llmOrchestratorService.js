@@ -117,6 +117,11 @@ export default class LLMOrchestratorService {
         console.log('✅ Horário validado, delegando para AppointmentFlowManager');
         
         try {
+          // 🔧 CORREÇÃO: Garantir que AppointmentFlowManager está inicializado
+          if (!this.appointmentFlowManager) {
+            await this.initializeAppointmentFlow();
+          }
+          
           const appointmentResult = await this.appointmentFlowManager.handleAppointmentIntent(
             phoneNumber,
             message,
@@ -125,12 +130,18 @@ export default class LLMOrchestratorService {
             memory
           );
           
-          if (appointmentResult.success) {
-            console.log('✅ Agendamento processado com sucesso');
+          if (appointmentResult && appointmentResult.success) {
+            console.log('✅ Agendamento processado com sucesso pelo AppointmentFlowManager');
             return appointmentResult;
+          } else if (appointmentResult && appointmentResult.response) {
+            console.log('✅ Resposta do AppointmentFlowManager retornada');
+            return appointmentResult;
+          } else {
+            console.log('⚠️ AppointmentFlowManager não retornou resultado válido, continuando com LLM');
           }
         } catch (error) {
           console.error('❌ Erro no AppointmentFlowManager:', error);
+          console.log('⚠️ Continuando com LLM devido ao erro');
         }
       }
       
@@ -180,7 +191,7 @@ export default class LLMOrchestratorService {
       // ✅ FALLBACK INTELIGENTE
       const fallbackResponse = this.generateIntelligentFallbackResponse(
         { name: 'ERROR' }, 
-        clinicContext, 
+        clinicContext || {}, 
         false, 
         true, 
         null, 
@@ -461,6 +472,8 @@ DIRETRIZES FUNDAMENTAIS:
 6. Mantenha respostas concisas e objetivas (máximo 3 parágrafos)
 7. Use o nome do usuário quando disponível para personalizar a conversa
 8. Se o usuário perguntar sobre seu nome, responda com: "${agentName}"
+9. 🔧 IMPORTANTE: NÃO adicione saudações como "Olá" no início das respostas
+10. 🔧 IMPORTANTE: NÃO adicione mensagens finais como "Como posso ajudá-lo hoje" - o sistema fará isso automaticamente
 
 INFORMAÇÕES COMPLETAS DA CLÍNICA:
 - Nome: ${clinicContext.name}
@@ -637,7 +650,7 @@ IMPORTANTE: Sempre mantenha a personalidade e tom de comunicação definidos. Us
     return days[dayNumber];
   }
 
-  // ✅ APLICAÇÃO DE LÓGICA DE RESPOSTA
+  // ✅ APLICAÇÃO DE LÓGICA DE RESPOSTA CORRIGIDA
   static async applyResponseLogic(response, clinicContext, isFirstConversationOfDay, isWithinBusinessHours, userProfile) {
     try {
       // Obter configurações do agente
@@ -659,12 +672,14 @@ IMPORTANTE: Sempre mantenha a personalidade e tom de comunicação definidos. Us
         return outOfHoursMessage;
       }
 
-      // Se é primeira conversa do dia, adicionar saudação inicial
+      let finalResponse = response;
+
+      // 🔧 CORREÇÃO 1: Só adicionar saudação na PRIMEIRA conversa do dia
       if (isFirstConversationOfDay) {
         const initialGreeting = agentConfig.saudacao_inicial || 
           `Olá! Sou o ${agentConfig.nome || 'Assistente Virtual'}, assistente virtual da ${clinicContext.name}. Como posso ajudá-lo hoje?`;
         
-        console.log('👋 Aplicando saudação inicial:', initialGreeting.substring(0, 50) + '...');
+        console.log('👋 Aplicando saudação inicial (primeira conversa do dia)');
         
         // Personalizar saudação com nome do usuário se disponível
         let personalizedGreeting = initialGreeting;
@@ -679,22 +694,26 @@ IMPORTANTE: Sempre mantenha a personalidade e tom de comunicação definidos. Us
                            response.includes('Em que posso ajudar') ||
                            response.includes('Como posso cuidar');
         
-        console.log('🔍 Verificando duplicação de saudação:', hasGreeting ? 'ENCONTRADA' : 'NÃO ENCONTRADA');
-        
         if (hasGreeting) {
           // Remover saudações duplicadas da resposta
           const cleanResponse = this.removeGreetingPatterns(response);
           console.log('🧹 Saudação duplicada removida da resposta');
-          return personalizedGreeting + "\n\n" + cleanResponse;
+          finalResponse = personalizedGreeting + "\n\n" + cleanResponse;
         } else {
           // Não tem saudação, adicionar normalmente
-          return personalizedGreeting + "\n\n" + response;
+          finalResponse = personalizedGreeting + "\n\n" + response;
         }
       }
 
+      // 🔧 CORREÇÃO 2: Adicionar mensagem de despedida personalizada do JSON
+      if (agentConfig.mensagem_despedida) {
+        console.log('👋 Adicionando mensagem de despedida personalizada');
+        finalResponse = finalResponse + "\n\n" + agentConfig.mensagem_despedida;
+      }
+
       // Para todas as respostas, verificar duplicações gerais
-      const cleanedResponse = this.removeDuplicateContent(response);
-      if (cleanedResponse !== response) {
+      const cleanedResponse = this.removeDuplicateContent(finalResponse);
+      if (cleanedResponse !== finalResponse) {
         console.log('🧹 Conteúdo duplicado removido da resposta');
       }
 
