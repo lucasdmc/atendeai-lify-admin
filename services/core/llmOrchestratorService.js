@@ -187,6 +187,33 @@ export default class LLMOrchestratorService {
         }
       }
       
+      // 🔧 CORREÇÃO: Verificar se há fluxo de agendamento ativo para continuar
+      if (this.appointmentFlowManager && this.appointmentFlowManager.hasActiveFlow(phoneNumber)) {
+        console.log('🔄 Fluxo de agendamento ativo detectado, continuando...');
+        
+        try {
+          const flowState = this.appointmentFlowManager.getFlowState(phoneNumber);
+          console.log('📋 Estado atual do fluxo:', flowState.step);
+          
+          // Processar mensagem no contexto do fluxo ativo
+          const appointmentResult = await this.appointmentFlowManager.handleAppointmentIntent(
+            phoneNumber,
+            message,
+            { name: 'APPOINTMENT_CONTINUE', confidence: 0.9 },
+            clinicContext,
+            memory
+          );
+          
+          if (appointmentResult && appointmentResult.response) {
+            console.log('✅ Fluxo de agendamento continuado com sucesso');
+            return appointmentResult;
+          }
+        } catch (error) {
+          console.error('❌ Erro ao continuar fluxo de agendamento:', error);
+          // Continuar com LLM se houver erro
+        }
+      }
+      
       // ✅ PROCESSAMENTO NORMAL COM LLM
       console.log('🤖 Processando com OpenAI...');
       
@@ -1199,6 +1226,7 @@ IMPORTANTE:
     cleaned = cleaned.replace(/(CardioPrime oferece os seguintes exames:)/gi, '$1\n');
     cleaned = cleaned.replace(/(contamos com dois profissionais especializados em cardiologia:)/gi, '$1\n');
     cleaned = cleaned.replace(/(conta com os seguintes profissionais:)/gi, '$1\n');
+    cleaned = cleaned.replace(/(conta com os seguintes médicos:)/gi, '$1\n');
     
     // 6. Garantir que a conclusão tenha quebra de linha adequada
     cleaned = cleaned.replace(/(Esses exames são essenciais)/gi, '\n$1');
@@ -1209,10 +1237,15 @@ IMPORTANTE:
     cleaned = cleaned.replace(/(Caso tenha interesse)/gi, '\n$1');
     cleaned = cleaned.replace(/(Se precisar agendar)/gi, '\n$1');
     cleaned = cleaned.replace(/(Se precisar de mais informações)/gi, '\n$1');
+    cleaned = cleaned.replace(/(Caso precise de mais informações)/gi, '\n$1');
     
     // 🔧 CORREÇÃO FINAL: Garantir que listas com traços tenham formatação adequada
     // Adicionar quebras de linha após cada item de lista com traços
     cleaned = cleaned.replace(/(-\s*\*[^*]+\*[^.]*\.)\s*(-)/gi, '$1\n\n$2');
+    
+    // 🔧 CORREÇÃO ESPECÍFICA: Adicionar quebras de linha após cada item de lista com traços
+    // Para o padrão específico identificado pelo usuário
+    cleaned = cleaned.replace(/(-\s*\*[^*]+\*[^:]*:)/gi, '$1\n');
     
     // 8. Normalizar quebras de linha (máximo 2 consecutivas)
     cleaned = cleaned.replace(/\n{3,}/g, '\n\n');

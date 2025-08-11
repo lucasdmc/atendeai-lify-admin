@@ -42,6 +42,57 @@ export default class AppointmentFlowManager {
   }
 
   /**
+   * Verifica se há um fluxo ativo para o número de telefone
+   * @param {string} phoneNumber - Número do telefone
+   * @returns {boolean} - True se há fluxo ativo
+   */
+  hasActiveFlow(phoneNumber) {
+    const flowState = this.activeFlows.get(phoneNumber);
+    return flowState && flowState.step !== 'completed' && flowState.step !== 'error';
+  }
+
+  /**
+   * Obtém o estado atual do fluxo para o número de telefone
+   * @param {string} phoneNumber - Número do telefone
+   * @returns {Object|null} - Estado do fluxo ou null se não existir
+   */
+  getFlowState(phoneNumber) {
+    return this.activeFlows.get(phoneNumber) || null;
+  }
+
+  /**
+   * Continua um fluxo de agendamento existente baseado no estado atual
+   * @param {string} phoneNumber - Número do telefone
+   * @param {string} message - Mensagem do usuário
+   * @param {Object} clinicContext - Contexto da clínica
+   * @param {Object} memory - Memória da conversa
+   * @param {Object} flowState - Estado do fluxo
+   */
+  async continueExistingFlow(phoneNumber, message, clinicContext, memory, flowState) {
+    try {
+      console.log('🔄 Continuando fluxo existente no passo:', flowState.step);
+      
+      switch (flowState.step) {
+        case 'service_selection':
+          return await this.processServiceSelection(phoneNumber, message, clinicContext, flowState);
+          
+        case 'date_time_selection':
+          return await this.processDateTimeSelection(phoneNumber, message, clinicContext, flowState);
+          
+        case 'confirmation':
+          return await this.processAppointmentConfirmation(phoneNumber, message, clinicContext, flowState, memory);
+          
+        default:
+          console.warn('⚠️ Estado de fluxo desconhecido para continuação:', flowState.step);
+          return await this.resetFlow(phoneNumber, clinicContext, memory);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao continuar fluxo existente:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Processa intenção de agendamento
    * @param {string} phoneNumber - Número do telefone do usuário
    * @param {string} message - Mensagem do usuário
@@ -96,6 +147,14 @@ export default class AppointmentFlowManager {
         case 'APPOINTMENT_CHECK':
           result = await this.handleAppointmentList(
             phoneNumber, message, clinicContext, memory
+          );
+          break;
+          
+        case 'APPOINTMENT_CONTINUE':
+          // 🔧 CORREÇÃO: Continuar fluxo existente baseado no estado atual
+          console.log('🔄 Continuando fluxo de agendamento existente...');
+          result = await this.continueExistingFlow(
+            phoneNumber, message, clinicContext, memory, flowState
           );
           break;
           
