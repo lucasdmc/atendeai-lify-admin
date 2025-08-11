@@ -38,7 +38,7 @@ export class SimulationMessageService {
       }
 
       // 2. Processar com IA (mesmo processo do modo produção)
-      const { LLMOrchestratorService } = await import('./llmOrchestratorService.js');
+      const { LLMOrchestratorService } = await import('../core/llmOrchestratorService.js');
       
       const request = {
         phoneNumber: fromNumber,
