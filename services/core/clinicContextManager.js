@@ -64,7 +64,7 @@ export default class ClinicContextManager {
       
       const supabase = createClient(
         process.env.VITE_SUPABASE_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co',
-        process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2JxbWRpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDE4MjU1OSwiZXhwIjoyMDY1NzU4NTU5fQ.SY8A3ReAs_D7SFBp99PpSe8rpm1hbWMv4b2q-c_VS5M'
+        process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDE4MjU1OSwiZXhwIjoyMDY1NzU4NTU5fQ.SY8A3ReAs_D7SFBp99PpSe8rpm1hbWMv4b2q-c_VS5M'
       );
       
       // ✅ BUSCAR CLÍNICA NO BANCO DE DADOS
@@ -111,13 +111,15 @@ export default class ClinicContextManager {
         console.log(`🔍 [ClinicContextManager] Buscando todas as clínicas para debug...`);
         const { data: allClinics, error: allError } = await supabase
           .from('clinics')
-          .select('name, id, has_contextualization');
+          .select('name, id, has_contextualization, contextualization_json');
         
         if (!allError && allClinics) {
           console.log(`🔍 [ClinicContextManager] Clínicas disponíveis:`, allClinics.map(c => ({
             name: c.name,
             id: c.id,
-            hasContext: c.has_contextualization
+            hasContext: c.has_contextualization,
+            hasJson: !!c.contextualization_json,
+            jsonKeys: c.contextualization_json ? Object.keys(c.contextualization_json) : 'null'
           })));
         }
       }
@@ -127,6 +129,16 @@ export default class ClinicContextManager {
         console.error(`❌ [ClinicContextManager] Clínica ${clinicKey} não encontrada no banco`);
         throw new Error(`Clínica ${clinicKey} não encontrada no banco de dados`);
       }
+      
+      // ✅ DEBUG: Mostrar dados da clínica encontrada
+      console.log(`🔍 [ClinicContextManager] Clínica encontrada:`, {
+        name: clinic.name,
+        id: clinic.id,
+        hasContextualization: clinic.has_contextualization,
+        hasJson: !!clinic.contextualization_json,
+        jsonKeys: clinic.contextualization_json ? Object.keys(clinic.contextualization_json) : 'null',
+        jsonSize: clinic.contextualization_json ? JSON.stringify(clinic.contextualization_json).length : 0
+      });
       
       // ❌ SEM FALLBACKS HARDCODED - SE NÃO TEM JSON, ERRO
       if (!clinic.contextualization_json || Object.keys(clinic.contextualization_json).length === 0) {
@@ -144,7 +156,19 @@ export default class ClinicContextManager {
       console.log(`✅ [ClinicContextManager] Estrutura do JSON:`, Object.keys(clinic.contextualization_json));
       
       // ✅ EXTRAIR DADOS DO JSON DO BANCO (FONTE ÚNICA)
-      return this.extractClinicDataFromJson(clinic.contextualization_json, clinicKey);
+      const extractedData = this.extractClinicDataFromJson(clinic.contextualization_json, clinicKey);
+      
+      console.log(`✅ [ClinicContextManager] Dados extraídos para ${clinicKey}:`, {
+        hasBasicInfo: !!extractedData.basicInfo,
+        hasServices: !!extractedData.services && extractedData.services.length > 0,
+        hasProfessionals: !!extractedData.professionals && extractedData.professionals.length > 0,
+        hasWorkingHours: !!extractedData.workingHours && Object.keys(extractedData.workingHours).length > 0,
+        hasAgentConfig: !!extractedData.agentConfig,
+        servicesCount: extractedData.services?.length || 0,
+        professionalsCount: extractedData.professionals?.length || 0
+      });
+      
+      return extractedData;
       
     } catch (error) {
       console.error(`❌ [ClinicContextManager] Erro ao obter contexto para ${clinicKey}:`, error);
@@ -283,7 +307,7 @@ export default class ClinicContextManager {
       
       const supabase = createClient(
         process.env.VITE_SUPABASE_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co',
-        process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2JxbWRpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDE4MjU1OSwiZXhwIjoyMDY1NzU4NTU5fQ.SY8A3ReAs_D7SFBp99PpSe8rpm1hbWMv4b2q-c_VS5M'
+        process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDE4MjU1OSwiZXhwIjoyMDY1NzU4NTU5fQ.SY8A3ReAs_D7SFBp99PpSe8rpm1hbWMv4b2q-c_VS5M'
       );
       
       // ✅ BUSCAR TODAS AS CLÍNICAS PARA DEBUG

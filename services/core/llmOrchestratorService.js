@@ -72,7 +72,7 @@ export default class LLMOrchestratorService {
       
       const supabase = createClient(
         process.env.VITE_SUPABASE_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co',
-        process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2JxbWRpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDE4MjU1OSwiZXhwIjoyMDY1NzU4NTU5fQ.SY8A3ReAs_D7SFBp99PpSe8rpm1hbWMv4b2q-c_VS5M'
+        process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDE4MjU1OSwiZXhwIjoyMDY1NzU4NTU5fQ.SY8A3ReAs_D7SFBp99PpSe8rpm1hbWMv4b2q-c_VS5M'
       );
       
       // 🔧 CORREÇÃO: Buscar clínica que está recebendo a mensagem
@@ -546,12 +546,13 @@ DIRETRIZES FUNDAMENTAIS:
 4. Se não souber uma informação, diga educadamente que não possui essa informação
 5. ${restrictions.length > 0 ? restrictions.join(', ') : 'NUNCA invente informações ou dê conselhos médicos'}
 6. Mantenha respostas concisas e objetivas (máximo 3 parágrafos)
-7. Use o nome do usuário quando disponível para personalizar a conversa
+7. 🔧 CRÍTICO: Use SEMPRE o nome do usuário quando disponível para personalizar a conversa
 8. Se o usuário perguntar sobre seu nome, responda com: "${agentName}"
-9. 🔧 IMPORTANTE: NÃO adicione saudações como "Olá" no início das respostas
-10. 🔧 IMPORTANTE: NÃO adicione mensagens finais como "Como posso ajudá-lo hoje" - o sistema fará isso automaticamente
-11. 🔧 IMPORTANTE: NÃO adicione mensagens de despedida como "Até breve" - use apenas quando o usuário finalizar conversa
-12. 🔧 IMPORTANTE: Mantenha a conversa fluida e natural, sem padrões repetitivos
+9. 🔧 CRÍTICO: NUNCA adicione saudações como "Olá", "Sou o Cardio" ou "assistente virtual da CardioPrime" no início das respostas
+10. 🔧 CRÍTICO: NUNCA adicione mensagens finais como "Como posso ajudá-lo hoje" - o sistema fará isso automaticamente
+11. 🔧 CRÍTICO: NUNCA adicione mensagens de despedida como "Até breve" - use apenas quando o usuário finalizar conversa
+12. 🔧 CRÍTICO: Mantenha a conversa fluida e natural, sem padrões repetitivos
+13. 🔧 CRÍTICO: Responda diretamente à pergunta do usuário, sem introduções desnecessárias
 
 INFORMAÇÕES COMPLETAS DA CLÍNICA:
 - Nome: ${clinicContext.name}
@@ -583,19 +584,27 @@ COMPORTAMENTO DO AGENTE:
 - Limite de tentativas: ${agentBehavior.limite_tentativas || 3}
 
 MENSAGENS ESPECÍFICAS:
-- Saudação inicial: "${initialGreeting}"
+- Saudação inicial: "${initialGreeting}" (🔧 NÃO USE ESTA SAUDAÇÃO NAS RESPOSTAS - o sistema aplicará automaticamente quando necessário)
 - Mensagem de despedida: "${farewellMessage}" (use APENAS quando usuário finalizar conversa)
 - Mensagem fora do horário: "${outOfHoursMessage}"
 
 EMERGÊNCIAS CARDÍACAS (se configuradas):
 ${cardiacEmergencies.length > 0 ? cardiacEmergencies.map(emergency => `- ${emergency}`).join('\n') : 'Não configuradas'}
 
+EXEMPLOS DE RESPOSTAS CORRETAS:
+❌ INCORRETO: "Olá! Sou o Cardio, assistente virtual da CardioPrime. Como posso ajudá-lo hoje, Lucas?"
+✅ CORRETO: "Olá Lucas! É um prazer atendê-lo. Como posso auxiliar você em relação à sua saúde cardiovascular?"
+
+❌ INCORRETO: "Sou o Cardio, assistente virtual da CardioPrime. Como posso ajudá-lo hoje?"
+✅ CORRETO: "Como posso auxiliar você hoje, Lucas?"
+
 IMPORTANTE: 
 - Sempre mantenha a personalidade e tom de comunicação definidos
-- Use as mensagens específicas quando apropriado
-- NÃO seja repetitivo ou automático
-- Mantenha a conversa natural e contextualizada
-- Responda de forma específica e útil, sem padrões genéricos`;
+- 🔧 SEMPRE use o nome do usuário quando disponível
+- 🔧 NUNCA adicione saudações automáticas
+- 🔧 NUNCA seja repetitivo ou automático
+- 🔧 Mantenha a conversa natural e contextualizada
+- 🔧 Responda diretamente à pergunta, sem introduções desnecessárias`;
 
     return prompt;
   }
@@ -633,7 +642,7 @@ IMPORTANTE:
       
       const { data, error } = await supabase
         .from('conversation_memory')
-        .select('last_interaction')
+        .select('last_interaction, memory_data')
         .eq('phone_number', phoneNumber)
         .single();
       
@@ -657,13 +666,34 @@ IMPORTANTE:
       // 🔧 CORREÇÃO: Lógica estava invertida
       const isFirstOfDay = lastConversationDate !== todayDate;
       
+      // 🔧 CORREÇÃO ADICIONAL: Verificar se há conversas no mesmo dia
+      let hasConversationToday = false;
+      if (data.memory_data && data.memory_data.history) {
+        const todayStart = new Date(todayDate);
+        todayStart.setHours(0, 0, 0, 0);
+        
+        hasConversationToday = data.memory_data.history.some(msg => {
+          const msgDate = new Date(msg.timestamp);
+          return msgDate >= todayStart;
+        });
+      }
+      
+      // Se há conversas hoje, não é primeira conversa do dia
+      const finalResult = isFirstOfDay && !hasConversationToday;
+      
       console.log('📅 [LLMOrchestrator] Verificação de primeira conversa:', {
         lastConversation: lastConversationDate,
         today: todayDate,
-        isFirstOfDay
+        isFirstOfDay,
+        hasConversationToday,
+        finalResult,
+        lastInteractionRaw: data.last_interaction,
+        lastInteractionDate: lastConversation.toISOString(),
+        todayDateRaw: today.toISOString(),
+        historyCount: data.memory_data?.history?.length || 0
       });
       
-      return isFirstOfDay;
+      return finalResult;
       
     } catch (error) {
       console.error('❌ [LLMOrchestrator] Erro ao verificar primeira conversa do dia:', error);
@@ -776,19 +806,53 @@ IMPORTANTE:
       if (isFirstConversationOfDay) {
         console.log('👋 [LLMOrchestrator] PRIMEIRA conversa do dia - verificando se já houve saudação na conversa atual');
         
-        // Verificar se já houve saudação na conversa atual
-        const hasGreetingInConversation = conversationHistory && conversationHistory.some(msg => 
-          msg.bot && (
-            msg.bot.includes('Olá! Sou o') ||
-            msg.bot.includes('assistente virtual') ||
-            msg.bot.includes('Como posso ajudá-lo') ||
-            msg.bot.includes('Em que posso ajudar') ||
-            msg.bot.includes('Como posso cuidar') ||
-            msg.bot.includes('Olá.') ||
-            msg.bot.includes('Sou o Cardio') ||
-            msg.bot.includes('assistente virtual da CardioPrime')
-          )
-        );
+        // 🔧 CORREÇÃO: Verificar múltiplas estruturas de dados para saudação
+        let hasGreetingInConversation = false;
+        
+        if (conversationHistory && Array.isArray(conversationHistory)) {
+          // Estrutura 1: Array com objetos {role, content}
+          hasGreetingInConversation = conversationHistory.some(msg => 
+            msg.role === 'assistant' && msg.content && (
+              msg.content.includes('Olá! Sou o') ||
+              msg.content.includes('assistente virtual') ||
+              msg.content.includes('Como posso ajudá-lo') ||
+              msg.content.includes('Em que posso ajudar') ||
+              msg.content.includes('Como posso cuidar') ||
+              msg.content.includes('Olá.') ||
+              msg.content.includes('Sou o Cardio') ||
+              msg.content.includes('assistente virtual da CardioPrime')
+            )
+          );
+          
+          // Estrutura 2: Array com objetos {bot, user} (estrutura antiga)
+          if (!hasGreetingInConversation) {
+            hasGreetingInConversation = conversationHistory.some(msg => 
+              msg.bot && (
+                msg.bot.includes('Olá! Sou o') ||
+                msg.bot.includes('assistente virtual') ||
+                msg.bot.includes('Como posso ajudá-lo') ||
+                msg.bot.includes('Em que posso ajudar') ||
+                msg.bot.includes('Como posso cuidar') ||
+                msg.bot.includes('Olá.') ||
+                msg.bot.includes('Sou o Cardio') ||
+                msg.bot.includes('assistente virtual da CardioPrime')
+              )
+            );
+          }
+        }
+        
+        console.log('🔍 [LLMOrchestrator] Verificação de saudação na conversa:', {
+          hasConversationHistory: !!conversationHistory,
+          conversationHistoryLength: conversationHistory?.length || 0,
+          hasGreetingInConversation,
+          conversationHistoryType: conversationHistory ? Array.isArray(conversationHistory) ? 'Array' : typeof conversationHistory : 'null',
+          conversationHistory: conversationHistory?.slice(0, 3).map(msg => ({
+            role: msg.role || 'unknown',
+            bot: msg.bot ? 'present' : 'absent',
+            content: msg.content ? msg.content.substring(0, 100) + '...' : 'absent',
+            keys: Object.keys(msg || {})
+          }))
+        });
         
         if (hasGreetingInConversation) {
           console.log('👋 [LLMOrchestrator] Já houve saudação na conversa atual - não adicionar nova');
