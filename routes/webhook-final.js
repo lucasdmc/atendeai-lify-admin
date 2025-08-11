@@ -563,52 +563,6 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
       toolsUsed: llmResponse.toolsUsed || ['llm_orchestrator']
     };
 
-        console.log('✅ [Webhook-Final] Resposta do agendamento gerada:', {
-          response: appointmentResult.message,
-          step: appointmentResult.nextStep,
-          requiresInput: appointmentResult.requiresInput
-        });
-
-        return {
-          success: true,
-          response: appointmentResult.message,
-          intent: llmResponse.intent,
-          confidence: llmResponse.intent?.confidence || 0.8,
-          appointmentStep: appointmentResult.nextStep,
-          requiresAction: appointmentResult.requiresInput
-        };
-
-      } catch (appointmentError) {
-        console.error('💥 [Webhook-Final] Erro no processamento de agendamento:', appointmentError);
-        
-        // Fallback para resposta genérica de agendamento
-        return {
-          success: true,
-          response: 'Entendi que você quer agendar uma consulta! Por favor, me informe:\n\n' +
-                   '📝 Seu nome completo\n' +
-                   '📞 Seu telefone (se diferente deste)\n' +
-                   '🏥 Qual especialidade você precisa\n' +
-                   '📅 Qual data você prefere',
-          intent: llmResponse.intent,
-          confidence: llmResponse.intent?.confidence || 0.8
-        };
-      }
-    }
-
-    // 3. Para outras intenções, usar resposta normal do LLMOrchestrator
-    console.log('✅ [Webhook-Final] Resposta normal gerada:', {
-      response: llmResponse.response,
-      intent: llmResponse.intent?.name,
-      confidence: llmResponse.intent?.confidence
-    });
-
-    return {
-      success: true,
-      response: llmResponse.response,
-      intent: llmResponse.intent,
-      confidence: llmResponse.intent?.confidence || 0.8
-    };
-
   } catch (error) {
     console.error('💥 [Webhook-Final] Erro ao processar mensagem:', error);
     return {
