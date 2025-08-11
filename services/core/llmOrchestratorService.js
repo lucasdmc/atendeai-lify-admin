@@ -1032,7 +1032,7 @@ IMPORTANTE:
         agentName: agentConfig.nome || 'Assistente Virtual'
       });
       
-      // Se está fora do horário, usar mensagem fora do horário
+      // 🔧 CORREÇÃO: Se está FORA do horário, usar mensagem fora do horário
       if (!isWithinBusinessHours) {
         const outOfHoursMessage = agentConfig.mensagem_fora_horario || 
           'No momento estamos fora do horário de atendimento. Retornaremos seu contato no próximo horário comercial.';
@@ -1040,6 +1040,9 @@ IMPORTANTE:
         console.log('🕒 [LLMOrchestrator] Aplicando mensagem fora do horário');
         return outOfHoursMessage;
       }
+      
+      // 🔧 CORREÇÃO: Se está DENTRO do horário, continuar com a lógica normal
+      console.log('✅ [LLMOrchestrator] Dentro do horário - aplicando lógica normal de resposta');
 
       let finalResponse = response;
 
