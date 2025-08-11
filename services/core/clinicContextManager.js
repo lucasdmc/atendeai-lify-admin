@@ -64,7 +64,7 @@ export default class ClinicContextManager {
       
       const supabase = createClient(
         process.env.VITE_SUPABASE_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co',
-        process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDE4MjU1OSwiZXhwIjoyMDY1NzU4NTU5fQ.SY8A3ReAs_D7SFBp99PpSe8rpm1hbWMv4b2q-c_VS5M'
+        process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2JxbWRpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDE4MjU1OSwiZXhwIjoyMDY1NzU4NTU5fQ.SY8A3ReAs_D7SFBp99PpSe8rpm1hbWMv4b2q-c_VS5M'
       );
       
       // ✅ BUSCAR CLÍNICA NO BANCO DE DADOS
@@ -90,6 +90,38 @@ export default class ClinicContextManager {
         }
       }
       
+      // ✅ SE NÃO ENCONTRAR, TENTAR BUSCA POR NOME EXATO (case insensitive)
+      if (error && error.code === 'PGRST116') {
+        console.log(`🔍 [ClinicContextManager] Tentando busca case insensitive para: ${clinicKey}`);
+        
+        const { data: clinics, error: searchError } = await supabase
+          .from('clinics')
+          .select('*')
+          .ilike('name', clinicKey);
+        
+        if (!searchError && clinics && clinics.length > 0) {
+          clinic = clinics[0];
+          error = null;
+          console.log(`✅ [ClinicContextManager] Clínica encontrada por busca case insensitive: ${clinic.name}`);
+        }
+      }
+      
+      // ✅ DEBUG: Mostrar todas as clínicas disponíveis
+      if (error) {
+        console.log(`🔍 [ClinicContextManager] Buscando todas as clínicas para debug...`);
+        const { data: allClinics, error: allError } = await supabase
+          .from('clinics')
+          .select('name, id, has_contextualization');
+        
+        if (!allError && allClinics) {
+          console.log(`🔍 [ClinicContextManager] Clínicas disponíveis:`, allClinics.map(c => ({
+            name: c.name,
+            id: c.id,
+            hasContext: c.has_contextualization
+          })));
+        }
+      }
+      
       // ❌ SEM FALLBACKS HARDCODED - SE NÃO ENCONTRAR, ERRO
       if (error || !clinic) {
         console.error(`❌ [ClinicContextManager] Clínica ${clinicKey} não encontrada no banco`);
@@ -99,10 +131,17 @@ export default class ClinicContextManager {
       // ❌ SEM FALLBACKS HARDCODED - SE NÃO TEM JSON, ERRO
       if (!clinic.contextualization_json || Object.keys(clinic.contextualization_json).length === 0) {
         console.error(`❌ [ClinicContextManager] Clínica ${clinicKey} não tem JSON de contextualização`);
+        console.error(`❌ [ClinicContextManager] Dados da clínica:`, {
+          name: clinic.name,
+          id: clinic.id,
+          hasContextualization: clinic.has_contextualization,
+          contextualizationJson: clinic.contextualization_json
+        });
         throw new Error(`Clínica ${clinicKey} não tem JSON de contextualização configurado`);
       }
       
       console.log(`✅ [ClinicContextManager] JSON encontrado para ${clinicKey} no banco de dados`);
+      console.log(`✅ [ClinicContextManager] Estrutura do JSON:`, Object.keys(clinic.contextualization_json));
       
       // ✅ EXTRAIR DADOS DO JSON DO BANCO (FONTE ÚNICA)
       return this.extractClinicDataFromJson(clinic.contextualization_json, clinicKey);
@@ -237,6 +276,8 @@ export default class ClinicContextManager {
       const normalizedPhone = phoneNumber.replace(/\D/g, '');
       const fullPhone = normalizedPhone.startsWith('55') ? `+${normalizedPhone}` : `+55${normalizedPhone}`;
       
+      console.log(`🔍 [ClinicContextManager] Número normalizado: ${fullPhone}`);
+      
       // ✅ BUSCAR CLÍNICA NO BANCO DE DADOS POR NÚMERO DE WHATSAPP
       const { createClient } = await import('@supabase/supabase-js');
       
@@ -245,9 +286,25 @@ export default class ClinicContextManager {
         process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2JxbWRpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDE4MjU1OSwiZXhwIjoyMDY1NzU4NTU5fQ.SY8A3ReAs_D7SFBp99PpSe8rpm1hbWMv4b2q-c_VS5M'
       );
       
+      // ✅ BUSCAR TODAS AS CLÍNICAS PARA DEBUG
+      const { data: allClinics, error: allClinicsError } = await supabase
+        .from('clinics')
+        .select('name, whatsapp_phone, id');
+      
+      if (allClinicsError) {
+        console.error(`❌ [ClinicContextManager] Erro ao buscar todas as clínicas:`, allClinicsError);
+      } else {
+        console.log(`🔍 [ClinicContextManager] Clínicas disponíveis:`, allClinics.map(c => ({
+          name: c.name,
+          whatsapp: c.whatsapp_phone,
+          id: c.id
+        })));
+      }
+      
+      // ✅ BUSCAR CLÍNICA ESPECÍFICA
       const { data: clinic, error } = await supabase
         .from('clinics')
-        .select('name, whatsapp_phone')
+        .select('name, whatsapp_phone, id')
         .eq('whatsapp_phone', fullPhone)
         .single();
       
@@ -257,8 +314,34 @@ export default class ClinicContextManager {
       }
       
       if (clinic) {
-        console.log(`✅ [ClinicContextManager] Clínica encontrada para ${phoneNumber}: ${clinic.name}`);
-        return clinic.name.toLowerCase().replace(/\s+/g, '-');
+        console.log(`✅ [ClinicContextManager] Clínica encontrada para ${phoneNumber}: ${clinic.name} (ID: ${clinic.id})`);
+        // ✅ RETORNAR O NOME EXATO DA CLÍNICA PARA BUSCA NO BANCO
+        return clinic.name;
+      }
+      
+      // ✅ SE NÃO ENCONTRAR, TENTAR BUSCA POR NÚMERO SEM FORMATO
+      console.log(`🔍 [ClinicContextManager] Tentando busca alternativa para: ${phoneNumber}`);
+      
+      const alternativeFormats = [
+        phoneNumber,
+        phoneNumber.replace('+', ''),
+        phoneNumber.replace('+55', ''),
+        phoneNumber.replace('55', ''),
+        `+55${phoneNumber.replace('+', '')}`,
+        `55${phoneNumber.replace('+', '')}`
+      ];
+      
+      for (const format of alternativeFormats) {
+        const { data: altClinic, error: altError } = await supabase
+          .from('clinics')
+          .select('name, whatsapp_phone, id')
+          .eq('whatsapp_phone', format)
+          .single();
+        
+        if (!altError && altClinic) {
+          console.log(`✅ [ClinicContextManager] Clínica encontrada com formato alternativo: ${altClinic.name} (ID: ${altClinic.id})`);
+          return altClinic.name;
+        }
       }
       
       // ✅ SE NÃO ENCONTRAR, RETORNAR NULL (SEM FALLBACK HARDCODED)

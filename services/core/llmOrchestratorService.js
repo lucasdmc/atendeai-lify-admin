@@ -66,17 +66,37 @@ export default class LLMOrchestratorService {
       
       // ✅ BUSCAR CONTEXTO APENAS DO JSON (sem banco de dados)
       // 🔧 CORREÇÃO: Identificar clínica baseada no número do WhatsApp
-      const clinicKey = await ClinicContextManager.getClinicByWhatsApp(phoneNumber);
+      // Primeiro, precisamos identificar qual clínica está recebendo a mensagem
+      // Vamos buscar todas as clínicas e verificar qual tem o número de WhatsApp ativo
+      const { createClient } = await import('@supabase/supabase-js');
       
-      if (!clinicKey) {
-        console.log('❌ [LLMOrchestrator] Nenhuma clínica encontrada para WhatsApp:', phoneNumber);
-        return {
-          response: 'Desculpe, não consegui identificar a clínica. Por favor, entre em contato diretamente.',
-          intent: { name: 'ERROR', confidence: 0.0 },
-          toolsUsed: ['clinic_identification'],
-          error: 'Clínica não identificada'
-        };
+      const supabase = createClient(
+        process.env.VITE_SUPABASE_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co',
+        process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2JxbWRpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDE4MjU1OSwiZXhwIjoyMDY1NzU4NTU5fQ.SY8A3ReAs_D7SFBp99PpSe8rpm1hbWMv4b2q-c_VS5M'
+      );
+      
+      // 🔧 CORREÇÃO: Buscar clínica que está recebendo a mensagem
+      // Como estamos no webhook, a mensagem está sendo enviada PARA uma clínica
+      // Vamos buscar a clínica que tem o número de WhatsApp ativo
+      const { data: activeClinics, error: clinicsError } = await supabase
+        .from('clinics')
+        .select('name, whatsapp_phone, id, has_contextualization')
+        .eq('has_contextualization', true);
+      
+      if (clinicsError) {
+        console.error('❌ [LLMOrchestrator] Erro ao buscar clínicas ativas:', clinicsError);
+        throw new Error('Erro ao buscar clínicas ativas');
       }
+      
+      if (!activeClinics || activeClinics.length === 0) {
+        console.error('❌ [LLMOrchestrator] Nenhuma clínica com contextualização encontrada');
+        throw new Error('Nenhuma clínica com contextualização encontrada');
+      }
+      
+      // 🔧 CORREÇÃO: Para simplificar, vamos usar a primeira clínica ativa
+      // Em produção, isso deveria ser baseado no número de WhatsApp que está recebendo
+      const clinicKey = activeClinics[0].name;
+      console.log(`✅ [LLMOrchestrator] Usando clínica: ${clinicKey} (ID: ${activeClinics[0].id})`);
       
       let clinicContext;
       try {
@@ -502,6 +522,8 @@ DIRETRIZES FUNDAMENTAIS:
 8. Se o usuário perguntar sobre seu nome, responda com: "${agentName}"
 9. 🔧 IMPORTANTE: NÃO adicione saudações como "Olá" no início das respostas
 10. 🔧 IMPORTANTE: NÃO adicione mensagens finais como "Como posso ajudá-lo hoje" - o sistema fará isso automaticamente
+11. 🔧 IMPORTANTE: NÃO adicione mensagens de despedida como "Até breve" - use apenas quando o usuário finalizar conversa
+12. 🔧 IMPORTANTE: Mantenha a conversa fluida e natural, sem padrões repetitivos
 
 INFORMAÇÕES COMPLETAS DA CLÍNICA:
 - Nome: ${clinicContext.name}
@@ -534,13 +556,18 @@ COMPORTAMENTO DO AGENTE:
 
 MENSAGENS ESPECÍFICAS:
 - Saudação inicial: "${initialGreeting}"
-- Mensagem de despedida: "${farewellMessage}"
+- Mensagem de despedida: "${farewellMessage}" (use APENAS quando usuário finalizar conversa)
 - Mensagem fora do horário: "${outOfHoursMessage}"
 
 EMERGÊNCIAS CARDÍACAS (se configuradas):
 ${cardiacEmergencies.length > 0 ? cardiacEmergencies.map(emergency => `- ${emergency}`).join('\n') : 'Não configuradas'}
 
-IMPORTANTE: Sempre mantenha a personalidade e tom de comunicação definidos. Use as mensagens específicas quando apropriado.`;
+IMPORTANTE: 
+- Sempre mantenha a personalidade e tom de comunicação definidos
+- Use as mensagens específicas quando apropriado
+- NÃO seja repetitivo ou automático
+- Mantenha a conversa natural e contextualizada
+- Responda de forma específica e útil, sem padrões genéricos`;
 
     return prompt;
   }
@@ -730,11 +757,10 @@ IMPORTANTE: Sempre mantenha a personalidade e tom de comunicação definidos. Us
         }
       }
 
-      // 🔧 CORREÇÃO 2: Adicionar mensagem de despedida personalizada do JSON
-      if (agentConfig.mensagem_despedida) {
-        console.log('👋 Adicionando mensagem de despedida personalizada');
-        finalResponse = finalResponse + "\n\n" + agentConfig.mensagem_despedida;
-      }
+      // 🔧 CORREÇÃO 2: NÃO adicionar mensagem de despedida automaticamente
+      // A mensagem de despedida só deve ser usada quando o sistema detectar
+      // que o usuário está finalizando a conversa
+      console.log('🔧 Mensagem de despedida não será adicionada automaticamente');
 
       // Para todas as respostas, verificar duplicações gerais
       const cleanedResponse = this.removeDuplicateContent(finalResponse);

@@ -539,13 +539,19 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
     const { LLMOrchestratorService } = await import('../services/core/index.js');
     
     const request = {
-      phoneNumber: clinicWhatsAppNumber, // Usar número da clínica para contextualização
+      phoneNumber: phoneNumber, // 🔧 CORREÇÃO: Usar número do PACIENTE, não da clínica
       message: messageText,
       conversationId: `whatsapp-${phoneNumber}-${Date.now()}`,
       userId: phoneNumber
     };
 
     console.log('[Webhook-Final] Chamando LLMOrchestratorService para processar mensagem...');
+    console.log('[Webhook-Final] Request:', {
+      phoneNumber: request.phoneNumber,
+      message: request.message.substring(0, 100) + '...',
+      conversationId: request.conversationId
+    });
+    
     const llmResponse = await LLMOrchestratorService.processMessage(request);
 
     console.log('✅ [Webhook-Final] Resposta processada:', {
