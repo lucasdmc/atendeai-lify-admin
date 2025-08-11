@@ -253,120 +253,91 @@ export default class LLMOrchestratorService {
 
   // ✅ FUNÇÕES AUXILIARES
   static extractUserName(message) {
-    console.log(`🔍 [LLMOrchestrator] Extraindo nome da mensagem: "${message}"`);
-    
     // Lógica para extrair nome do usuário
     const namePatterns = [
-      /me chamo ([^,\.!?\n]+)/i,
-      /meu nome é ([^,\.!?\n]+)/i,
-      /sou o ([^,\.!?\n]+)/i,
-      /sou a ([^,\.!?\n]+)/i,
-      /chamo-me ([^,\.!?\n]+)/i,
-      /eu sou ([^,\.!?\n]+)/i
+      /meu nome é (\w+)/i,
+      /sou o (\w+)/i,
+      /sou a (\w+)/i,
+      /chamo-me (\w+)/i,
+      /me chamo (\w+)/i
     ];
     
     for (const pattern of namePatterns) {
       const match = message.match(pattern);
       if (match) {
-        const extractedName = match[1].trim();
-        
-        // Validar se o nome extraído é válido
-        if (extractedName.length > 0 && extractedName.length <= 50 && 
-            !extractedName.toLowerCase().includes('tudo bem') && 
-            !extractedName.toLowerCase().includes('qual') &&
-            !extractedName.toLowerCase().includes('como')) {
-          
-          console.log(`✅ [LLMOrchestrator] Nome extraído: "${extractedName}"`);
-          return extractedName;
-        }
+        return match[1];
       }
     }
     
-    console.log(`❌ [LLMOrchestrator] Nenhum nome válido encontrado na mensagem`);
     return null;
   }
 
   static async saveUserName(phoneNumber, name) {
     try {
-      console.log(`👤 [LLMOrchestrator] Salvando nome para ${phoneNumber}: ${name}`);
-      
-      const now = new Date().toISOString();
-      
-      console.log(`👤 [LLMOrchestrator] Dados para salvar:`, {
-        phoneNumber,
-        name,
-        userProfile: { name: name },
-        lastInteraction: now,
-        updatedAt: now
-      });
-      
       const { error } = await supabase
         .from('conversation_memory')
         .upsert({
           phone_number: phoneNumber,
-          user_profile: { name: name },
-          last_interaction: now,
-          updated_at: now
+          user_name: JSON.stringify({
+            name: name,
+            extracted_at: new Date().toISOString()
+          }),
+          last_interaction: new Date().toISOString()
         }, { onConflict: 'phone_number' });
       
       if (error) throw error;
-      console.log(`✅ [LLMOrchestrator] Nome salvo para ${phoneNumber}: ${name}`);
+      console.log(`✅ Nome salvo para ${phoneNumber}: ${name}`);
     } catch (error) {
-      console.error('❌ [LLMOrchestrator] Erro ao salvar nome:', error);
+      console.error('❌ Erro ao salvar nome:', error);
     }
   }
 
   static async loadConversationMemory(phoneNumber) {
     try {
-      console.log(`🔍 [LLMOrchestrator] Carregando memória para: ${phoneNumber}`);
-      
       const { data, error } = await supabase
         .from('conversation_memory')
-        .select('*')
+        .select('memory_data, user_name')
         .eq('phone_number', phoneNumber)
         .single();
       
       if (error && error.code !== 'PGRST116') throw error;
       
       if (data) {
-        console.log(`✅ [LLMOrchestrator] Memória encontrada para ${phoneNumber}:`, {
-          hasUserProfile: !!data.user_profile,
-          userProfileData: data.user_profile,
-          hasHistory: !!data.conversation_history,
-          historyLength: data.conversation_history?.length || 0,
-          lastInteraction: data.last_interaction,
-          updatedAt: data.updated_at,
-          rawData: data
-        });
-        
-        // Extrair nome do usuário do user_profile
         let userProfile = {};
-        if (data.user_profile && typeof data.user_profile === 'object') {
-          userProfile = data.user_profile;
-        } else if (data.user_profile && typeof data.user_profile === 'string') {
+        
+        // Extrair nome do usuário do user_name (JSON string)
+        if (data.user_name) {
           try {
-            userProfile = JSON.parse(data.user_profile);
-          } catch (e) {
-            console.warn(`⚠️ [LLMOrchestrator] Erro ao fazer parse do user_profile:`, e);
-            userProfile = {};
+            if (typeof data.user_name === 'string') {
+              if (data.user_name.startsWith('{') && data.user_name.endsWith('}')) {
+                const parsedUserName = JSON.parse(data.user_name);
+                userProfile.name = parsedUserName.name;
+              } else {
+                userProfile.name = data.user_name;
+              }
+            } else if (data.user_name.name) {
+              userProfile.name = data.user_name.name;
+            }
+          } catch (error) {
+            console.error('Error parsing user_name:', error);
+            userProfile.name = data.user_name;
           }
         }
         
         return {
           userProfile: userProfile,
-          history: data.conversation_history || [],
-          lastUpdated: data.updated_at || data.last_interaction
+          history: data.memory_data?.history || [],
+          lastUpdated: data.last_interaction
         };
       }
       
-      console.log(`📝 [LLMOrchestrator] Nova memória criada para ${phoneNumber}`);
       return {
         userProfile: {},
         history: [],
         lastUpdated: null
       };
     } catch (error) {
-      console.error('❌ [LLMOrchestrator] Erro ao carregar memória:', error);
+      console.error('❌ Erro ao carregar memória:', error);
       return {
         userProfile: {},
         history: [],
@@ -377,8 +348,6 @@ export default class LLMOrchestratorService {
 
   static async saveConversationMemory(phoneNumber, userMessage, botResponse, intent) {
     try {
-      console.log(`💾 [LLMOrchestrator] Salvando memória para ${phoneNumber}`);
-      
       const memory = await this.loadConversationMemory(phoneNumber);
       
       const newHistory = [
@@ -394,34 +363,27 @@ export default class LLMOrchestratorService {
       // Manter apenas as últimas 10 mensagens
       const trimmedHistory = newHistory.slice(-10);
       
-      const now = new Date().toISOString();
-      
-      console.log(`💾 [LLMOrchestrator] Dados para salvar:`, {
-        phoneNumber,
-        historyLength: trimmedHistory.length,
-        lastInteraction: now,
-        updatedAt: now
-      });
-      
       const { error } = await supabase
         .from('conversation_memory')
         .upsert({
           phone_number: phoneNumber,
-          conversation_history: trimmedHistory,
-          last_interaction: now,
-          updated_at: now
+          memory_data: {
+            history: trimmedHistory,
+            userProfile: memory.userProfile
+          },
+          last_interaction: new Date().toISOString()
         }, { onConflict: 'phone_number' });
       
       if (error) throw error;
-      console.log('✅ [LLMOrchestrator] Memória de conversa salva com sucesso');
+      console.log('✅ Memória de conversa salva');
     } catch (error) {
-      console.error('❌ [LLMOrchestrator] Erro ao salvar memória:', error);
+      console.error('❌ Erro ao salvar memória:', error);
     }
   }
 
   static async detectIntent(message, conversationHistory = [], clinicContext = {}) {
     try {
-      console.log('🔍 [LLMOrchestrator] Detectando intenção para:', message);
+      console.log('🔍 Detectando intenção para:', message);
       
       // ✅ DETECÇÃO SIMPLIFICADA COM PALAVRAS-CHAVE
       const lowerMessage = message.toLowerCase();
@@ -432,25 +394,7 @@ export default class LLMOrchestratorService {
         return { name: 'APPOINTMENT', confidence: 0.9 };
       }
       
-      // Informações sobre contatos
-      if (this.containsContactKeywords(lowerMessage)) {
-        console.log('✅ Intenção de CONTATO detectada');
-        return { name: 'CONTACT_INFO', confidence: 0.9 };
-      }
-      
-      // Informações sobre exames
-      if (this.containsExamKeywords(lowerMessage)) {
-        console.log('✅ Intenção de EXAME detectada');
-        return { name: 'EXAM_INFO', confidence: 0.9 };
-      }
-      
-      // Informações sobre médicos
-      if (this.containsDoctorKeywords(lowerMessage)) {
-        console.log('✅ Intenção de MÉDICO detectada');
-        return { name: 'DOCTOR_INFO', confidence: 0.9 };
-      }
-      
-      // Informações gerais
+      // Informações
       if (this.containsInfoKeywords(lowerMessage)) {
         console.log('✅ Intenção de INFORMAÇÃO detectada');
         return { name: 'INFORMATION', confidence: 0.8 };
@@ -503,28 +447,13 @@ export default class LLMOrchestratorService {
     return keywords.some(keyword => message.includes(keyword));
   }
 
-  static containsContactKeywords(message) {
-    const keywords = ['telefone', 'contato', 'whatsapp', 'whats', 'numero', 'celular'];
-    return keywords.some(keyword => message.includes(keyword));
-  }
-
-  static containsExamKeywords(message) {
-    const keywords = ['exame', 'laboratório', 'raio-x', 'ultrassom', 'tomografia', 'mamografia'];
-    return keywords.some(keyword => message.includes(keyword));
-  }
-
-  static containsDoctorKeywords(message) {
-    const keywords = ['médico', 'doutor', 'especialista', 'clínico', 'psicólogo', 'nutricionista'];
-    return keywords.some(keyword => message.includes(keyword));
-  }
-
   static containsInfoKeywords(message) {
     const keywords = ['informação', 'saber', 'conhecer', 'quais', 'como', 'onde', 'quando'];
     return keywords.some(keyword => message.includes(keyword));
   }
 
   static containsGreetingKeywords(message) {
-    const keywords = ['olá', 'oi', 'bom dia', 'boa tarde', 'boa noite', 'olá', 'oi'];
+    const keywords = ['oi', 'olá', 'bom dia', 'boa tarde', 'boa noite'];
     return keywords.some(keyword => message.includes(keyword));
   }
 
@@ -627,7 +556,6 @@ INFORMAÇÕES COMPLETAS DA CLÍNICA:
 - Nome: ${clinicContext.name}
 - Endereço: ${clinicContext.address?.rua ? `${clinicContext.address.rua}, ${clinicContext.address.numero} - ${clinicContext.address.bairro}, ${clinicContext.address.cidade}/${clinicContext.address.estado}` : 'Não informado'}
 - Telefone: ${clinicContext.contacts?.telefone || 'Não informado'}
-- WhatsApp: ${clinicContext.contacts?.whatsapp || 'Não informado'}
 - Email: ${clinicContext.contacts?.email_principal || 'Não informado'}
 - Website: ${clinicContext.contacts?.website || 'Não informado'}
 - Descrição: ${clinicContext.basicInfo?.descricao || 'Não informado'}
@@ -653,15 +581,20 @@ COMPORTAMENTO DO AGENTE:
 - Escalação automática: ${agentBehavior.escalacao_automatica ? 'Sim' : 'Não'}
 - Limite de tentativas: ${agentBehavior.limite_tentativas || 3}
 
-INSTRUÇÕES ESPECÍFICAS:
-- Para perguntas sobre CONTATOS: Forneça telefone, WhatsApp, email e endereço quando disponíveis
-- Para perguntas sobre EXAMES: Liste os exames disponíveis quando informados, caso contrário oriente a entrar em contato
-- Para perguntas sobre MÉDICOS: Liste os profissionais quando informados, caso contrário oriente a entrar em contato
-- Para perguntas sobre SERVIÇOS: Liste os serviços disponíveis quando informados
-- Para perguntas sobre HORÁRIOS: Forneça os horários de funcionamento específicos
-- Para perguntas sobre PREÇOS: Oriente a entrar em contato, pois não possui essas informações
+MENSAGENS ESPECÍFICAS:
+- Saudação inicial: "${initialGreeting}"
+- Mensagem de despedida: "${farewellMessage}" (use APENAS quando usuário finalizar conversa)
+- Mensagem fora do horário: "${outOfHoursMessage}"
 
-Lembre-se: Você é um assistente virtual especializado em ${clinicContext.basicInfo?.especialidade || 'medicina'}. Suas respostas devem ser baseadas APENAS nas informações fornecidas acima.`;
+EMERGÊNCIAS CARDÍACAS (se configuradas):
+${cardiacEmergencies.length > 0 ? cardiacEmergencies.map(emergency => `- ${emergency}`).join('\n') : 'Não configuradas'}
+
+IMPORTANTE: 
+- Sempre mantenha a personalidade e tom de comunicação definidos
+- Use as mensagens específicas quando apropriado
+- NÃO seja repetitivo ou automático
+- Mantenha a conversa natural e contextualizada
+- Responda de forma específica e útil, sem padrões genéricos`;
 
     return prompt;
   }
@@ -672,19 +605,9 @@ Lembre-se: Você é um assistente virtual especializado em ${clinicContext.basic
       { role: 'system', content: systemPrompt }
     ];
     
-    // Adicionar contexto do usuário se disponível
-    if (memory.userProfile && memory.userProfile.name) {
-      messages.push({
-        role: 'system', 
-        content: `INFORMAÇÃO IMPORTANTE: O usuário se chama ${memory.userProfile.name}. Use este nome para personalizar suas respostas quando apropriado.`
-      });
-    }
-    
     // Adicionar histórico de conversa se disponível
     if (memory.history && memory.history.length > 0) {
       const recentHistory = memory.history.slice(-5); // Últimas 5 mensagens
-      
-      console.log(`📚 [LLMOrchestrator] Adicionando ${recentHistory.length} mensagens do histórico`);
       
       for (const entry of recentHistory) {
         if (entry.user) {
@@ -699,8 +622,6 @@ Lembre-se: Você é um assistente virtual especializado em ${clinicContext.basic
     // Adicionar mensagem atual do usuário
     messages.push({ role: 'user', content: userMessage });
     
-    console.log(`📝 [LLMOrchestrator] Total de mensagens construídas: ${messages.length}`);
-    
     return messages;
   }
 
@@ -709,41 +630,23 @@ Lembre-se: Você é um assistente virtual especializado em ${clinicContext.basic
     try {
       console.log(`📅 [LLMOrchestrator] Verificando primeira conversa do dia para: ${phoneNumber}`);
       
-      // 🔧 CORREÇÃO: Buscar por last_interaction ou updated_at
       const { data, error } = await supabase
         .from('conversation_memory')
-        .select('last_interaction, updated_at, conversation_history')
+        .select('last_interaction')
         .eq('phone_number', phoneNumber)
         .single();
-      
-      console.log(`📅 [LLMOrchestrator] Resultado da busca:`, {
-        hasData: !!data,
-        hasError: !!error,
-        errorCode: error?.code,
-        lastInteraction: data?.last_interaction,
-        updatedAt: data?.updated_at,
-        hasHistory: !!data?.conversation_history
-      });
       
       if (error && error.code !== 'PGRST116') {
         console.error('❌ [LLMOrchestrator] Erro ao buscar memória:', error);
         throw error;
       }
       
-      if (!data) {
+      if (!data || !data.last_interaction) {
         console.log('📅 [LLMOrchestrator] Primeira conversa - sem histórico anterior');
         return true; // Primeira conversa
       }
       
-      // 🔧 CORREÇÃO: Usar last_interaction ou updated_at, o que estiver disponível
-      const lastInteraction = data.last_interaction || data.updated_at;
-      
-      if (!lastInteraction) {
-        console.log('📅 [LLMOrchestrator] Primeira conversa - sem timestamp de interação');
-        return true; // Primeira conversa
-      }
-      
-      const lastConversation = new Date(lastInteraction);
+      const lastConversation = new Date(data.last_interaction);
       const today = new Date();
       
       // Verificar se é o mesmo dia (usando timezone do Brasil)
@@ -755,10 +658,7 @@ Lembre-se: Você é um assistente virtual especializado em ${clinicContext.basic
       console.log('📅 [LLMOrchestrator] Verificação de primeira conversa:', {
         lastConversation: lastConversationDate,
         today: todayDate,
-        isFirstOfDay,
-        lastInteraction: lastInteraction,
-        lastConversationISO: lastConversation.toISOString(),
-        todayISO: today.toISOString()
+        isFirstOfDay
       });
       
       return isFirstOfDay;
