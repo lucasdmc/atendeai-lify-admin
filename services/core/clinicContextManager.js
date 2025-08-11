@@ -183,12 +183,51 @@ export default class ClinicContextManager {
   static extractClinicDataFromJson(jsonContext, clinicKey) {
     try {
       const clinica = jsonContext.clinica || {};
-      const agente = jsonContext.agente_ia || {}; // 🔧 CORREÇÃO: agente_ia em vez de agente
+      const agente = jsonContext.agente_ia || {};
       
       console.log(`🔍 [ClinicContextManager] Extraindo dados para ${clinicKey}:`);
       console.log(`   - Tem clinica: ${!!clinica}`);
       console.log(`   - Tem agente_ia: ${!!agente}`);
       console.log(`   - Tem configuracao: ${!!agente.configuracao}`);
+      
+      // ✅ SCHEMA DINÂMICO COMPLETO - Extrair TODA informação do JSON
+      const localizacao = clinica.localizacao || {};
+      const contatos = clinica.contatos || {};
+      const servicos = jsonContext.servicos || {};
+      const profissionais = jsonContext.profissionais || [];
+      
+      // ✅ Construir endereço completo
+      let enderecoCompleto = '';
+      if (localizacao.endereco_principal) {
+        const end = localizacao.endereco_principal;
+        enderecoCompleto = `${end.logradouro || ''}, ${end.numero || ''}${end.complemento ? ` - ${end.complemento}` : ''}, ${end.bairro || ''}, ${end.cidade || ''} - ${end.estado || ''}, CEP: ${end.cep || ''}`.trim();
+      }
+      
+      // ✅ Extrair telefone principal
+      const telefone = contatos.telefone_principal || contatos.whatsapp || '';
+      
+      // ✅ Extrair serviços COMPLETOS
+      const servicosList = [];
+      if (servicos.consultas) {
+        servicosList.push(...servicos.consultas.map(s => s.nome));
+      }
+      if (servicos.exames) {
+        servicosList.push(...servicos.exames.map(s => s.nome));
+      }
+      if (servicos.procedimentos) {
+        servicosList.push(...servicos.procedimentos.map(s => s.nome));
+      }
+      
+      // ✅ Extrair profissionais COMPLETOS
+      const profissionaisList = profissionais.map(p => p.nome_completo || p.nome_exibicao || p.nome);
+      
+      console.log('✅ [ClinicContextManager] Dados extraídos:', {
+        nome: clinica.informacoes_basicas?.nome || clinicKey,
+        endereco: enderecoCompleto,
+        telefone: telefone,
+        servicos: servicosList.length,
+        profissionais: profissionaisList.length
+      });
       
       return {
         // ✅ IDENTIFICAÇÃO
@@ -201,38 +240,45 @@ export default class ClinicContextManager {
           nome: clinica.informacoes_basicas?.nome || clinicKey,
           tipo: clinica.informacoes_basicas?.tipo || 'Clínica',
           especialidade: clinica.informacoes_basicas?.especialidade || 'Geral',
-          descricao: clinica.informacoes_basicas?.descricao || ''
+          descricao: clinica.informacoes_basicas?.descricao || '',
+          missao: clinica.informacoes_basicas?.missao || '',
+          valores: clinica.informacoes_basicas?.valores || [],
+          diferenciais: clinica.informacoes_basicas?.diferenciais || []
         },
         
         // ✅ ENDEREÇO DO JSON
         address: {
-          rua: clinica.localizacao?.endereco_principal?.logradouro || '',
-          numero: clinica.localizacao?.endereco_principal?.numero || '',
-          complemento: clinica.localizacao?.endereco_principal?.complemento || '',
-          bairro: clinica.localizacao?.endereco_principal?.bairro || '',
-          cidade: clinica.localizacao?.endereco_principal?.cidade || '',
-          estado: clinica.localizacao?.endereco_principal?.estado || '',
-          cep: clinica.localizacao?.endereco_principal?.cep || ''
+          rua: localizacao.endereco_principal?.logradouro || '',
+          numero: localizacao.endereco_principal?.numero || '',
+          complemento: localizacao.endereco_principal?.complemento || '',
+          bairro: localizacao.endereco_principal?.bairro || '',
+          cidade: localizacao.endereco_principal?.cidade || '',
+          estado: localizacao.endereco_principal?.estado || '',
+          cep: localizacao.endereco_principal?.cep || '',
+          completo: enderecoCompleto
         },
         
         // ✅ CONTATOS DO JSON
         contacts: {
-          telefone: clinica.contatos?.telefone_principal || '',
-          whatsapp: clinica.contatos?.whatsapp || '',
-          email: clinica.contatos?.email_principal || '',
-          website: clinica.contatos?.website || ''
+          telefone: telefone,
+          whatsapp: contatos.whatsapp || '',
+          email: contatos.email_principal || '',
+          website: contatos.website || '',
+          emails: contatos.emails_departamentos || {}
         },
         
         // ✅ HORÁRIOS DO JSON
         workingHours: clinica.horario_funcionamento || {},
         
-        // ✅ PROFISSIONAIS DO JSON
-        professionals: clinica.profissionais || [],
+        // ✅ PROFISSIONAIS DO JSON - SCHEMA COMPLETO
+        professionals: profissionaisList,
+        professionalsDetails: jsonContext.profissionais || [],
         
-        // ✅ SERVIÇOS DO JSON
-        services: clinica.servicos || [],
+        // ✅ SERVIÇOS DO JSON - SCHEMA COMPLETO
+        services: servicosList,
+        servicesDetails: jsonContext.servicos || {},
         
-        // ✅ CONFIGURAÇÕES DO AGENTE IA (PRIORIDADE ALTA)
+        // ✅ CONFIGURAÇÕES DO AGENTE IA
         agentConfig: {
           nome: agente.configuracao?.nome || 'Assistente Virtual',
           personalidade: agente.configuracao?.personalidade || 'Profissional e prestativo',
@@ -257,6 +303,17 @@ export default class ClinicContextManager {
           nao_pode_prescrever: true,
           emergencias_cardiacas: []
         },
+        
+        // ✅ DADOS ADICIONAIS COMPLETOS
+        specialties: clinica.informacoes_basicas?.especialidades_secundarias || [],
+        paymentMethods: jsonContext.formas_pagamento || {},
+        insurance: jsonContext.convenios || [],
+        insuranceDetails: jsonContext.convenios || [],
+        bookingPolicies: jsonContext.politicas?.agendamento || {},
+        servicePolicies: jsonContext.politicas?.atendimento || {},
+        additionalInfo: jsonContext.informacoes_adicionais || {},
+        structure: jsonContext.estrutura_fisica || {},
+        metadata: jsonContext.metadados || {},
         
         // ✅ METADADOS
         hasJsonContext: true,
