@@ -567,7 +567,43 @@ SERVIÇOS DISPONÍVEIS (INFORMAÇÕES COMPLETAS):
 ${clinicContext.servicesDetails ? 
   Object.entries(clinicContext.servicesDetails).map(([category, items]) => {
     if (items && Array.isArray(items) && items.length > 0) {
-      return `${category.charAt(0).toUpperCase() + category.slice(1)}:\n${items.map(item => `  * ${item.nome || item.nome_servico}${item.duracao ? ` (${item.duracao})` : ''}${item.tipo ? ` - ${item.tipo}` : ''}${item.descricao ? `: ${item.descricao}` : ''}`).join('\n')}`;
+      return `${category.charAt(0).toUpperCase() + category.slice(1)}:\n${items.map(item => {
+        let serviceInfo = `  * ${item.nome || item.nome_servico}`;
+        
+        // Adicionar duração se disponível
+        if (item.duracao_minutos) {
+          serviceInfo += ` (${item.duracao_minutos} min)`;
+        } else if (item.duracao) {
+          serviceInfo += ` (${item.duracao})`;
+        }
+        
+        // Adicionar tipo se disponível
+        if (item.tipo) {
+          serviceInfo += ` - ${item.tipo}`;
+        }
+        
+        // Adicionar descrição se disponível
+        if (item.descricao) {
+          serviceInfo += `: ${item.descricao}`;
+        }
+        
+        // 🔧 CRÍTICO: Adicionar PREÇO se disponível
+        if (item.preco_particular) {
+          serviceInfo += ` - Preço: R$ ${item.preco_particular}`;
+        }
+        
+        // Adicionar preparação se disponível
+        if (item.preparacao_necessaria) {
+          serviceInfo += ` - Preparação: ${item.preparacao_necessaria}`;
+        }
+        
+        // Adicionar prazo do resultado se disponível
+        if (item.resultado_prazo_dias) {
+          serviceInfo += ` - Resultado em ${item.resultado_prazo_dias} dia(s)`;
+        }
+        
+        return serviceInfo;
+      }).join('\n')}`;
     }
     return '';
   }).filter(Boolean).join('\n\n') : 
