@@ -207,7 +207,8 @@ export default class LLMOrchestratorService {
         clinicContext, 
         isFirstConversationOfDay, 
         isWithinBusinessHours, 
-        memory.userProfile
+        memory.userProfile,
+        memory.history
       );
       
       // Salvar na memória
@@ -653,6 +654,7 @@ IMPORTANTE:
       const lastConversationDate = lastConversation.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
       const todayDate = today.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
       
+      // 🔧 CORREÇÃO: Lógica estava invertida
       const isFirstOfDay = lastConversationDate !== todayDate;
       
       console.log('📅 [LLMOrchestrator] Verificação de primeira conversa:', {
@@ -747,7 +749,7 @@ IMPORTANTE:
   }
 
   // ✅ APLICAÇÃO DE LÓGICA DE RESPOSTA CORRIGIDA
-  static async applyResponseLogic(response, clinicContext, isFirstConversationOfDay, isWithinBusinessHours, userProfile) {
+  static async applyResponseLogic(response, clinicContext, isFirstConversationOfDay, isWithinBusinessHours, userProfile, conversationHistory) {
     try {
       // Obter configurações do agente
       const agentConfig = clinicContext.agentConfig || {};
@@ -770,9 +772,30 @@ IMPORTANTE:
 
       let finalResponse = response;
 
-      // 🔧 CORREÇÃO 1: Só adicionar saudação na PRIMEIRA conversa do dia
+      // 🔧 CORREÇÃO 1: Só adicionar saudação na PRIMEIRA conversa do dia E se não houve saudação na conversa atual
       if (isFirstConversationOfDay) {
-        console.log('👋 [LLMOrchestrator] PRIMEIRA conversa do dia - aplicando saudação inicial');
+        console.log('👋 [LLMOrchestrator] PRIMEIRA conversa do dia - verificando se já houve saudação na conversa atual');
+        
+        // Verificar se já houve saudação na conversa atual
+        const hasGreetingInConversation = conversationHistory && conversationHistory.some(msg => 
+          msg.bot && (
+            msg.bot.includes('Olá! Sou o') ||
+            msg.bot.includes('assistente virtual') ||
+            msg.bot.includes('Como posso ajudá-lo') ||
+            msg.bot.includes('Em que posso ajudar') ||
+            msg.bot.includes('Como posso cuidar') ||
+            msg.bot.includes('Olá.') ||
+            msg.bot.includes('Sou o Cardio') ||
+            msg.bot.includes('assistente virtual da CardioPrime')
+          )
+        );
+        
+        if (hasGreetingInConversation) {
+          console.log('👋 [LLMOrchestrator] Já houve saudação na conversa atual - não adicionar nova');
+          return response; // Retornar resposta sem saudação
+        }
+        
+        console.log('👋 [LLMOrchestrator] Aplicando saudação inicial');
         
         const initialGreeting = agentConfig.saudacao_inicial || 
           `Olá! Sou o ${agentConfig.nome || 'Assistente Virtual'}, assistente virtual da ${clinicContext.name}. Como posso ajudá-lo hoje?`;
