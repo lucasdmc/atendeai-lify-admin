@@ -823,7 +823,7 @@ COMPORTAMENTO DO AGENTE:
 MENSAGENS ESPECÍFICAS:
 - Saudação inicial: "${initialGreeting}" (🔧 NÃO USE ESTA SAUDAÇÃO NAS RESPOSTAS - o sistema aplicará automaticamente quando necessário)
 - Mensagem de despedida: "${farewellMessage}" (use APENAS quando usuário finalizar conversa)
-- Mensagem fora do horário: "${outOfHoursMessage}"
+- 🔧 CORREÇÃO: Mensagem fora do horário NÃO deve ser incluída no prompt - o sistema verifica automaticamente
 
 EMERGÊNCIAS CARDÍACAS (se configuradas):
 ${cardiacEmergencies.length > 0 ? cardiacEmergencies.map(emergency => `- ${emergency}`).join('\n') : 'Não configuradas'}
@@ -835,13 +835,17 @@ EXEMPLOS DE RESPOSTAS CORRETAS:
 ❌ INCORRETO: "Sou o Cardio, assistente virtual da CardioPrime. Como posso ajudá-lo hoje?"
 ✅ CORRETO: "Como posso auxiliar você hoje, Lucas?"
 
+❌ INCORRETO: "No momento estamos fora do horário de atendimento" (🔧 NUNCA use esta mensagem - o sistema verifica automaticamente)
+✅ CORRETO: "Olá Lucas! Como posso auxiliar você hoje?"
+
 IMPORTANTE: 
 - Sempre mantenha a personalidade e tom de comunicação definidos
 - 🔧 SEMPRE use o nome do usuário quando disponível
 - 🔧 NUNCA adicione saudações automáticas
 - 🔧 NUNCA seja repetitivo ou automático
 - 🔧 Mantenha a conversa natural e contextualizada
-- 🔧 Responda diretamente à pergunta, sem introduções desnecessárias`;
+- 🔧 Responda diretamente à pergunta, sem introduções desnecessárias
+- 🔧 NUNCA mencione horários de funcionamento ou mensagens de "fora do horário" - o sistema gerencia isso automaticamente`;
 
     return prompt;
   }
