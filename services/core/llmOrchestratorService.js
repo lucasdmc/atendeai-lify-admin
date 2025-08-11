@@ -967,6 +967,14 @@ IMPORTANTE:
       // 🔧 CORREÇÃO 2: NÃO adicionar mensagem de despedida automaticamente
       console.log('🔧 [LLMOrchestrator] Mensagem de despedida não será adicionada automaticamente');
 
+      // 🔧 NOVA CORREÇÃO: APLICAR CORREÇÃO AUTOMÁTICA DE FORMATAÇÃO PARA TODAS AS CLÍNICAS
+      console.log('🔧 [LLMOrchestrator] Aplicando correção automática de formatação');
+      const formattedResponse = this.fixMessageFormatting(finalResponse);
+      if (formattedResponse !== finalResponse) {
+        console.log('✅ [LLMOrchestrator] Formatação corrigida automaticamente');
+        finalResponse = formattedResponse;
+      }
+
       // Para todas as respostas, verificar duplicações gerais
       const cleanedResponse = this.removeDuplicateContent(finalResponse);
       if (cleanedResponse !== finalResponse) {
@@ -1019,26 +1027,75 @@ IMPORTANTE:
     ];
     
     let cleanText = text;
-    let patternsRemoved = 0;
-    
-    patterns.forEach((pattern, index) => {
-      const beforeLength = cleanText.length;
+    patterns.forEach(pattern => {
       cleanText = cleanText.replace(pattern, '');
-      if (cleanText.length !== beforeLength) {
-        patternsRemoved++;
-        console.log(`🧹 [LLMOrchestrator] Padrão ${index + 1} removido`);
-      }
     });
     
     // Limpar espaços extras e quebras de linha duplicadas
     cleanText = cleanText.replace(/\n\s*\n/g, '\n\n').trim();
     
-    // Remover linhas vazias no início
-    cleanText = cleanText.replace(/^\n+/, '');
-    
-    console.log(`🧹 [LLMOrchestrator] ${patternsRemoved} padrões de saudação removidos, texto limpo`);
+    // Remover frases soltas que podem ter ficado
+    cleanText = cleanText.replace(/^você hoje\?\s*/gi, '');
+    cleanText = cleanText.replace(/^Em que posso ajudar\s*/gi, '');
+    cleanText = cleanText.replace(/^Como posso ajudá-lo\s*/gi, '');
     
     return cleanText;
+  }
+
+  // 🔧 NOVA FUNÇÃO: CORREÇÃO AUTOMÁTICA DE FORMATAÇÃO PARA TODAS AS CLÍNICAS
+  static fixMessageFormatting(text) {
+    console.log('🔧 [LLMOrchestrator] Aplicando correção automática de formatação');
+    
+    if (!text || typeof text !== 'string') {
+      return text;
+    }
+    
+    let cleaned = text;
+    
+    // 1. Remover caracteres especiais problemáticos (⁠, etc.)
+    cleaned = cleaned.replace(/[⁠]/g, '');
+    
+    // 2. Corrigir espaçamento após números em listas
+    cleaned = cleaned.replace(/(\d+\.)\s*⁠\s*⁠/gi, '$1 ');
+    
+    // 3. Separar itens de lista que estão juntos (mais robusto)
+    cleaned = cleaned.replace(/(\d+\.\s*[^:]+:\s*[^.]+\.)\s*(\d+\.)/gi, '$1\n$2');
+    
+    // 4. Adicionar quebras de linha após cada item de lista
+    cleaned = cleaned.replace(/(\d+\.\s*[^:]+:\s*[^.]+\.)/gi, '$1\n');
+    
+    // 5. Corrigir quebras de linha incorretas em nomes com negrito
+    cleaned = cleaned.replace(/\*\s*\n\s*([^*]+)\*/gi, '*$1*');
+    
+    // 6. Garantir que o título tenha quebra de linha adequada
+    cleaned = cleaned.replace(/(CardioPrime oferece os seguintes exames:)/gi, '$1\n');
+    cleaned = cleaned.replace(/(contamos com dois profissionais especializados em cardiologia:)/gi, '$1\n');
+    
+    // 7. Garantir que a conclusão tenha quebra de linha adequada
+    cleaned = cleaned.replace(/(Esses exames são essenciais)/gi, '\n$1');
+    cleaned = cleaned.replace(/(Ambos estão disponíveis)/gi, '\n$1');
+    
+    // 8. Garantir que a ação tenha quebra de linha adequada
+    cleaned = cleaned.replace(/(Caso tenha interesse)/gi, '\n$1');
+    cleaned = cleaned.replace(/(Se precisar agendar)/gi, '\n$1');
+    
+    // 9. Normalizar quebras de linha (máximo 2 consecutivas)
+    cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+    
+    // 10. Garantir espaçamento adequado entre seções
+    cleaned = cleaned.replace(/([.!?])\s*([A-Z])/gi, '$1\n\n$2');
+    
+    // 11. Remover quebras de linha extras no final
+    cleaned = cleaned.replace(/\n+$/, '');
+    
+    // 12. Limpar espaços múltiplos
+    cleaned = cleaned.replace(/\s+/g, ' ');
+    
+    // 13. Normalizar quebras de linha finais
+    cleaned = cleaned.replace(/\n\s*\n/g, '\n\n');
+    
+    console.log('✅ [LLMOrchestrator] Formatação corrigida automaticamente');
+    return cleaned.trim();
   }
 
   // ✅ REMOÇÃO DE CONTEÚDO DUPLICADO
