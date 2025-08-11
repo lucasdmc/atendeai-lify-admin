@@ -1210,6 +1210,10 @@ IMPORTANTE:
     cleaned = cleaned.replace(/(Se precisar agendar)/gi, '\n$1');
     cleaned = cleaned.replace(/(Se precisar de mais informações)/gi, '\n$1');
     
+    // 🔧 CORREÇÃO FINAL: Garantir que listas com traços tenham formatação adequada
+    // Adicionar quebras de linha após cada item de lista com traços
+    cleaned = cleaned.replace(/(-\s*\*[^*]+\*[^.]*\.)\s*(-)/gi, '$1\n\n$2');
+    
     // 8. Normalizar quebras de linha (máximo 2 consecutivas)
     cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
     
@@ -1224,10 +1228,6 @@ IMPORTANTE:
     
     // 12. Normalizar quebras de linha finais
     cleaned = cleaned.replace(/\n\s*\n/g, '\n\n');
-    
-    // 🔧 CORREÇÃO FINAL: Garantir que listas com traços tenham formatação adequada
-    // Adicionar quebras de linha após cada item de lista com traços
-    cleaned = cleaned.replace(/(-\s*\*[^*]+\*[^.]*\.)\s*(-)/gi, '$1\n\n$2');
     
     console.log('✅ [LLMOrchestrator] Formatação corrigida automaticamente');
     return cleaned.trim();
