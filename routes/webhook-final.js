@@ -578,8 +578,8 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
       }
     }
 
-    // 1. Primeiro, detectar intenção usando LLMOrchestrator (apenas para novas conversas)
-    const { LLMOrchestratorService } = await import('../services/llmOrchestratorService.js');
+    // 1. Primeiro, detectar intenção usando LLMOrchestrator dos serviços core
+    const { LLMOrchestratorService } = await import('../services/core/index.js');
     
     const request = {
       phoneNumber: clinicWhatsAppNumber, // Usar número da clínica para contextualização

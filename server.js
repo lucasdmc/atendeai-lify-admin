@@ -60,8 +60,8 @@ app.post('/api/ai/process', async (req, res) => {
 
     console.log('🤖 [AI Process] Processando mensagem:', { message, clinicId, userId });
 
-    // Usar LLMOrchestratorService diretamente (compatível com Node.js)
-    const { LLMOrchestratorService } = await import('./services/llmOrchestratorService.js');
+    // Usar LLMOrchestratorService dos serviços core
+    const { LLMOrchestratorService } = await import('./services/core/index.js');
     
     const request = {
       phoneNumber: userId, // Usar userId como phoneNumber
