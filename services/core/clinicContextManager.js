@@ -58,6 +58,7 @@ export default class ClinicContextManager {
   static async getClinicContext(clinicKey) {
     try {
       console.log(`🔍 [ClinicContextManager] Buscando contexto para: ${clinicKey}`);
+      console.log('🚨🚨🚨 DEPLOY TESTE - SCHEMA DINÂMICO ATUALIZADO! 🚨🚨🚨');
       
       // ✅ FONTE ÚNICA: Buscar JSON do banco de dados (tela de clínicas)
       const { createClient } = await import('@supabase/supabase-js');
