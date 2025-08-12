@@ -104,10 +104,6 @@ function processReceivedMessage(message, traceId) {
 export {
   sendWhatsAppTextMessage,
   sendWhatsAppMediaMessage,
-<<<<<<< Current (Your changes)
-  processReceivedMessage
-=======
   processReceivedMessage,
   verifyMetaWebhookSignature,
->>>>>>> Incoming (Background Agent changes)
 }; 
