@@ -552,7 +552,16 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
       conversationId: request.conversationId
     });
     
-    const llmResponse = await LLMOrchestratorService.processMessage(request);
+    // 🔧 Passar identificadores do WhatsApp da CLÍNICA para roteamento determinístico
+    // - phoneNumberId: ID do número na Meta (do .env)
+    // - displayPhoneNumber: número E.164 da clínica (ex: +554730915628)
+    const enhancedRequest = {
+      ...request,
+      phoneNumberId: config.phoneNumberId || process.env.WHATSAPP_META_PHONE_NUMBER_ID,
+      displayPhoneNumber: clinicWhatsAppNumber,
+    };
+
+    const llmResponse = await LLMOrchestratorService.processMessage(enhancedRequest);
 
     console.log('✅ [Webhook-Final] Resposta processada:', {
       intent: llmResponse.intent?.name,

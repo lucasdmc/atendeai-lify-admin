@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getEnv } from '@/config/environment';
+import { config } from '@/config/environment';
 
 export interface MetaPhoneNumber {
   id: string; // phone_number_id
@@ -9,9 +9,10 @@ export interface MetaPhoneNumber {
 
 export class MetaApiService {
   static async listPhoneNumbers(): Promise<MetaPhoneNumber[]> {
-    const token = getEnv('VITE_META_ACCESS_TOKEN');
-    const wabaId = getEnv('VITE_META_WABA_ID');
-    const version = getEnv('VITE_WHATSAPP_API_VERSION') || 'v20.0';
+    const token = import.meta.env.VITE_META_ACCESS_TOKEN || '';
+    const wabaId = import.meta.env.VITE_META_WABA_ID || '';
+    const version = import.meta.env.VITE_WHATSAPP_API_VERSION || 'v20.0';
+    if (!token || !wabaId) throw new Error('VITE_META_ACCESS_TOKEN/VITE_META_WABA_ID não configurados');
     const url = `https://graph.facebook.com/${version}/${wabaId}/phone_numbers`;
     const res = await axios.get(url, {
       headers: { Authorization: `Bearer ${token}` }
