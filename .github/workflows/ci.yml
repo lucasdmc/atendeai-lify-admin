@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [ "refactor/roadmap-phase-1" ]
+  pull_request:
+    branches: [ "refactor/roadmap-phase-1" ]
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install deps
+        run: npm ci || npm install
+
+      - name: Run unit tests (utils/repo)
+        run: |
+          node tests/unit/idempotency.test.js && \
+          node tests/unit/messageNormalization.test.js && \
+          node tests/unit/httpRetry.test.js && \
+          node tests/unit/conversationMemoryRepository.test.js && \
+          node tests/unit/flowStateStore.test.js

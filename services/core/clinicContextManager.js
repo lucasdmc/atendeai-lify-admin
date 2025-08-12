@@ -4,6 +4,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import config from '../config/index.js';
 
 // ✅ CORREÇÃO: __dirname para módulos ES
 const __filename = fileURLToPath(import.meta.url);
@@ -63,12 +64,7 @@ export default class ClinicContextManager {
       console.log(`🔍 [ClinicContextManager] Buscando contexto para: ${clinicKey}`);
       
       // ✅ FONTE ÚNICA: Buscar JSON do banco de dados (tela de clínicas)
-      const { createClient } = await import('@supabase/supabase-js');
-      
-      const supabase = createClient(
-        process.env.VITE_SUPABASE_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co',
-        process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDE4MjU1OSwiZXhwIjoyMDY1NzU4NTU5fQ.SY8A3ReAs_D7SFBp99PpSe8rpm1hbWMv4b2q-c_VS5M'
-      );
+      const supabase = config.getSupabaseClient();
       
       // ✅ BUSCAR CLÍNICA NO BANCO DE DADOS
       let { data: clinic, error } = await supabase
@@ -118,11 +114,7 @@ export default class ClinicContextManager {
         
         if (!allError && allClinics) {
           console.log(`🔍 [ClinicContextManager] Clínicas disponíveis:`, allClinics.map(c => ({
-            name: c.name,
-            id: c.id,
-            hasContext: c.has_contextualization,
-            hasJson: !!c.contextualization_json,
-            jsonKeys: c.contextualization_json ? Object.keys(c.contextualization_json) : 'null'
+            name: c.name, id: c.id, has_contextualization: c.has_contextualization
           })));
         }
       }
@@ -376,12 +368,7 @@ export default class ClinicContextManager {
       console.log(`🔍 [ClinicContextManager] Número normalizado: ${fullPhone}`);
       
       // ✅ BUSCAR CLÍNICA NO BANCO DE DADOS POR NÚMERO DE WHATSAPP
-      const { createClient } = await import('@supabase/supabase-js');
-      
-      const supabase = createClient(
-        process.env.VITE_SUPABASE_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co',
-        process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDE4MjU1OSwiZXhwIjoyMDY1NzU4NTU5fQ.SY8A3ReAs_D7SFBp99PpSe8rpm1hbWMv4b2q-c_VS5M'
-      );
+      const supabase = config.getSupabaseClient();
       
       // ✅ BUSCAR TODAS AS CLÍNICAS PARA DEBUG
       const { data: allClinics, error: allClinicsError } = await supabase

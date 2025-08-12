@@ -55,7 +55,7 @@
       "website": "https://www.esadi.com.br"
     },
     "horario_funcionamento": {
-      "segunda": {"abertura": "07:00", "fechamento": "18:00"},
+      "segunda": {"abertura": "07:00", "fechamento": "20:00"},
       "terca": {"abertura": "07:00", "fechamento": "18:00"},
       "quarta": {"abertura": "07:00", "fechamento": "18:00"},
       "quinta": {"abertura": "07:00", "fechamento": "18:00"},

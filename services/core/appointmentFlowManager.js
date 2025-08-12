@@ -12,14 +12,16 @@
 
 import GoogleCalendarService from './googleCalendarService.js';
 import HumanizationHelpers from './humanizationHelpers.js';
+import FlowStateStore from './flowStateStore.js';
 
 export default class AppointmentFlowManager {
   constructor(llmOrchestrator) {
     this.llmOrchestrator = llmOrchestrator;
     this.googleCalendar = new GoogleCalendarService();
-    this.activeFlows = new Map(); // Fluxos ativos por usuário
+    this.activeFlows = new Map(); // Mantido como cache local
     this.metrics = new Map(); // Métricas por clínica
     this.initialized = false;
+    this.flowStore = new FlowStateStore();
   }
 
   /**
@@ -46,8 +48,12 @@ export default class AppointmentFlowManager {
    * @param {string} phoneNumber - Número do telefone
    * @returns {boolean} - True se há fluxo ativo
    */
-  hasActiveFlow(phoneNumber) {
-    const flowState = this.activeFlows.get(phoneNumber);
+  async hasActiveFlow(phoneNumber) {
+    let flowState = this.activeFlows.get(phoneNumber);
+    if (!flowState) {
+      flowState = await this.flowStore.get(phoneNumber);
+      if (flowState) this.activeFlows.set(phoneNumber, flowState);
+    }
     return flowState && flowState.step !== 'completed' && flowState.step !== 'error';
   }
 
@@ -56,8 +62,13 @@ export default class AppointmentFlowManager {
    * @param {string} phoneNumber - Número do telefone
    * @returns {Object|null} - Estado do fluxo ou null se não existir
    */
-  getFlowState(phoneNumber) {
-    return this.activeFlows.get(phoneNumber) || null;
+  async getFlowState(phoneNumber) {
+    let flowState = this.activeFlows.get(phoneNumber);
+    if (!flowState) {
+      flowState = await this.flowStore.get(phoneNumber);
+      if (flowState) this.activeFlows.set(phoneNumber, flowState);
+    }
+    return flowState || null;
   }
 
   /**
@@ -114,12 +125,12 @@ export default class AppointmentFlowManager {
       }
 
       // Obter ou criar estado do fluxo
-      let flowState = this.activeFlows.get(phoneNumber) || this.createNewFlowState(clinicContext);
-      
-      // Registrar início do fluxo se for novo
-      if (flowState.step === 'initial') {
-        this.trackFlowStart(phoneNumber, clinicContext.id);
-      }
+             let flowState = await this.getFlowState(phoneNumber) || this.createNewFlowState(clinicContext);
+       
+       // Registrar início do fluxo se for novo
+       if (flowState.step === 'initial') {
+         this.trackFlowStart(phoneNumber, clinicContext.id);
+       }
 
       // Processar baseado na intenção específica
       let result;
@@ -167,12 +178,13 @@ export default class AppointmentFlowManager {
       if (result && result.metadata?.flowStep) {
         flowState.step = result.metadata.flowStep;
         flowState.lastUpdate = new Date();
-        this.activeFlows.set(phoneNumber, flowState);
+                this.activeFlows.set(phoneNumber, flowState);
+        await this.flowStore.set(phoneNumber, flowState);
       }
-
+ 
       // Registrar métricas
       this.trackFlowStep(phoneNumber, clinicContext.id, result.metadata?.flowStep, true);
-
+ 
       return result;
       
     } catch (error) {

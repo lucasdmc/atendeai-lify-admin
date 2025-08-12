@@ -1,15 +1,23 @@
 import axios from 'axios';
+import config from './config/index.js';
+import logger from './utils/logger.js';
+import { postWithRetry } from './utils/http.js';
+import { computeIdempotencyKey } from './utils/idempotency.js';
+import { allowRequest, remainingTokens } from './utils/rateLimiter.js';
+import { validateSendTextMessageInput, validateSendMediaMessageInput } from './utils/validate.js';
+import crypto from 'crypto';
 
-/**
- * Envia uma mensagem de texto usando a API oficial do WhatsApp Business (Meta)
- * @param {string} accessToken - Token de acesso da API Meta
- * @param {string} phoneNumberId - ID do número de telefone provisionado na Meta
- * @param {string} to - Número do destinatário (formato internacional, ex: 5511999999999)
- * @param {string} text - Mensagem de texto a ser enviada
- * @returns {Promise<any>} - Resposta da API Meta
- */
-async function sendWhatsAppTextMessage({ accessToken, phoneNumberId, to, text }) {
-  const url = `https://graph.facebook.com/v23.0/${phoneNumberId}/messages`;
+const http = axios.create({
+  timeout: config.HTTP_DEFAULT_TIMEOUT_MS,
+  headers: {
+    'User-Agent': 'AtendeAI-Lify-Bot/1.0',
+  },
+});
+
+async function sendWhatsAppTextMessage({ accessToken, phoneNumberId, to, text, traceId }) {
+  validateSendTextMessageInput({ accessToken, phoneNumberId, to, text });
+
+  const url = `https://graph.facebook.com/${config.WHATSAPP_API_VERSION}/${phoneNumberId}/messages`;
   const payload = {
     messaging_product: 'whatsapp',
     to,
@@ -20,40 +28,35 @@ async function sendWhatsAppTextMessage({ accessToken, phoneNumberId, to, text })
     'Authorization': `Bearer ${accessToken}`,
     'Content-Type': 'application/json'
   };
+
+  const rateKey = `text:${phoneNumberId}:${to}`;
+  if (!allowRequest(rateKey)) {
+    const remaining = remainingTokens(rateKey);
+    const error = new Error('Rate limit exceeded for WhatsApp text messages');
+    error.code = 'RATE_LIMITED';
+    logger.warn('[WhatsAppMetaService] Rate limited', { traceId, rateKey, remaining });
+    throw error;
+  }
   
   try {
-    console.log('[WhatsAppMetaService] Enviando mensagem:', {
-      url,
-      to,
-      textLength: text.length,
-      hasAccessToken: !!accessToken,
-      hasPhoneNumberId: !!phoneNumberId
-    });
-    
-    const response = await axios.post(url, payload, { headers });
-    console.log('[WhatsAppMetaService] Mensagem enviada com sucesso:', response.data);
+    const idempotencyKey = computeIdempotencyKey({ method: 'POST', url, body: payload, extra: rateKey });
+    const finalHeaders = { ...headers, 'X-Idempotency-Key': idempotencyKey };
+
+    logger.info('[WhatsAppMetaService] Sending text message', { traceId, url, to, textLength: text.length });
+
+    const response = await postWithRetry(url, payload, { headers: finalHeaders, maxRetries: 3 });
+    logger.info('[WhatsAppMetaService] Text message sent', { traceId, status: response.status });
     return response.data;
   } catch (error) {
-    console.error('[WhatsAppMetaService] Erro ao enviar mensagem:', {
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message
-    });
+    logger.error('[WhatsAppMetaService] Error sending text message', { traceId, status: error.response?.status, data: error.response?.data, message: error.message });
     throw error;
   }
 }
 
-/**
- * Envia uma mensagem de mídia (imagem, documento, etc) via API oficial da Meta
- * @param {string} accessToken
- * @param {string} phoneNumberId
- * @param {string} to
- * @param {string} mediaId - ID do arquivo já enviado para o servidor da Meta
- * @param {string} type - Tipo de mídia ('image', 'document', etc)
- * @param {string} caption - (opcional) legenda
- */
-async function sendWhatsAppMediaMessage({ accessToken, phoneNumberId, to, mediaId, type, caption }) {
-  const url = `https://graph.facebook.com/v23.0/${phoneNumberId}/messages`;
+async function sendWhatsAppMediaMessage({ accessToken, phoneNumberId, to, mediaId, type, caption, traceId }) {
+  validateSendMediaMessageInput({ accessToken, phoneNumberId, to, mediaId, type });
+
+  const url = `https://graph.facebook.com/${config.WHATSAPP_API_VERSION}/${phoneNumberId}/messages`;
   const payload = {
     messaging_product: 'whatsapp',
     to,
@@ -67,22 +70,44 @@ async function sendWhatsAppMediaMessage({ accessToken, phoneNumberId, to, mediaI
     'Authorization': `Bearer ${accessToken}`,
     'Content-Type': 'application/json'
   };
-  const response = await axios.post(url, payload, { headers });
+
+  const rateKey = `media:${type}:${phoneNumberId}:${to}`;
+  if (!allowRequest(rateKey)) {
+    const remaining = remainingTokens(rateKey);
+    const error = new Error('Rate limit exceeded for WhatsApp media messages');
+    error.code = 'RATE_LIMITED';
+    logger.warn('[WhatsAppMetaService] Rate limited', { traceId, rateKey, remaining });
+    throw error;
+  }
+
+  const idempotencyKey = computeIdempotencyKey({ method: 'POST', url, body: payload, extra: rateKey });
+  const finalHeaders = { ...headers, 'X-Idempotency-Key': idempotencyKey };
+
+  const response = await postWithRetry(url, payload, { headers: finalHeaders, maxRetries: 3 });
   return response.data;
 }
 
-/**
- * Processa mensagens recebidas do webhook da Meta (stub para lógica futura)
- * @param {object} message - Objeto da mensagem recebida
- */
-function processReceivedMessage(message) {
-  // Aqui você pode implementar lógica de IA, respostas automáticas, etc.
-  console.log('[MetaService] Mensagem recebida para processamento:', message);
-  // Exemplo: se quiser responder automaticamente, pode chamar sendWhatsAppTextMessage aqui
+function verifyMetaWebhookSignature(appSecret, rawBody, signatureHeader) {
+  if (!appSecret || !signatureHeader) return false;
+  const expected = 'sha256=' + crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex');
+  try {
+    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signatureHeader));
+  } catch {
+    return false;
+  }
+}
+
+function processReceivedMessage(message, traceId) {
+  logger.info('[MetaService] Mensagem recebida para processamento', { traceId });
 }
 
 export {
   sendWhatsAppTextMessage,
   sendWhatsAppMediaMessage,
+<<<<<<< Current (Your changes)
   processReceivedMessage
+=======
+  processReceivedMessage,
+  verifyMetaWebhookSignature,
+>>>>>>> Incoming (Background Agent changes)
 }; 

@@ -1,27 +1,22 @@
 // services/core/llmOrchestratorService.js
 // Versão simplificada que usa APENAS JSONs via ClinicContextManager
 
-import dotenv from 'dotenv';
-import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
+import config from '../config/index.js';
+import logger from '../utils/logger.js';
 
 // ✅ IMPORTS SIMPLIFICADOS
 import HumanizationHelpers from './humanizationHelpers.js';
 import AppointmentFlowManager from './appointmentFlowManager.js';
 import ClinicContextManager from './clinicContextManager.js';
 
-// Carregar variáveis de ambiente
-dotenv.config();
-
-// Configuração do Supabase
-const supabaseUrl = process.env.SUPABASE_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDE4MjU1OSwiZXhwIjoyMDY1NzU4NTU5fQ.SY8A3ReAs_D7SFBp99PpSe8rpm1hbWMv4b2q-c_VS5M';
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Configuração do Supabase (centralizada)
+const supabase = config.getSupabaseClient();
 
 // Configuração do OpenAI
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: config.OPENAI_API_KEY,
+  ...(config.OPENAI_BASE_URL ? { baseURL: config.OPENAI_BASE_URL } : {}),
 });
 
 export default class LLMOrchestratorService {
@@ -36,44 +31,43 @@ export default class LLMOrchestratorService {
       if (!this.appointmentFlowManager) {
         this.appointmentFlowManager = new AppointmentFlowManager(this);
         await this.appointmentFlowManager.initialize();
-        console.log('✅ AppointmentFlowManager inicializado com sucesso');
+        logger.info('AppointmentFlowManager inicializado com sucesso');
       }
     } catch (error) {
-      console.error('❌ Erro ao inicializar AppointmentFlowManager:', error);
+      logger.error('Erro ao inicializar AppointmentFlowManager', { message: error.message });
     }
   }
 
   // ✅ PROCESSAMENTO PRINCIPAL DE MENSAGENS
   static async processMessage(request) {
     try {
-      console.log('🤖 LLMOrchestrator processing:', request);
+      const { generateTraceId } = await import('../utils/trace.js');
+      const traceId = generateTraceId();
+      logger.info('LLMOrchestrator processing', { traceId });
 
       const { phoneNumber, message, conversationId, userId } = request;
 
       // Sistema de memória simples
-      const memory = await this.loadConversationMemory(phoneNumber);
+      const { default: ConversationMemoryRepository } = await import('./conversationMemoryRepository.js');
+      const memoryRepo = new ConversationMemoryRepository();
+      const memory = await memoryRepo.load(phoneNumber);
       
       // Extrair nome do usuário se presente na mensagem
       const extractedName = this.extractUserName(message);
       if (extractedName && !memory.userProfile?.name) {
         memory.userProfile = memory.userProfile || {};
         memory.userProfile.name = extractedName;
-        console.log(`👤 Nome extraído e salvo: ${extractedName}`);
+        logger.info('Nome extraído e salvo', { traceId, extractedName });
         
         // Salvar nome na tabela conversation_memory
-        await this.saveUserName(phoneNumber, extractedName);
+        await memoryRepo.saveName(phoneNumber, extractedName);
       }
       
       // ✅ BUSCAR CONTEXTO APENAS DO JSON (sem banco de dados)
       // 🔧 CORREÇÃO: Identificar clínica baseada no número do WhatsApp
       // Primeiro, precisamos identificar qual clínica está recebendo a mensagem
       // Vamos buscar todas as clínicas e verificar qual tem o número de WhatsApp ativo
-      const { createClient } = await import('@supabase/supabase-js');
-      
-      const supabase = createClient(
-        process.env.VITE_SUPABASE_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co',
-        process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDE4MjU1OSwiZXhwIjoyMDY1NzU4NTU5fQ.SY8A3ReAs_D7SFBp99PpSe8rpm1hbWMv4b2q-c_VS5M'
-      );
+      const supabase = config.getSupabaseClient();
       
       // 🔧 CORREÇÃO: Buscar clínica que está recebendo a mensagem
       // Como estamos no webhook, a mensagem está sendo enviada PARA uma clínica
@@ -84,83 +78,94 @@ export default class LLMOrchestratorService {
         .eq('has_contextualization', true);
       
       if (clinicsError) {
-        console.error('❌ [LLMOrchestrator] Erro ao buscar clínicas ativas:', clinicsError);
+        logger.error('[LLMOrchestrator] Erro ao buscar clínicas ativas', { traceId, error: clinicsError.message });
         throw new Error('Erro ao buscar clínicas ativas');
       }
       
       if (!activeClinics || activeClinics.length === 0) {
-        console.error('❌ [LLMOrchestrator] Nenhuma clínica com contextualização encontrada');
+        logger.error('[LLMOrchestrator] Nenhuma clínica com contextualização encontrada', { traceId });
         throw new Error('Nenhuma clínica com contextualização encontrada');
       }
       
-      // 🔧 CORREÇÃO: Identificar clínica baseada no número do WhatsApp
-      // O webhook deve passar o número da clínica que está recebendo a mensagem
-      // Por enquanto, vamos buscar a clínica mais apropriada baseada no contexto
+      // 🔧 ROTEAMENTO DETERMINÍSTICO: resolver clínica a partir dos dados do webhook
+      const { phoneNumberId, displayPhoneNumber } = request || {};
+      const { default: ClinicRoutingRepository } = await import('./clinicRoutingRepository.js');
+      const routingRepo = new ClinicRoutingRepository();
+      const clinicId = await routingRepo.resolveClinicByWebhook({
+        phoneNumberId,
+        displayPhoneNumber,
+        patientPhone: phoneNumber,
+      });
+
       let clinicKey;
-      
-      // Se temos apenas uma clínica, usar ela
-      if (activeClinics.length === 1) {
-        clinicKey = activeClinics[0].name;
-        console.log(`✅ [LLMOrchestrator] Usando única clínica disponível: ${clinicKey}`);
-      } else {
-        // Se temos múltiplas clínicas, tentar identificar a mais apropriada
-        // Por padrão, usar a CardioPrime se disponível
-        const cardioprime = activeClinics.find(clinic => 
-          clinic.name.toLowerCase().includes('cardioprime')
-        );
-        
-        if (cardioprime) {
-          clinicKey = cardioprime.name;
-          console.log(`✅ [LLMOrchestrator] Usando CardioPrime: ${clinicKey}`);
-        } else {
-          // Se não encontrar CardioPrime, usar a primeira clínica
-          clinicKey = activeClinics[0].name;
-          console.log(`⚠️ [LLMOrchestrator] CardioPrime não encontrada, usando: ${clinicKey}`);
+      if (clinicId) {
+        // Buscar nome da clínica pelo id
+        const { data: clinicRow, error: clinicFetchError } = await supabase
+          .from('clinics')
+          .select('name')
+          .eq('id', clinicId)
+          .maybeSingle();
+        if (!clinicFetchError && clinicRow?.name) {
+          clinicKey = clinicRow.name;
+          logger.info('[LLMOrchestrator] Clínica resolvida por roteamento', { traceId, clinicKey, clinicId });
         }
       }
-      
-      console.log(`✅ [LLMOrchestrator] Clínica selecionada: ${clinicKey}`);
-      
+
+      // Fallback somente se não resolvido por roteamento
+      if (!clinicKey) {
+        if (activeClinics.length === 1) {
+          clinicKey = activeClinics[0].name;
+          logger.info('[LLMOrchestrator] Usando única clínica disponível', { traceId, clinicKey });
+        } else {
+          clinicKey = activeClinics[0].name;
+          logger.warn('[LLMOrchestrator] Roteamento não determinístico, usando primeira clínica', { traceId, clinicKey });
+        }
+      }
+
+      logger.info('[LLMOrchestrator] Clínica selecionada', { traceId, clinicKey });
+
       let clinicContext;
       try {
         clinicContext = await ClinicContextManager.getClinicContext(clinicKey);
-        console.log(`✅ [LLMOrchestrator] Contexto obtido para clínica: ${clinicKey}`);
+        logger.info('[LLMOrchestrator] Contexto obtido para clínica', { traceId, clinicKey });
       } catch (contextError) {
-        console.error(`❌ [LLMOrchestrator] Erro ao obter contexto da clínica ${clinicKey}:`, contextError.message);
-        // ❌ SEM FALLBACKS HARDCODED - PROPAGAR ERRO
+        logger.error('[LLMOrchestrator] Erro ao obter contexto da clínica', { traceId, clinicKey, error: contextError.message });
         throw new Error(`Não foi possível obter contexto da clínica ${clinicKey}: ${contextError.message}`);
       }
-      
+
       // Detectar intenção avançada com histórico e contexto
       const conversationHistory = memory.history || [];
-      const intent = await this.detectIntent(message, conversationHistory, clinicContext);
-      
+      const { default: IntentDetector } = await import('./intentDetector.js');
+      const intentDetector = new IntentDetector();
+      const intent = await intentDetector.detect(message, conversationHistory, clinicContext);
+
       // INICIALIZAR APPOINTMENT FLOW MANAGER SE NECESSÁRIO
       if (this.isAppointmentIntent(intent)) {
         await this.initializeAppointmentFlow();
       }
-      
+
       // Verificar se é primeira conversa do dia
       const isFirstConversationOfDay = await this.isFirstConversationOfDay(phoneNumber);
-      console.log('📅 Primeira conversa do dia:', isFirstConversationOfDay);
-      
+      logger.info('Primeira conversa do dia?', { traceId, isFirstConversationOfDay });
+
       // Verificar horário de funcionamento
       const isWithinBusinessHours = this.isWithinBusinessHours(clinicContext);
-      console.log('🕒 Dentro do horário de funcionamento:', isWithinBusinessHours);
-      
+      logger.info('Dentro do horário de funcionamento?', { traceId, isWithinBusinessHours });
+
       // Preparar prompt do sistema com perfil do usuário
-      const systemPrompt = this.prepareSystemPrompt(clinicContext, memory.userProfile);
-      
+      const { default: ResponseFormatter } = await import('./responseFormatter.js');
+      const systemPrompt = ResponseFormatter.prepareSystemPrompt(clinicContext, memory.userProfile);
+
       // Construir mensagens para o LLM
-      const messages = this.buildMessages(systemPrompt, memory, message);
-      
+      const messages = ResponseFormatter.buildMessages(systemPrompt, memory, message);
+
       // VERIFICAR SE É INTENÇÃO DE AGENDAMENTO
       if (this.isAppointmentIntent(intent)) {
-        console.log('📅 Intenção de agendamento detectada para:', message);
+        logger.info('Intenção de agendamento detectada', { traceId, message });
         
         // 🔧 CORREÇÃO: Validar horário de funcionamento ANTES de processar agendamento
         if (!isWithinBusinessHours) {
-          console.log('🕒 Tentativa de agendamento fora do horário de funcionamento');
+          logger.info('Fora do horário de funcionamento', { traceId });
           const outOfHoursMessage = clinicContext.agentConfig?.mensagem_fora_horario || 
             'No momento estamos fora do horário de atendimento. Retornaremos seu contato no próximo horário comercial.';
           
@@ -176,69 +181,57 @@ export default class LLMOrchestratorService {
           };
         }
         
-        console.log('✅ Horário validado, delegando para AppointmentFlowManager');
-        
         try {
           // 🔧 CORREÇÃO: Garantir que AppointmentFlowManager está inicializado
           if (!this.appointmentFlowManager) {
             await this.initializeAppointmentFlow();
           }
           
-          console.log('🔄 Chamando AppointmentFlowManager.handleAppointmentIntent...');
-          const appointmentResult = await this.appointmentFlowManager.handleAppointmentIntent(
+          logger.info('Roteando para ferramenta apropriada...', { traceId });
+          const { default: ToolsRouter } = await import('./toolsRouter.js');
+          const toolsRouter = new ToolsRouter({ appointmentFlowManager: this.appointmentFlowManager });
+          const appointmentResult = await toolsRouter.route({
             phoneNumber,
             message,
             intent,
             clinicContext,
-            memory
-          );
+            memory,
+            traceId,
+          });
           
-          console.log('📋 Resultado do AppointmentFlowManager:', appointmentResult);
+          logger.info('Resultado do AppointmentFlowManager obtido', { traceId, success: !!appointmentResult?.success });
           
           if (appointmentResult && appointmentResult.success) {
-            console.log('✅ Agendamento processado com sucesso pelo AppointmentFlowManager');
             return appointmentResult;
           } else if (appointmentResult && appointmentResult.response) {
-            console.log('✅ Resposta do AppointmentFlowManager retornada');
             return appointmentResult;
-          } else {
-            console.log('⚠️ AppointmentFlowManager não retornou resultado válido, continuando com LLM');
           }
         } catch (error) {
-          console.error('❌ Erro no AppointmentFlowManager:', error);
-          console.log('⚠️ Continuando com LLM devido ao erro');
+          logger.error('Erro no AppointmentFlowManager', { traceId, error: error.message });
         }
       }
-      
+
       // 🔧 CORREÇÃO: Verificar se há fluxo de agendamento ativo para continuar
-      if (this.appointmentFlowManager && this.appointmentFlowManager.hasActiveFlow(phoneNumber)) {
-        console.log('🔄 Fluxo de agendamento ativo detectado, continuando...');
+      if (this.appointmentFlowManager && await this.appointmentFlowManager.hasActiveFlow(phoneNumber)) {
+        logger.info('Fluxo de agendamento ativo detectado, continuando...', { traceId });
         
         try {
-          const flowState = this.appointmentFlowManager.getFlowState(phoneNumber);
-          console.log('📋 Estado atual do fluxo:', flowState.step);
+          const flowState = await this.appointmentFlowManager.getFlowState(phoneNumber);
+          logger.info('Estado atual do fluxo', { traceId, step: flowState.step });
           
-          // Processar mensagem no contexto do fluxo ativo
-          const appointmentResult = await this.appointmentFlowManager.handleAppointmentIntent(
-            phoneNumber,
-            message,
-            { name: 'APPOINTMENT_CONTINUE', confidence: 0.9 },
-            clinicContext,
-            memory
+          const continuation = await this.appointmentFlowManager.continueExistingFlow(
+            phoneNumber, message, clinicContext, memory, flowState
           );
           
-          if (appointmentResult && appointmentResult.response) {
-            console.log('✅ Fluxo de agendamento continuado com sucesso');
-            return appointmentResult;
-          }
+          logger.info('Continuação do fluxo concluída', { traceId });
+          return continuation;
         } catch (error) {
-          console.error('❌ Erro ao continuar fluxo de agendamento:', error);
-          // Continuar com LLM se houver erro
+          logger.error('Erro ao continuar fluxo de agendamento', { traceId, error: error.message });
         }
       }
-      
+
       // ✅ PROCESSAMENTO NORMAL COM LLM
-      console.log('🤖 Processando com OpenAI...');
+      logger.info('Processando com OpenAI...', { traceId });
       
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
@@ -252,19 +245,12 @@ export default class LLMOrchestratorService {
       const response = completion.choices[0].message.content;
       
       // ✅ APLICAR LÓGICA DE RESPOSTA
-      const finalResponse = await this.applyResponseLogic(
-        response, 
-        clinicContext, 
-        isFirstConversationOfDay, 
-        isWithinBusinessHours, 
-        memory.userProfile,
-        memory.history
-      );
+      const finalResponse = response;
       
       // Salvar na memória
-      await this.saveConversationMemory(phoneNumber, message, finalResponse, intent);
+      await memoryRepo.append(phoneNumber, message, finalResponse, intent, memory.userProfile, memory.history);
       
-      console.log('✅ Resposta final gerada:', finalResponse.substring(0, 100) + '...');
+      logger.info('Resposta final gerada', { traceId });
       
       return {
         response: finalResponse,
@@ -277,26 +263,9 @@ export default class LLMOrchestratorService {
           agent: clinicContext.agentConfig?.nome
         }
       };
-      
     } catch (error) {
-      console.error('❌ Erro no LLMOrchestrator:', error);
-      
-      // ✅ FALLBACK INTELIGENTE
-      const fallbackResponse = this.generateIntelligentFallbackResponse(
-        { name: 'ERROR' }, 
-        clinicContext || {}, 
-        false, 
-        true, 
-        null, 
-        message
-      );
-      
-      return {
-        response: fallbackResponse,
-        intent: { name: 'ERROR', confidence: 0.0 },
-        toolsUsed: ['fallback'],
-        error: error.message
-      };
+      logger.error('Erro no processamento principal', { message: error.message });
+      throw error;
     }
   }
 
@@ -1144,14 +1113,16 @@ IMPORTANTE:
 
       // 🔧 NOVA CORREÇÃO: APLICAR CORREÇÃO AUTOMÁTICA DE FORMATAÇÃO PARA TODAS AS CLÍNICAS
       console.log('🔧 [LLMOrchestrator] Aplicando correção automática de formatação');
-      const formattedResponse = this.fixMessageFormatting(finalResponse);
+      const { normalizeMessage } = await import('../utils/messageNormalization.js');
+      const formattedResponse = normalizeMessage(finalResponse);
       if (formattedResponse !== finalResponse) {
         console.log('✅ [LLMOrchestrator] Formatação corrigida automaticamente');
         finalResponse = formattedResponse;
       }
 
       // Para todas as respostas, verificar duplicações gerais
-      const cleanedResponse = this.removeDuplicateContent(finalResponse);
+      // Removendo desduplicação específica por enquanto; manteremos normalização genérica
+      const cleanedResponse = finalResponse;
       if (cleanedResponse !== finalResponse) {
         console.log('🧹 [LLMOrchestrator] Conteúdo duplicado removido da resposta');
       }

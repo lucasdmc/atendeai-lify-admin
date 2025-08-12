@@ -13,6 +13,8 @@
 import { google } from 'googleapis';
 import fs from 'fs/promises';
 import path from 'path';
+import GoogleTokenStore from './googleTokenStore.js';
+import logger from '../utils/logger.js';
 
 export default class GoogleCalendarService {
   constructor() {
@@ -20,6 +22,7 @@ export default class GoogleCalendarService {
     this.auth = null;
     this.credentials = null;
     this.tokens = new Map(); // Cache de tokens por clínica
+    this.tokenStore = new GoogleTokenStore();
   }
 
   /**
@@ -28,17 +31,17 @@ export default class GoogleCalendarService {
    */
   async initialize(credentialsPath = './config/google-credentials.json') {
     try {
-      console.log('🔧 Inicializando Google Calendar Service...');
+      logger.info('Inicializando Google Calendar Service...');
       
       // Carregar credenciais
       const credentialsContent = await fs.readFile(credentialsPath, 'utf8');
       this.credentials = JSON.parse(credentialsContent);
       
-      console.log('✅ Google Calendar Service inicializado com sucesso');
+      logger.info('Google Calendar Service inicializado com sucesso');
       return true;
       
     } catch (error) {
-      console.error('❌ Erro ao inicializar Google Calendar Service:', error);
+      logger.error('Erro ao inicializar Google Calendar Service', { message: error.message });
       throw new Error(`Falha na inicialização: ${error.message}`);
     }
   }
@@ -50,7 +53,7 @@ export default class GoogleCalendarService {
    */
   async authenticateForClinic(clinicId, clinicContext) {
     try {
-      console.log(`🔐 Autenticando Google Calendar para clínica: ${clinicId}`);
+      logger.info('Autenticando Google Calendar para clínica', { clinicId });
       
       // Verificar se já temos token válido em cache
       if (this.tokens.has(clinicId)) {
@@ -58,14 +61,14 @@ export default class GoogleCalendarService {
         if (await this.isTokenValid(cachedAuth)) {
           this.auth = cachedAuth;
           this.calendar = google.calendar({ version: 'v3', auth: this.auth });
-          console.log('✅ Usando token em cache para', clinicId);
+          logger.info('Usando token em cache', { clinicId });
           return true;
         }
       }
 
       // ✅ USAR SERVICE ACCOUNT (credenciais já configuradas)
       if (this.credentials.type === 'service_account') {
-        console.log('🔐 Usando autenticação via Service Account...');
+        logger.info('Usando autenticação via Service Account...');
         
         const auth = new google.auth.GoogleAuth({
           keyFile: './config/google-credentials.json',
@@ -75,43 +78,35 @@ export default class GoogleCalendarService {
         this.auth = await auth.getClient();
         this.calendar = google.calendar({ version: 'v3', auth: this.auth });
         this.tokens.set(clinicId, this.auth);
-        
-        console.log('✅ Autenticação via Service Account realizada com sucesso');
+        logger.info('Autenticação via Service Account realizada com sucesso');
         return true;
       }
 
-      // Fallback para OAuth2 (se necessário)
+      // OAuth2 com tokens armazenados no Supabase
       const { client_secret, client_id, redirect_uris } = this.credentials.web || this.credentials.installed;
       if (!client_secret || !client_id) {
         throw new Error('Credenciais OAuth2 não configuradas corretamente');
       }
-      
       const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
 
-      // Tentar carregar token salvo
-      const tokenPath = `./config/tokens/token-${clinicId}.json`;
-      try {
-        const tokenContent = await fs.readFile(tokenPath, 'utf8');
-        const token = JSON.parse(tokenContent);
-        oAuth2Client.setCredentials(token);
-        
-        // Verificar se token ainda é válido
+      // Carregar token salvo via tokenStore
+      const savedTokens = await this.tokenStore.getToken(clinicId);
+      if (savedTokens) {
+        oAuth2Client.setCredentials(savedTokens);
         if (await this.isTokenValid(oAuth2Client)) {
           this.auth = oAuth2Client;
           this.calendar = google.calendar({ version: 'v3', auth: this.auth });
           this.tokens.set(clinicId, oAuth2Client);
-          console.log('✅ Token OAuth2 carregado com sucesso para', clinicId);
+          logger.info('Token OAuth2 carregado via tokenStore', { clinicId });
           return true;
         }
-      } catch (tokenError) {
-        console.log('⚠️ Token OAuth2 não encontrado ou inválido');
       }
 
-      // Se chegou aqui, precisa de nova autenticação OAuth2
+      // Fallback para OAuth2 (se necessário)
       throw new Error(`Token OAuth2 inválido para clínica ${clinicId}. Execute o processo de autenticação.`);
       
     } catch (error) {
-      console.error(`❌ Erro na autenticação para clínica ${clinicId}:`, error);
+      logger.error('Erro na autenticação do Google Calendar', { clinicId, message: error.message });
       throw error;
     }
   }
@@ -143,7 +138,7 @@ export default class GoogleCalendarService {
       state: clinicId // Para identificar a clínica no callback
     });
 
-    console.log(`🔗 URL de autenticação gerada para ${clinicId}:`, authUrl);
+    logger.info('URL de autenticação gerada', { clinicId, authUrl });
     return authUrl;
   }
 
@@ -159,22 +154,15 @@ export default class GoogleCalendarService {
 
       const { tokens } = await oAuth2Client.getToken(code);
       oAuth2Client.setCredentials(tokens);
-
-      // Salvar token
-      const tokenPath = `./config/tokens/token-${clinicId}.json`;
-      await fs.mkdir(path.dirname(tokenPath), { recursive: true });
-      await fs.writeFile(tokenPath, JSON.stringify(tokens, null, 2));
-
-      // Atualizar cache
+      await this.tokenStore.setToken(clinicId, tokens);
       this.tokens.set(clinicId, oAuth2Client);
       this.auth = oAuth2Client;
       this.calendar = google.calendar({ version: 'v3', auth: this.auth });
-
-      console.log(`✅ Token salvo com sucesso para clínica ${clinicId}`);
+      logger.info('Token salvo com sucesso para clínica', { clinicId });
       return true;
 
     } catch (error) {
-      console.error(`❌ Erro ao processar código de autorização para ${clinicId}:`, error);
+      logger.error('Erro ao processar código de autorização', { clinicId, message: error.message });
       throw error;
     }
   }
@@ -188,11 +176,11 @@ export default class GoogleCalendarService {
    */
   async getAvailableSlots(clinicId, clinicContext, serviceConfig, daysAhead = 14) {
     try {
-      console.log(`📅 Buscando horários disponíveis para ${clinicId}...`);
+      logger.info('Buscando horários disponíveis para', { clinicId });
       
       // ✅ MODO DE TESTE: Se as credenciais são de desenvolvimento, usar slots simulados
       if (this.credentials.private_key === '-----BEGIN PRIVATE KEY-----\nDEVELOPMENT_MODE\n-----END PRIVATE KEY-----\n') {
-        console.log('🧪 MODO DE TESTE: Usando slots simulados (credenciais de desenvolvimento)');
+        logger.info('MODO DE TESTE: Usando slots simulados (credenciais de desenvolvimento)');
         return this.generateTestSlots(clinicContext, serviceConfig);
       }
       
@@ -230,11 +218,11 @@ export default class GoogleCalendarService {
       
       // Limitar a 4 slots conforme solicitado
       const limitedSlots = availableSlots.slice(0, 4);
-      console.log(`✅ Encontrados ${limitedSlots.length} horários disponíveis (limitado a 4)`);
+      logger.info('Encontrados horários disponíveis', { clinicId, count: limitedSlots.length });
       return limitedSlots;
       
     } catch (error) {
-      console.error('❌ Erro ao buscar horários disponíveis:', error);
+      logger.error('Erro ao buscar horários disponíveis', { clinicId, message: error.message });
       throw error;
     }
   }
@@ -258,7 +246,7 @@ export default class GoogleCalendarService {
       return response.data.items || [];
       
     } catch (error) {
-      console.error('❌ Erro ao buscar eventos existentes:', error);
+      logger.error('Erro ao buscar eventos existentes', { calendarId, startDate, endDate, message: error.message });
       throw error;
     }
   }
@@ -477,18 +465,33 @@ export default class GoogleCalendarService {
    */
   async createAppointment(clinicId, appointmentData, clinicContext) {
     try {
-      console.log(`📅 Criando agendamento no Google Calendar para ${clinicId}...`);
+      logger.info('Criando agendamento no Google Calendar', { clinicId });
       
       // Garantir autenticação
       await this.authenticateForClinic(clinicId, clinicContext);
       
       const calendarId = clinicContext.googleCalendar?.calendarId || 'primary';
-      const { selectedService, selectedSlot, userProfile, additionalInfo } = appointmentData;
+      const { selectedService, selectedSlot, userProfile } = appointmentData;
       
       // Calcular horários
       const startTime = new Date(selectedSlot.datetime);
       const endTime = new Date(startTime.getTime() + (selectedService.duration * 60000));
-      
+
+      // Idempotência: usar chave externa baseado em clinicId + startTime + phone
+      const dedupKey = `${clinicId}|${startTime.toISOString()}|${userProfile?.phone || ''}`;
+
+      // Verificar double-booking rápido (buscar eventos no período)
+      const existingEvents = await this.getExistingEvents(calendarId, startTime, endTime);
+      const conflict = existingEvents.find(e => {
+        const eStart = new Date(e.start.dateTime || e.start.date);
+        const eEnd = new Date(e.end.dateTime || e.end.date);
+        return (startTime < eEnd && endTime > eStart);
+      });
+      if (conflict) {
+        logger.warn('Conflito de agendamento detectado, retornando existente', { clinicId, eventId: conflict.id });
+        return { success: true, eventId: conflict.id, eventLink: conflict.htmlLink, startTime, endTime, calendarId };
+      }
+
       // Preparar dados do evento
       const eventData = {
         summary: `${selectedService.name} - ${userProfile?.name || 'Paciente'}`,
@@ -510,6 +513,7 @@ export default class GoogleCalendarService {
           ],
         },
         colorId: this.getEventColor(selectedService.type),
+        extendedProperties: { private: { dedupKey } },
       };
 
       // Criar evento
@@ -521,8 +525,7 @@ export default class GoogleCalendarService {
 
       const eventId = response.data.id;
       const eventLink = response.data.htmlLink;
-      
-      console.log(`✅ Agendamento criado com sucesso. ID: ${eventId}`);
+      logger.info('Agendamento criado com sucesso', { clinicId, eventId });
       
       return {
         success: true,
@@ -534,7 +537,7 @@ export default class GoogleCalendarService {
       };
       
     } catch (error) {
-      console.error('❌ Erro ao criar agendamento:', error);
+      logger.error('Erro ao criar agendamento', { clinicId, message: error.message });
       throw error;
     }
   }
@@ -635,7 +638,7 @@ export default class GoogleCalendarService {
    */
   async updateAppointment(clinicId, eventId, updateData, clinicContext) {
     try {
-      console.log(`📝 Atualizando agendamento ${eventId} para ${clinicId}...`);
+      logger.info('Atualizando agendamento', { clinicId, eventId });
       
       // Garantir autenticação
       await this.authenticateForClinic(clinicId, clinicContext);
@@ -661,12 +664,11 @@ export default class GoogleCalendarService {
         resource: updatedEvent,
         sendUpdates: 'all',
       });
-      
-      console.log(`✅ Agendamento ${eventId} atualizado com sucesso`);
+      logger.info('Agendamento atualizado com sucesso', { clinicId, eventId });
       return response.data;
       
     } catch (error) {
-      console.error(`❌ Erro ao atualizar agendamento ${eventId}:`, error);
+      logger.error('Erro ao atualizar agendamento', { clinicId, eventId, message: error.message });
       throw error;
     }
   }
@@ -680,7 +682,7 @@ export default class GoogleCalendarService {
    */
   async cancelAppointment(clinicId, eventId, clinicContext, reason = '') {
     try {
-      console.log(`❌ Cancelando agendamento ${eventId} para ${clinicId}...`);
+      logger.info('Cancelando agendamento', { clinicId, eventId });
       
       // Garantir autenticação
       await this.authenticateForClinic(clinicId, clinicContext);
@@ -710,12 +712,11 @@ export default class GoogleCalendarService {
         },
         sendUpdates: 'all',
       });
-      
-      console.log(`✅ Agendamento ${eventId} cancelado com sucesso`);
+      logger.info('Agendamento cancelado com sucesso', { clinicId, eventId });
       return true;
       
     } catch (error) {
-      console.error(`❌ Erro ao cancelar agendamento ${eventId}:`, error);
+      logger.error('Erro ao cancelar agendamento', { clinicId, eventId, message: error.message });
       throw error;
     }
   }
@@ -729,7 +730,7 @@ export default class GoogleCalendarService {
    */
   async listAppointments(clinicId, clinicContext, startDate, endDate) {
     try {
-      console.log(`📋 Listando agendamentos para ${clinicId}...`);
+      logger.info('Listando agendamentos para', { clinicId });
       
       // Garantir autenticação
       await this.authenticateForClinic(clinicId, clinicContext);
@@ -755,12 +756,11 @@ export default class GoogleCalendarService {
         attendees: event.attendees || [],
         link: event.htmlLink
       }));
-      
-      console.log(`✅ Encontrados ${appointments.length} agendamentos`);
+      logger.info('Encontrados agendamentos', { clinicId, count: appointments.length });
       return appointments;
       
     } catch (error) {
-      console.error('❌ Erro ao listar agendamentos:', error);
+      logger.error('Erro ao listar agendamentos', { clinicId, message: error.message });
       throw error;
     }
   }
@@ -818,7 +818,7 @@ export default class GoogleCalendarService {
       }));
       
     } catch (error) {
-      console.error('❌ Erro ao obter calendários:', error);
+      logger.error('Erro ao obter calendários', { clinicId, message: error.message });
       throw error;
     }
   }
@@ -829,7 +829,7 @@ export default class GoogleCalendarService {
    * @param {Object} serviceConfig - Configuração do serviço
    */
   generateTestSlots(clinicContext, serviceConfig) {
-    console.log('🧪 Gerando slots de teste para modo de desenvolvimento...');
+    logger.info('Gerando slots de teste para modo de desenvolvimento...');
     
     const slots = [];
     const now = new Date();
@@ -870,7 +870,7 @@ export default class GoogleCalendarService {
       if (slots.length >= 4) break;
     }
     
-    console.log(`🧪 Slots de teste gerados: ${slots.length}`);
+    logger.info('Slots de teste gerados', { count: slots.length });
     return slots;
   }
 
@@ -881,10 +881,10 @@ export default class GoogleCalendarService {
   clearTokenCache(clinicId = null) {
     if (clinicId) {
       this.tokens.delete(clinicId);
-      console.log(`🗑️ Cache de token limpo para ${clinicId}`);
+      logger.info('Cache de token limpo para', { clinicId });
     } else {
       this.tokens.clear();
-      console.log('🗑️ Cache de tokens limpo completamente');
+      logger.info('Cache de tokens limpo completamente');
     }
   }
 }

@@ -5,12 +5,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { Phone, FileText, CheckCircle, AlertCircle, Copy, Download } from 'lucide-react';
+import { Phone, CheckCircle, AlertCircle, Copy, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { validateMetaPhoneFormat, formatPhoneNumberForMeta } from '@/utils/phoneValidation';
+import { validateMetaPhoneFormat } from '@/utils/phoneValidation';
 import { BrazilianPhoneInput } from '@/components/ui/brazilian-phone-input';
 import { Clinic } from '@/services/clinicService';
+import { ClinicWhatsAppMappingForm } from '@/components/clinics/ClinicWhatsAppMapping';
 
 interface ClinicFormProps {
   clinic?: Clinic | null;
@@ -212,6 +212,12 @@ export const ClinicForm: React.FC<ClinicFormProps> = ({
             required
             className={`${phoneValidationError ? 'border-red-500' : formData.whatsapp_phone && !phoneValidationError ? 'border-green-500' : ''}`}
           />
+          {clinic?.id ? (
+            <div className="mt-3 p-3 border rounded">
+              <h4 className="text-sm font-medium mb-2">Mapeamento WhatsApp (Meta)</h4>
+              <ClinicWhatsAppMappingForm clinicId={clinic.id} defaultDisplayPhone={formData.whatsapp_phone || ''} />
+            </div>
+          ) : null}
         </div>
       </div>
 
