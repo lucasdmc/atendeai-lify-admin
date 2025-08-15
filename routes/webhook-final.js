@@ -250,9 +250,10 @@ async function processWhatsAppWebhookFinal(webhookData, whatsappConfig) {
 
             // 3. Processar com CONTEXTUALIZAÇÃO COMPLETA
             const aiResult = await processMessageWithCompleteContext(
-              messageText, 
-              message.from, 
-              whatsappConfig
+              messageText,
+              message.from,
+              whatsappConfig,
+              clinicId
             );
 
             if (aiResult.success) {
@@ -491,15 +492,15 @@ async function saveResponseToDatabase(conversationId, fromNumber, toNumber, cont
 /**
  * Processa mensagem com contextualização completa e agendamento
  */
-async function processMessageWithCompleteContext(messageText, phoneNumber, config) {
+async function processMessageWithCompleteContext(messageText, phoneNumber, config, resolvedClinicId = null) {
   try {
     console.log('🤖 [Webhook-Final] Gerando resposta inteligente COMPLETA', { 
       phoneNumber, 
       messageLength: messageText.length 
     });
 
-    // Buscar clínica baseada no número do paciente
-    let clinicId = await findClinicForAppointment(phoneNumber, messageText);
+    // Usar clinicId já resolvido no fluxo anterior (determinístico)
+    let clinicId = resolvedClinicId || await findClinicForAppointment(phoneNumber, messageText);
     
     if (!clinicId) {
       console.error('[Webhook-Final] Nenhuma clínica encontrada para agendamento');
@@ -559,6 +560,7 @@ async function processMessageWithCompleteContext(messageText, phoneNumber, confi
       ...request,
       phoneNumberId: config.phoneNumberId || process.env.WHATSAPP_META_PHONE_NUMBER_ID,
       displayPhoneNumber: clinicWhatsAppNumber,
+      clinicId
     };
 
     const llmResponse = await LLMOrchestratorService.processMessage(enhancedRequest);
