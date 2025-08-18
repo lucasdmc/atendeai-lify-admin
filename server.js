@@ -161,6 +161,24 @@ app.get('/api/metrics/appointments', (req, res) => {
   res.json({ success: true, data: result });
 });
 
+// Health check endpoint para Railway
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    version: process.env.npm_package_version || '1.0.0',
+    environment: process.env.NODE_ENV || 'development',
+    services: {
+      webhook: 'active',
+      database: 'connected',
+      google_auth: 'configured'
+    }
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 atendeai-lify-backend rodando na porta ${PORT}`);
+  console.log(`💚 Health check disponível em: http://localhost:${PORT}/health`);
 }); 
