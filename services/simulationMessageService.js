@@ -94,7 +94,8 @@ export class SimulationMessageService {
           clinic_whatsapp_number: toNumber,
           last_message_preview: content,
           unread_count: 1,
-          last_message_at: new Date().toISOString()
+          last_message_at: new Date().toISOString(),
+          simulation_mode: true
         }, {
           onConflict: 'clinic_id,patient_phone_number,clinic_whatsapp_number',
           ignoreDuplicates: false
@@ -116,7 +117,8 @@ export class SimulationMessageService {
           receiver_phone: toNumber,
           content: content,
           message_type: 'received',
-          whatsapp_message_id: `simulation-${Date.now()}`
+          whatsapp_message_id: `simulation-${Date.now()}`,
+          simulation_mode: true
         })
         .select()
         .single();
@@ -150,7 +152,8 @@ export class SimulationMessageService {
           receiver_phone: toNumber,
           content: content,
           message_type: 'sent',
-          whatsapp_message_id: `simulation-response-${Date.now()}`
+          whatsapp_message_id: `simulation-response-${Date.now()}`,
+          simulation_mode: true
         })
         .select()
         .single();

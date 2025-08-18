@@ -156,8 +156,29 @@ export default class LLMOrchestratorService {
       const { default: ResponseFormatter } = await import('./responseFormatter.js');
       const systemPrompt = ResponseFormatter.prepareSystemPrompt(clinicContext, memory.userProfile);
 
-      // Construir mensagens para o LLM
-      const messages = ResponseFormatter.buildMessages(systemPrompt, memory, message);
+      // Filtrar do histórico quaisquer respostas de "fora do horário" quando estamos DENTRO do expediente
+      let memoryForPrompt = memory;
+      try {
+        if (isWithinBusinessHours && Array.isArray(memory.history)) {
+          const outOfHoursRegex = /(fora do horário|No momento estamos|próximo horário comercial|Retornaremos seu contato)/i;
+          const filteredHistory = memory.history.filter(entry => {
+            if (entry && typeof entry === 'object') {
+              if (entry.bot && outOfHoursRegex.test(entry.bot)) return false;
+              if (entry.role === 'assistant' && entry.content && outOfHoursRegex.test(entry.content)) return false;
+            }
+            return true;
+          });
+          if (filteredHistory.length !== memory.history.length) {
+            logger.info('Removendo mensagens históricas de fora do horário por estar dentro do expediente', { traceId, removed: memory.history.length - filteredHistory.length });
+          }
+          memoryForPrompt = { ...memory, history: filteredHistory };
+        }
+      } catch (e) {
+        logger.warn('Falha ao filtrar histórico para fora do horário (seguindo sem filtro)', { message: e.message });
+      }
+
+      // Construir mensagens para o LLM usando o histórico filtrado (se aplicável)
+      const messages = ResponseFormatter.buildMessages(systemPrompt, memoryForPrompt, message);
 
       // VERIFICAR SE É INTENÇÃO DE AGENDAMENTO
       if (this.isAppointmentIntent(intent)) {
@@ -244,8 +265,15 @@ export default class LLMOrchestratorService {
       
       const response = completion.choices[0].message.content;
       
-      // ✅ APLICAR LÓGICA DE RESPOSTA
-      const finalResponse = response;
+      // ✅ APLICAR LÓGICA DE RESPOSTA (saudação, horário, sanitização)
+      const finalResponse = await this.applyResponseLogic(
+        response,
+        clinicContext,
+        isFirstConversationOfDay,
+        isWithinBusinessHours,
+        memory.userProfile,
+        conversationHistory
+      );
       
       // Salvar na memória
       await memoryRepo.append(phoneNumber, message, finalResponse, intent, memory.userProfile, memory.history);
@@ -1013,6 +1041,28 @@ IMPORTANTE:
       console.log('✅ [LLMOrchestrator] Dentro do horário - aplicando lógica normal de resposta');
 
       let finalResponse = response;
+
+      // 🔒 SANITIZAÇÃO PREVENTIVA (reforçada): se o texto indicar "fora do horário", substituir resposta inteira
+      const outOfHoursTrigger = /(fora do horário|No momento estamos|próximo horário comercial|Retornaremos seu contato)/i;
+      if (outOfHoursTrigger.test(finalResponse)) {
+        console.log('🧹 [LLMOrchestrator] Detectado padrão de "fora do horário" dentro do expediente - aplicando fallback seguro');
+        finalResponse = 'Como posso ajudar?';
+      } else {
+        // Limpeza adicional de fragmentos residuais
+        const outOfHoursPatterns = [
+          /fora do horário de atendimento/gi,
+          /estamos fora do horário/gi,
+          /próximo horário comercial/gi,
+          /^No momento estamos.*$/gmi,
+          /^Retornaremos seu contato.*$/gmi,
+          /^Para emergências.*$/gmi
+        ];
+        const sanitized = outOfHoursPatterns.reduce((acc, pattern) => acc.replace(pattern, ''), finalResponse).trim();
+        if (sanitized !== finalResponse) {
+          console.log('🧹 [LLMOrchestrator] Removidos fragmentos residuais de "fora do horário"');
+          finalResponse = sanitized || 'Como posso ajudar?';
+        }
+      }
 
       // 🔧 CORREÇÃO 1: Só adicionar saudação na PRIMEIRA conversa do dia E se não houve saudação na conversa atual
       if (isFirstConversationOfDay) {

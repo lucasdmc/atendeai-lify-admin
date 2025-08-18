@@ -410,8 +410,22 @@ export default class AppointmentFlowManager {
     
     response += `Para isso, preciso saber que tipo de consulta você precisa:\n\n`;
     
+    // Aplicar priorização (RF08): urgência > retorno > exame, etc., conforme JSON
+    const priorityOrder = (clinicContext.policies?.appointment?.prioritization || [])
+      .map((p, idx) => ({ key: p.toLowerCase(), weight: idx }))
+      .reduce((acc, cur) => { acc[cur.key] = cur.weight; return acc; }, {});
+
+    const prioritized = [...availableServices].sort((a, b) => {
+      const aType = (a.category || a.type || '').toLowerCase();
+      const bType = (b.category || b.type || '').toLowerCase();
+      const aW = priorityOrder[aType] ?? Number.MAX_SAFE_INTEGER;
+      const bW = priorityOrder[bType] ?? Number.MAX_SAFE_INTEGER;
+      if (aW !== bW) return aW - bW;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+
     // Mostrar até 5 serviços principais
-    availableServices.slice(0, 5).forEach((service, index) => {
+    prioritized.slice(0, 5).forEach((service, index) => {
       const emoji = this.getServiceEmoji(service.type);
       response += `${index + 1}️⃣ ${emoji} **${service.name}**`;
       
@@ -430,8 +444,8 @@ export default class AppointmentFlowManager {
       response += '\n\n';
     });
 
-    if (availableServices.length > 5) {
-      response += `💬 E temos mais ${availableServices.length - 5} opções disponíveis!\n\n`;
+    if (prioritized.length > 5) {
+      response += `💬 E temos mais ${prioritized.length - 5} opções disponíveis!\n\n`;
     }
 
     response += `Me diga o **número** da consulta que você precisa ou escreva o **nome** do serviço! 👆`;

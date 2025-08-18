@@ -2,6 +2,15 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+type BackendMetricsRow = {
+  clinicId: string;
+  started: number;
+  completed: number;
+  escalated: number;
+  errors: number;
+  lastUpdated: string;
+};
+
 interface DashboardMetrics {
   novas_conversas: number;
   conversas_andamento: number;
@@ -28,23 +37,35 @@ export const useDashboardMetrics = () => {
     try {
       setLoading(true);
 
-      // Otimizar chamadas - fazer em paralelo
-      const hoje = new Date().toISOString().split('T')[0];
-      
-      const [metricsResponse, mensagensResponse] = await Promise.all([
-        supabase.functions.invoke('update-dashboard-metrics').catch(err => ({ error: err })),
-        supabase
-          .from('whatsapp_messages')
-          .select('content')
-          .eq('message_type', 'received')
-          .gte('created_at', hoje)
-          .limit(50) // Reduzir limite para melhor performance
-      ]);
+      // Buscar métricas do backend local (P01)
+      const apiUrl = `${window.location.origin.replace(/\/$/, '')}/api/metrics/appointments`;
+      const metricsResp = await fetch(apiUrl).then(r => r.json()).catch(err => ({ error: err }));
 
-      if ('data' in metricsResponse && metricsResponse.data?.metrics) {
-        setMetrics(metricsResponse.data.metrics);
+      if (metricsResp && metricsResp.success && Array.isArray(metricsResp.data)) {
+        const agg: BackendMetricsRow[] = metricsResp.data;
+        // Converter para o formato atual de cards (simplificado)
+        const totalStarted = agg.reduce((sum, r) => sum + (r.started || 0), 0);
+        const totalCompleted = agg.reduce((sum, r) => sum + (r.completed || 0), 0);
+        const totalErrors = agg.reduce((sum, r) => sum + (r.errors || 0), 0);
+        const conversasAndamento = Math.max(totalStarted - totalCompleted, 0);
+        const aguardandoResposta = Math.max(conversasAndamento - totalErrors, 0);
+        const tempoMedio = 0; // placeholder até termos tempos por request
+        setMetrics({
+          novas_conversas: totalStarted,
+          conversas_andamento: conversasAndamento,
+          aguardando_resposta: aguardandoResposta,
+          tempo_medio_chatbot: tempoMedio
+        });
       }
 
+      // Buscar últimas mensagens para tópicos (mantido com limite baixo)
+      const hoje = new Date().toISOString().split('T')[0];
+      const mensagensResponse = await supabase
+        .from('whatsapp_messages')
+        .select('content')
+        .eq('message_type', 'received')
+        .gte('created_at', hoje)
+        .limit(50);
       if (!mensagensResponse.error && mensagensResponse.data) {
         const topicos = analyzeTopics(mensagensResponse.data.map(m => m.content));
         setTopicsData(topicos);

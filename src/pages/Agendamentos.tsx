@@ -11,6 +11,7 @@ import CalendarMainView from '@/components/agendamentos/CalendarMainView'
 import CalendarSidebar from '@/components/agendamentos/CalendarSidebar'
 import CalendarHeader from '@/components/agendamentos/CalendarHeader'
 import { CalendarMigrationStatus } from '@/components/agendamentos/CalendarMigrationStatus'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const Agendamentos = () => {
   const { user } = useAuth()
@@ -33,6 +34,8 @@ const Agendamentos = () => {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [viewType, setViewType] = useState<'day' | 'week' | 'month'>('month')
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [selectedServiceKey, setSelectedServiceKey] = useState<string>('')
+  const [selectedProfessionalKey, setSelectedProfessionalKey] = useState<string>('')
 
   // Memoizar os calendários selecionados
   const memoizedSelectedCalendars = useMemo(() => {
@@ -81,6 +84,31 @@ const Agendamentos = () => {
       }
     })
   }, [])
+
+  // Preferências automáticas por serviço/profissional a partir do JSON da clínica
+  const clinicJson = (selectedClinic as any)?.contextualization_json || {}
+  const clinicCalendars: Array<any> = clinicJson?.google_calendar?.calendarios || []
+
+  useEffect(() => {
+    if (!userCalendars || userCalendars.length === 0) return
+    const preferredIds = new Set<string>()
+    clinicCalendars.forEach((m: any) => {
+      if (selectedProfessionalKey && m.level === 'professional' && m.professional_key === selectedProfessionalKey) {
+        preferredIds.add(m.calendar_id)
+      }
+      if (!selectedProfessionalKey && selectedServiceKey && m.level === 'service' && m.service_key === selectedServiceKey) {
+        preferredIds.add(m.calendar_id)
+      }
+    })
+    if (preferredIds.size > 0) {
+      const intersecting = userCalendars
+        .map(c => c.google_calendar_id)
+        .filter(id => preferredIds.has(id))
+      if (intersecting.length > 0) {
+        setSelectedCalendars(intersecting)
+      }
+    }
+  }, [selectedServiceKey, selectedProfessionalKey, userCalendars, clinicCalendars])
 
   // Criar evento
   const handleCreateEvent = useCallback(async (eventData: Omit<GoogleCalendarEvent, 'id' | 'status'>) => {
@@ -235,6 +263,48 @@ const Agendamentos = () => {
         sidebarOpen={sidebarOpen}
         clinicName={selectedClinic?.name} // Adicionar nome da clínica
       />
+
+      {/* Filtros por Serviço / Profissional (mapeamento do JSON da clínica) */}
+      <div className="px-4 pt-2 grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <Select value={selectedServiceKey} onValueChange={(v) => { setSelectedProfessionalKey(''); setSelectedServiceKey(v) }}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Filtrar por serviço (opcional)" />
+            </SelectTrigger>
+            <SelectContent>
+              {(clinicJson?.servicos?.consultas || []).map((s: any) => (
+                <SelectItem key={s.id || s.nome} value={(s.id || s.nome || '').toString()}>
+                  {s.nome || s.id}
+                </SelectItem>
+              ))}
+              {(clinicJson?.servicos?.exames || []).map((s: any) => (
+                <SelectItem key={s.id || s.nome} value={(s.id || s.nome || '').toString()}>
+                  {s.nome || s.id}
+                </SelectItem>
+              ))}
+              {(clinicJson?.servicos?.procedimentos || []).map((s: any) => (
+                <SelectItem key={s.id || s.nome} value={(s.id || s.nome || '').toString()}>
+                  {s.nome || s.id}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Select value={selectedProfessionalKey} onValueChange={(v) => { setSelectedServiceKey(''); setSelectedProfessionalKey(v) }}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Filtrar por profissional (opcional)" />
+            </SelectTrigger>
+            <SelectContent>
+              {(clinicJson?.profissionais || []).map((p: any) => (
+                <SelectItem key={p.id || p.nome_completo} value={(p.id || p.nome_completo || '').toString()}>
+                  {p.nome_completo || p.id}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
               {/* Layout principal */}
         <div className="flex h-[calc(100vh-64px)]">

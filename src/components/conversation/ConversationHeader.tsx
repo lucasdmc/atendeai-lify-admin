@@ -14,6 +14,7 @@ interface Conversation {
   updated_at: string | null;
   last_message_preview: string | null;
   unread_count: number | null;
+  simulation_mode?: boolean | null;
 }
 
 interface ConversationHeaderProps {
@@ -55,7 +56,12 @@ const ConversationHeader = ({ conversation, onBack, getDisplayName }: Conversati
             </div>
             
             <div>
-              <CardTitle className="text-lg">{getDisplayName(conversation)}</CardTitle>
+              <CardTitle className="text-lg flex items-center gap-2">
+                {getDisplayName(conversation)}
+                {conversation.simulation_mode ? (
+                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border border-yellow-300">Simulação</Badge>
+                ) : null}
+              </CardTitle>
               <p className="text-sm text-gray-600 font-mono">
                 {conversation.formatted_phone_number || conversation.phone_number}
               </p>

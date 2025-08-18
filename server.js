@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
+import { performance } from 'perf_hooks';
 
 dotenv.config();
 
@@ -62,6 +63,7 @@ app.get('/health', (req, res) => {
 // Rota de AI com AIOrchestrator real
 app.post('/api/ai/process', async (req, res) => {
   try {
+    const start = performance.now();
     const { message, clinicId, userId, sessionId, options = {} } = req.body;
 
     if (!message || !clinicId || !userId) {
@@ -92,6 +94,7 @@ app.post('/api/ai/process', async (req, res) => {
       confidence: response.intent?.confidence
     });
 
+    const elapsedMs = performance.now() - start;
     res.json({
       success: true,
       data: {
@@ -101,7 +104,7 @@ app.post('/api/ai/process', async (req, res) => {
           modelUsed: 'llm-orchestrator',
           tokensUsed: 0,
           cost: 0,
-          responseTime: Date.now(),
+          responseTimeMs: Math.round(elapsedMs),
           memoryUsed: true,
           userProfile: { name: 'Usuário' },
           conversationContext: { lastIntent: response.intent?.name || 'GREETING' },
@@ -117,6 +120,34 @@ app.post('/api/ai/process', async (req, res) => {
       error: error instanceof Error ? error.message : 'Internal server error',
     });
   }
+});
+
+// Métricas simples em memória para o Dashboard (P01)
+const metrics = {
+  byClinic: new Map() // clinicId -> { started, completed, escalated, errors, lastUpdated }
+};
+
+// Hook leve no fluxo (via endpoint) para receber eventos
+app.post('/api/metrics/track', (req, res) => {
+  const { clinicId, event } = req.body || {};
+  if (!clinicId || !event) return res.status(400).json({ success: false, error: 'clinicId e event são obrigatórios' });
+  const now = new Date().toISOString();
+  if (!metrics.byClinic.has(clinicId)) {
+    metrics.byClinic.set(clinicId, { started: 0, completed: 0, escalated: 0, errors: 0, lastUpdated: now });
+  }
+  const agg = metrics.byClinic.get(clinicId);
+  if (event === 'started') agg.started++;
+  else if (event === 'completed') agg.completed++;
+  else if (event === 'escalated') agg.escalated++;
+  else if (event === 'error') agg.errors++;
+  agg.lastUpdated = now;
+  return res.json({ success: true });
+});
+
+// Agregado para o Dashboard
+app.get('/api/metrics/appointments', (req, res) => {
+  const result = Array.from(metrics.byClinic.entries()).map(([clinicId, v]) => ({ clinicId, ...v }));
+  res.json({ success: true, data: result });
 });
 
 app.listen(PORT, () => {

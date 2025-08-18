@@ -29,6 +29,7 @@ interface Message {
   sender_type: 'user' | 'contact';
   created_at: string;
   status?: 'sent' | 'delivered' | 'read';
+  simulation_mode?: boolean;
 }
 
 interface Conversation {
@@ -42,6 +43,7 @@ interface Conversation {
   created_at: string | null;
   updated_at: string | null;
   clinic_id: string | null;
+  simulation_mode?: boolean | null;
 }
 
 interface ChatAreaProps {
@@ -150,7 +152,8 @@ const ChatArea: React.FC<ChatAreaProps> = ({ conversation, conversationId, isSim
         content: msg.content,
         sender_type: msg.message_type === 'sent' ? 'user' : 'contact' as const, // sent = clínica envia = user
         created_at: msg.created_at,
-        status: 'sent' // Por enquanto, assumimos que todas as mensagens foram enviadas
+        status: 'sent',
+        simulation_mode: !!msg.simulation_mode
       }));
       
       setMessages(mappedMessages);

@@ -20,45 +20,69 @@ interface ClinicFormProps {
 }
 
 const JSON_TEMPLATE = {
-  "clinic_info": {
-    "name": "Nome da Clínica",
-    "specialty": "Especialidade principal",
-    "address": "Endereço completo",
-    "phone": "Telefone de contato",
-    "website": "Site da clínica"
-  },
-  "services": [
-    {
-      "name": "Consulta médica",
-      "description": "Consulta com especialista",
-      "duration": "30 minutos",
-      "price": "R$ 150,00"
+  "clinica": {
+    "informacoes_basicas": {
+      "nome": "Nome da Clínica",
+      "tipo": "Clínica",
+      "especialidade": "Especialidade principal"
+    },
+    "localizacao": {
+      "endereco_principal": {
+        "logradouro": "Rua X",
+        "numero": "123",
+        "complemento": "Sala 01",
+        "bairro": "Centro",
+        "cidade": "Cidade",
+        "estado": "UF",
+        "cep": "00000-000"
+      }
+    },
+    "contatos": {
+      "telefone_principal": "+55 11 99999-9999",
+      "whatsapp": "+55 11 99999-9999",
+      "email_principal": "contato@clinica.com"
+    },
+    "horario_funcionamento": {
+      "segunda": [{ "inicio": "08:00", "fim": "18:00" }],
+      "terca": [{ "inicio": "08:00", "fim": "18:00" }],
+      "quarta": [{ "inicio": "08:00", "fim": "18:00" }],
+      "quinta": [{ "inicio": "08:00", "fim": "18:00" }],
+      "sexta": [{ "inicio": "08:00", "fim": "17:00" }]
     }
-  ],
-  "working_hours": {
-    "monday": "08:00-18:00",
-    "tuesday": "08:00-18:00",
-    "wednesday": "08:00-18:00",
-    "thursday": "08:00-18:00",
-    "friday": "08:00-18:00",
-    "saturday": "08:00-12:00",
-    "sunday": "Fechado"
   },
-  "policies": {
-    "cancellation": "Cancelamento até 24h antes",
-    "rescheduling": "Reagendamento gratuito",
-    "insurance": "Aceitamos convênios",
-    "payment": "Cartão, PIX, dinheiro"
-  },
-  "ai_context": {
-    "tone": "Profissional e acolhedor",
-    "specialties": ["Especialidade 1", "Especialidade 2"],
-    "common_questions": [
-      "Como agendar consulta?",
-      "Quais convênios aceitam?",
-      "Qual o valor da consulta?"
+  "servicos": {
+    "consultas": [
+      { "id": "cardio", "nome": "Consulta Cardiologia", "duracao": 30, "preco_particular": 300 }
     ],
-    "response_style": "Direto, informativo e empático"
+    "exames": [],
+    "procedimentos": []
+  },
+  "profissionais": [
+    { "id": "dr-joao", "nome_completo": "Dr. João" }
+  ],
+  "politicas": {
+    "agendamento": {
+      "antecedencia_minima_horas": 24,
+      "antecedencia_maxima_dias": 90,
+      "duracao_slot_min": 30,
+      "max_slots_dia": 4,
+      "priorizacao": ["urgencia", "retorno", "exame"]
+    }
+  },
+  "google_calendar": {
+    "timezone": "America/Sao_Paulo",
+    "default_calendar_id": "primary",
+    "calendarios": [
+      { "level": "service", "service_key": "cardio", "calendar_id": "cal_servico_a" },
+      { "level": "professional", "professional_key": "dr-joao", "calendar_id": "cal_dr_joao" }
+    ]
+  },
+  "agente_ia": {
+    "configuracao": {
+      "nome": "Assistente Virtual",
+      "tom_comunicacao": "Formal",
+      "mensagem_fora_horario": "No momento estamos fora do horário de atendimento."
+    }
   }
 };
 

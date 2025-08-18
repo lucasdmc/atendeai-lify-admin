@@ -20,6 +20,7 @@ import Contextualizar from "./pages/Contextualizar";
 import GestaoUsuarios from "./pages/GestaoUsuarios";
 import Agendamentos from "./pages/Agendamentos";
 import Clinicas from "./pages/Clinicas";
+import RequirePermission from "@/components/RequirePermission";
 import AIDashboard from "./pages/AIDashboard";
 import Simulacao from "./pages/Simulacao";
 import WhatsAppAITest from "./pages/WhatsAppAITest";
@@ -119,7 +120,9 @@ const App = () => {
                       path="/clinicas"
                       element={
                         <Layout>
-                          <Clinicas />
+                          <RequirePermission module="clinicas">
+                            <Clinicas />
+                          </RequirePermission>
                         </Layout>
                       }
                     />
@@ -127,7 +130,9 @@ const App = () => {
                       path="/contextualizar"
                       element={
                         <Layout>
-                          <Contextualizar />
+                          <RequirePermission module="contextualizar">
+                            <Contextualizar />
+                          </RequirePermission>
                         </Layout>
                       }
                     />
@@ -135,7 +140,9 @@ const App = () => {
                       path="/gestao-usuarios"
                       element={
                         <Layout>
-                          <GestaoUsuarios />
+                          <RequirePermission module="gestao_usuarios">
+                            <GestaoUsuarios />
+                          </RequirePermission>
                         </Layout>
                       }
                     />
@@ -143,7 +150,9 @@ const App = () => {
                       path="/agendamentos"
                       element={
                         <Layout>
-                          <Agendamentos />
+                          <RequirePermission module="agendamentos">
+                            <Agendamentos />
+                          </RequirePermission>
                         </Layout>
                       }
                     />

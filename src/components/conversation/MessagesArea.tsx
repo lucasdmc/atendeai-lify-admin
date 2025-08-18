@@ -9,6 +9,7 @@ interface Message {
   message_type: 'received' | 'sent';
   timestamp: string;
   whatsapp_message_id: string | null;
+  simulation_mode?: boolean | null;
 }
 
 interface MessagesAreaProps {
@@ -65,6 +66,9 @@ const MessagesArea = ({ messages, loading, formatMessageTime }: MessagesAreaProp
                     }`}
                   >
                     <p className="text-sm">{message.content}</p>
+                    {message.simulation_mode ? (
+                      <p className={`${message.message_type === 'sent' ? 'text-orange-100' : 'text-gray-600'} text-[10px] mt-1`}>Simulação</p>
+                    ) : null}
                     <p className={`text-xs mt-1 ${
                       message.message_type === 'sent' ? 'text-orange-100' : 'text-gray-500'
                     }`}>

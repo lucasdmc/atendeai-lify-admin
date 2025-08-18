@@ -187,7 +187,10 @@ export default class GoogleCalendarService {
       // Garantir autenticação
       await this.authenticateForClinic(clinicId, clinicContext);
       
-      const calendarId = clinicContext.googleCalendar?.calendarId || 'primary';
+      const calendarId = this.resolveCalendarId(clinicContext, {
+        serviceId: serviceConfig?.id,
+        professionalId: serviceConfig?.professionalId
+      });
       const businessHours = clinicContext.businessHours || {};
       const appointmentRules = clinicContext.appointmentRules || {};
       
@@ -470,7 +473,10 @@ export default class GoogleCalendarService {
       // Garantir autenticação
       await this.authenticateForClinic(clinicId, clinicContext);
       
-      const calendarId = clinicContext.googleCalendar?.calendarId || 'primary';
+      const calendarId = this.resolveCalendarId(clinicContext, {
+        serviceId: appointmentData?.selectedService?.id,
+        professionalId: appointmentData?.selectedProfessional?.id
+      });
       const { selectedService, selectedSlot, userProfile } = appointmentData;
       
       // Calcular horários
@@ -518,7 +524,7 @@ export default class GoogleCalendarService {
 
       // Criar evento
       const response = await this.calendar.events.insert({
-        calendarId: calendarId,
+         calendarId: calendarId,
         resource: eventData,
         sendUpdates: 'all', // Enviar notificações
       });
@@ -643,7 +649,7 @@ export default class GoogleCalendarService {
       // Garantir autenticação
       await this.authenticateForClinic(clinicId, clinicContext);
       
-      const calendarId = clinicContext.googleCalendar?.calendarId || 'primary';
+      const calendarId = this.resolveCalendarId(clinicContext, updateData?.contextSelection || {});
       
       // Buscar evento atual
       const currentEvent = await this.calendar.events.get({
@@ -687,7 +693,7 @@ export default class GoogleCalendarService {
       // Garantir autenticação
       await this.authenticateForClinic(clinicId, clinicContext);
       
-      const calendarId = clinicContext.googleCalendar?.calendarId || 'primary';
+      const calendarId = this.resolveCalendarId(clinicContext, {});
       
       // Buscar evento para obter detalhes
       const event = await this.calendar.events.get({
@@ -719,6 +725,24 @@ export default class GoogleCalendarService {
       logger.error('Erro ao cancelar agendamento', { clinicId, eventId, message: error.message });
       throw error;
     }
+  }
+
+  /**
+   * Resolve o calendarId com base no serviço/profissional
+   * Prioridade: professional > service > default
+   */
+  resolveCalendarId(clinicContext, { serviceId = null, professionalId = null } = {}) {
+    const defaultId = clinicContext.googleCalendar?.calendarId || 'primary';
+    const byService = clinicContext.googleCalendar?.calendarsByService || {};
+    const byProfessional = clinicContext.googleCalendar?.calendarsByProfessional || {};
+
+    if (professionalId && byProfessional[professionalId]) {
+      return byProfessional[professionalId];
+    }
+    if (serviceId && byService[serviceId]) {
+      return byService[serviceId];
+    }
+    return defaultId;
   }
 
   /**

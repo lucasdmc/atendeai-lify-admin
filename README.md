@@ -38,22 +38,10 @@ O frontend estará rodando em: http://localhost:3000
 
 ## 📚 Documentação
 
-### Backend (atendeai-lify-backend)
+### Fonte de Verdade
 
-- [README do Backend](./atendeai-lify-backend/README.md)
-- API RESTful para gerenciamento de dados
-- Autenticação JWT
-- Integração com WhatsApp Business API
-- Gerenciamento de agendamentos e clínicas
-
-### Frontend (atendeai-lify-admin)
-
-- [README do Frontend](./atendeai-lify-admin/README.md)
-- Interface administrativa em React + TypeScript
-- Dashboard com métricas e gráficos
-- Gerenciamento de agendamentos
-- Integração com WhatsApp
-- Sistema de usuários e permissões
+- Documento principal: `docs/ATENDE-AI-Definicao-Tecnica.md` (fonte única de features, critérios de aceite e problemas)
+- Addenda técnica: `docs/ATENDE-AI-ADDENDA.md` (RNFs numéricos, Gherkin, esquema `contextualization_json`, regras de simulação, matriz de permissões, plano de testes)
 
 ## 🔧 Configuração do Ambiente
 

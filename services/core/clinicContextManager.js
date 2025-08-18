@@ -179,6 +179,8 @@ export default class ClinicContextManager {
     try {
       const clinica = jsonContext.clinica || {};
       const agente = jsonContext.agente_ia || {};
+      const politicas = jsonContext.politicas || {};
+      const googleCalendarJson = jsonContext.google_calendar || {};
       
       console.log(`🔍 [ClinicContextManager] Extraindo dados para ${clinicKey}:`);
       console.log(`   - Tem clinica: ${!!clinica}`);
@@ -190,6 +192,53 @@ export default class ClinicContextManager {
       const contatos = clinica.contatos || {};
       const servicos = jsonContext.servicos || {};
       const profissionais = jsonContext.profissionais || [];
+
+      // ✅ Normalizar horário de funcionamento (pt → en)
+      const horarioFuncionamento = clinica.horario_funcionamento || {};
+      const mapDia = {
+        domingo: 'sunday',
+        segunda: 'monday',
+        terca: 'tuesday',
+        terça: 'tuesday',
+        quarta: 'wednesday',
+        quinta: 'thursday',
+        sexta: 'friday',
+        sabado: 'saturday',
+        sábado: 'saturday'
+      };
+      const businessHours = {};
+      Object.keys(horarioFuncionamento).forEach((diaPt) => {
+        const diaEn = mapDia[diaPt] || diaPt;
+        const intervalos = horarioFuncionamento[diaPt];
+        // Aceita formato array de { inicio, fim } ou objeto { start, end }
+        if (Array.isArray(intervalos) && intervalos.length > 0) {
+          const primeiro = intervalos[0];
+          businessHours[diaEn] = {
+            start: primeiro.inicio || primeiro.start || '08:00',
+            end: primeiro.fim || primeiro.end || '18:00'
+          };
+        } else if (intervalos && (intervalos.inicio || intervalos.start)) {
+          businessHours[diaEn] = {
+            start: intervalos.inicio || intervalos.start,
+            end: intervalos.fim || intervalos.end
+          };
+        }
+      });
+
+      // ✅ Mapear múltiplos calendários (serviço/profissional)
+      const calendarMappings = Array.isArray(googleCalendarJson.calendarios)
+        ? googleCalendarJson.calendarios
+        : [];
+      const calendarsByService = {};
+      const calendarsByProfessional = {};
+      for (const map of calendarMappings) {
+        if (map.level === 'service' && map.service_key && map.calendar_id) {
+          calendarsByService[map.service_key] = map.calendar_id;
+        }
+        if (map.level === 'professional' && map.professional_key && map.calendar_id) {
+          calendarsByProfessional[map.professional_key] = map.calendar_id;
+        }
+      }
       
       // ✅ Construir endereço completo
       let enderecoCompleto = '';
@@ -262,8 +311,9 @@ export default class ClinicContextManager {
           emails: contatos.emails_departamentos || {}
         },
         
-        // ✅ HORÁRIOS DO JSON
+        // ✅ HORÁRIOS DO JSON (normalizados)
         workingHours: clinica.horario_funcionamento || {},
+        businessHours: businessHours,
         
         // ✅ PROFISSIONAIS DO JSON - SCHEMA COMPLETO
         professionals: profissionaisList,
@@ -312,20 +362,35 @@ export default class ClinicContextManager {
         
         // ✅ CONFIGURAÇÃO GOOGLE CALENDAR (OBRIGATÓRIA)
         googleCalendar: {
-          enabled: true, // SEMPRE habilitado para clínicas com JSON
-          calendarId: 'primary', // Calendário principal
-          timezone: 'America/Sao_Paulo',
-          appointmentRules: {
-            minimumAdvanceHours: jsonContext.politicas?.agendamento?.antecedencia_minima_horas || 24,
-            maximumAdvanceDays: jsonContext.politicas?.agendamento?.antecedencia_maxima_dias || 90,
-            slotDuration: 30, // minutos padrão
-            maxSlotsPerDay: 4 // máximo 4 slots por dia conforme solicitado
+          enabled: true,
+          calendarId: googleCalendarJson.default_calendar_id || 'primary',
+          timezone: googleCalendarJson.timezone || 'America/Sao_Paulo',
+          calendarsByService,
+          calendarsByProfessional
+        },
+
+        // ✅ REGRAS DE AGENDAMENTO E POLÍTICAS (RF08)
+        appointmentRules: {
+          minimumAdvanceHours: politicas?.agendamento?.antecedencia_minima_horas || 24,
+          maximumAdvanceDays: politicas?.agendamento?.antecedencia_maxima_dias || 90,
+          slotDuration: politicas?.agendamento?.duracao_slot_min || 30,
+          maxSlotsPerDay: politicas?.agendamento?.max_slots_dia || 4,
+          prioritization: politicas?.agendamento?.priorizacao || []
+        },
+
+        // ✅ TIMEZONE GERAL
+        timezone: googleCalendarJson.timezone || 'America/Sao_Paulo',
+
+        // ✅ POLÍTICAS COMPLETAS
+        policies: {
+          appointment: {
+            prioritization: politicas?.agendamento?.priorizacao || []
           }
         },
         
         // ✅ METADADOS
         hasJsonContext: true,
-        source: 'JSON_FILE',
+        source: 'DB_JSON',
         lastUpdated: new Date().toISOString()
       };
     } catch (error) {
