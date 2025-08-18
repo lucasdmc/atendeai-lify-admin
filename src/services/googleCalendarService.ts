@@ -6,8 +6,8 @@ import { googleCalendarManager } from '@/services/google/calendar';
 export type { GoogleCalendarEvent, CalendarToken } from './google/types';
 
 class GoogleCalendarService {
-  async initiateAuth(): Promise<void> {
-    return googleAuthManager.initiateAuth();
+  async initiateAuth(clinicId: string): Promise<void> {
+    return googleAuthManager.initiateAuth(clinicId);
   }
 
   async exchangeCodeForTokens(code: string) {

@@ -1,53 +1,19 @@
 import { GoogleOAuthConfig } from './types';
 import { config } from '@/config/frontend-config';
+import apiClient from '@/services/apiClient';
 
 export class GoogleAuthManager {
   private getRedirectUri(): string {
     return config.urls.redirectUri;
   }
 
-  private getAuthUrl(): string {
-    const redirectUri = this.getRedirectUri();
-    
-    const state = btoa(JSON.stringify({
-      timestamp: Date.now(),
-      origin: window.location.origin,
-      path: '/agendamentos',
-      redirectUri: redirectUri
-    }));
-
-    const params = new URLSearchParams({
-      client_id: config.google.clientId,
-      redirect_uri: redirectUri,
-      scope: config.google.scopes,
-      response_type: 'code',
-      access_type: 'offline',
-      prompt: 'consent',
-      state: state,
-    });
-
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-    return authUrl;
-  }
-
-  async initiateAuth(): Promise<void> {
-    try {
-      const currentUrl = window.location.href;
-      
-      if (!currentUrl.includes('/agendamentos')) {
-        console.warn('Not on agendamentos page, but proceeding with OAuth...');
-      }
-      
-      const authUrl = this.getAuthUrl();
-      
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      window.location.href = authUrl;
-      
-    } catch (error) {
-      console.error('Error in initiateAuth:', error);
-      throw error;
+  async initiateAuth(clinicId: string): Promise<void> {
+    const resp = await apiClient.post<{ url: string }>(`/api/google/oauth/start`, { clinicId });
+    if (!resp.success || !resp.data) {
+      throw new Error(resp.error || 'Falha ao iniciar OAuth');
     }
+    const { url } = resp.data as any;
+    window.location.href = url;
   }
 
   getOAuthConfig(): GoogleOAuthConfig {

@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import { performance } from 'perf_hooks';
+import { generateTraceId } from './services/utils/trace.js';
 
 dotenv.config();
 
@@ -10,6 +11,7 @@ console.log('🚀 [Server] Inicializando AtendeAI Lify Admin...');
 
 const whatsappRoutes = await import('./routes/whatsapp.js');
 const webhookRoutes = await import('./routes/webhook-final.js');
+const googleRoutes = await import('./routes/google.js');
 // Removido: rota de simulação de testes
 
 // ✅ INICIALIZAR SERVIÇOS CORE
@@ -28,10 +30,28 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// Rotas do WhatsApp
+// Middleware de correlação e observabilidade
+app.use((req, res, next) => {
+  const traceId = req.headers['x-request-id'] || generateTraceId();
+  res.setHeader('X-Request-Id', String(traceId));
+  req.traceId = traceId;
+  req.startTime = Date.now();
+  
+  // Log de início da requisição
+  console.log(`🔄 [${traceId}] ${req.method} ${req.path} - Start`);
+  
+  next();
+});
+
+// Middleware de rate limiting inteligente
+import { intelligentRateLimit, rateLimitMetrics } from './middleware/enhancedRateLimit.js';
+app.use(intelligentRateLimit);
+app.use(rateLimitMetrics);
+
+// Rotas do WhatsApp / Google
 app.use('/api/whatsapp', whatsappRoutes.default);
 app.use('/webhook', webhookRoutes.default);
-// app.use('/api/simulation', simulationRoutes.default);
+app.use('/api/google', googleRoutes.default);
 
 // Rota de teste para verificar se o servidor está funcionando
 app.get('/', (req, res) => {
@@ -41,11 +61,12 @@ app.get('/', (req, res) => {
     endpoints: [
       '/webhook/whatsapp-meta', 
       '/api/whatsapp/send-message',
+      '/api/google/oauth/start',
+      '/api/google/oauth/callback',
+      '/api/google/session/status',
+      '/api/google/calendars/list',
       '/health',
-      '/api/ai/process',
-      '/api/simulation/test',
-      '/api/simulation/clinics',
-      '/api/simulation/messages/:clinicId'
+      '/api/ai/process'
     ] 
   });
 });
@@ -73,26 +94,18 @@ app.post('/api/ai/process', async (req, res) => {
       });
     }
 
-    console.log('🤖 [AI Process] Processando mensagem:', { message, clinicId, userId });
+    console.log('🤖 [AI Process] Processando mensagem:', { message, clinicId, userId, traceId: (req as any).traceId });
 
-    // Usar LLMOrchestratorService dos serviços core
     const { LLMOrchestratorService } = await import('./services/core/index.js');
     
     const request = {
-      phoneNumber: userId, // Usar userId como phoneNumber
+      phoneNumber: userId,
       message: message,
       conversationId: `whatsapp-${userId}-${Date.now()}`,
       userId: userId
     };
 
-    console.log('[AI Process] Chamando LLMOrchestratorService...');
     const response = await LLMOrchestratorService.processMessage(request);
-
-    console.log('✅ [AI Process] Resposta gerada:', {
-      response: response.response,
-      intent: response.intent?.name,
-      confidence: response.intent?.confidence
-    });
 
     const elapsedMs = performance.now() - start;
     res.json({
@@ -109,16 +122,14 @@ app.post('/api/ai/process', async (req, res) => {
           userProfile: { name: 'Usuário' },
           conversationContext: { lastIntent: response.intent?.name || 'GREETING' },
           intent: response.intent,
-          toolsUsed: response.toolsUsed
+          toolsUsed: response.toolsUsed,
+          traceId: (req as any).traceId
         }
       },
     });
   } catch (error) {
     console.error('❌ [AI Process] Erro:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Internal server error',
-    });
+    res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Internal server error' });
   }
 });
 
@@ -152,8 +163,4 @@ app.get('/api/metrics/appointments', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 atendeai-lify-backend rodando na porta ${PORT}`);
-  console.log(`📡 Endpoints disponíveis:`);
-  console.log(`   - Webhook: http://localhost:${PORT}/webhook/whatsapp-meta`);
-  console.log(`   - AI Process: http://localhost:${PORT}/api/ai/process`);
-  console.log(`   - Health: http://localhost:${PORT}/health`);
 }); 

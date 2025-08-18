@@ -3,7 +3,7 @@
  * Arquivo: services/googleCalendarService.js
  * 
  * Serviço completo para integração com Google Calendar API
- * - Autenticação OAuth2
+ * - Autenticação OAuth2 por clínica (sem Service Account)
  * - Consulta de disponibilidade
  * - Criação de eventos
  * - Atualização e cancelamento
@@ -32,14 +32,10 @@ export default class GoogleCalendarService {
   async initialize(credentialsPath = './config/google-credentials.json') {
     try {
       logger.info('Inicializando Google Calendar Service...');
-      
-      // Carregar credenciais
       const credentialsContent = await fs.readFile(credentialsPath, 'utf8');
       this.credentials = JSON.parse(credentialsContent);
-      
       logger.info('Google Calendar Service inicializado com sucesso');
       return true;
-      
     } catch (error) {
       logger.error('Erro ao inicializar Google Calendar Service', { message: error.message });
       throw new Error(`Falha na inicialização: ${error.message}`);
@@ -47,15 +43,14 @@ export default class GoogleCalendarService {
   }
 
   /**
-   * Autentica com Google Calendar para uma clínica específica
+   * Autentica com Google Calendar para uma clínica específica (somente OAuth2)
    * @param {string} clinicId - ID da clínica
-   * @param {Object} clinicContext - Contexto da clínica com configurações
    */
-  async authenticateForClinic(clinicId, clinicContext) {
+  async authenticateForClinic(clinicId) {
     try {
       logger.info('Autenticando Google Calendar para clínica', { clinicId });
-      
-      // Verificar se já temos token válido em cache
+
+      // Verificar cache
       if (this.tokens.has(clinicId)) {
         const cachedAuth = this.tokens.get(clinicId);
         if (await this.isTokenValid(cachedAuth)) {
@@ -66,25 +61,9 @@ export default class GoogleCalendarService {
         }
       }
 
-      // ✅ USAR SERVICE ACCOUNT (credenciais já configuradas)
-      if (this.credentials.type === 'service_account') {
-        logger.info('Usando autenticação via Service Account...');
-        
-        const auth = new google.auth.GoogleAuth({
-          keyFile: './config/google-credentials.json',
-          scopes: ['https://www.googleapis.com/auth/calendar', 'https://www.googleapis.com/auth/calendar.events']
-        });
-        
-        this.auth = await auth.getClient();
-        this.calendar = google.calendar({ version: 'v3', auth: this.auth });
-        this.tokens.set(clinicId, this.auth);
-        logger.info('Autenticação via Service Account realizada com sucesso');
-        return true;
-      }
-
       // OAuth2 com tokens armazenados no Supabase
-      const { client_secret, client_id, redirect_uris } = this.credentials.web || this.credentials.installed;
-      if (!client_secret || !client_id) {
+      const { client_secret, client_id, redirect_uris } = this.credentials.web || this.credentials.installed || {};
+      if (!client_secret || !client_id || !redirect_uris?.[0]) {
         throw new Error('Credenciais OAuth2 não configuradas corretamente');
       }
       const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
@@ -102,9 +81,8 @@ export default class GoogleCalendarService {
         }
       }
 
-      // Fallback para OAuth2 (se necessário)
+      // Sem Service Account — apenas OAuth é permitido
       throw new Error(`Token OAuth2 inválido para clínica ${clinicId}. Execute o processo de autenticação.`);
-      
     } catch (error) {
       logger.error('Erro na autenticação do Google Calendar', { clinicId, message: error.message });
       throw error;
@@ -129,8 +107,8 @@ export default class GoogleCalendarService {
    * @param {string} clinicId - ID da clínica
    */
   generateAuthUrl(clinicId) {
-    const { client_secret, client_id, redirect_uris } = this.credentials.web || this.credentials.installed;
-    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
+    const { client_secret, client_id, redirect_uris } = this.credentials.web || this.credentials.installed || {};
+    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris?.[0]);
 
     const authUrl = oAuth2Client.generateAuthUrl({
       access_type: 'offline',
@@ -149,8 +127,8 @@ export default class GoogleCalendarService {
    */
   async processAuthCode(code, clinicId) {
     try {
-      const { client_secret, client_id, redirect_uris } = this.credentials.web || this.credentials.installed;
-      const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
+      const { client_secret, client_id, redirect_uris } = this.credentials.web || this.credentials.installed || {};
+      const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris?.[0]);
 
       const { tokens } = await oAuth2Client.getToken(code);
       oAuth2Client.setCredentials(tokens);
@@ -160,7 +138,6 @@ export default class GoogleCalendarService {
       this.calendar = google.calendar({ version: 'v3', auth: this.auth });
       logger.info('Token salvo com sucesso para clínica', { clinicId });
       return true;
-
     } catch (error) {
       logger.error('Erro ao processar código de autorização', { clinicId, message: error.message });
       throw error;
@@ -185,7 +162,7 @@ export default class GoogleCalendarService {
       }
       
       // Garantir autenticação
-      await this.authenticateForClinic(clinicId, clinicContext);
+      await this.authenticateForClinic(clinicId);
       
       const calendarId = this.resolveCalendarId(clinicContext, {
         serviceId: serviceConfig?.id,
@@ -471,7 +448,7 @@ export default class GoogleCalendarService {
       logger.info('Criando agendamento no Google Calendar', { clinicId });
       
       // Garantir autenticação
-      await this.authenticateForClinic(clinicId, clinicContext);
+      await this.authenticateForClinic(clinicId);
       
       const calendarId = this.resolveCalendarId(clinicContext, {
         serviceId: appointmentData?.selectedService?.id,
@@ -647,7 +624,7 @@ export default class GoogleCalendarService {
       logger.info('Atualizando agendamento', { clinicId, eventId });
       
       // Garantir autenticação
-      await this.authenticateForClinic(clinicId, clinicContext);
+      await this.authenticateForClinic(clinicId);
       
       const calendarId = this.resolveCalendarId(clinicContext, updateData?.contextSelection || {});
       
@@ -691,7 +668,7 @@ export default class GoogleCalendarService {
       logger.info('Cancelando agendamento', { clinicId, eventId });
       
       // Garantir autenticação
-      await this.authenticateForClinic(clinicId, clinicContext);
+      await this.authenticateForClinic(clinicId);
       
       const calendarId = this.resolveCalendarId(clinicContext, {});
       
@@ -757,7 +734,7 @@ export default class GoogleCalendarService {
       logger.info('Listando agendamentos para', { clinicId });
       
       // Garantir autenticação
-      await this.authenticateForClinic(clinicId, clinicContext);
+      await this.authenticateForClinic(clinicId);
       
       const calendarId = clinicContext.googleCalendar?.calendarId || 'primary';
       

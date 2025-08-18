@@ -5,9 +5,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Calendar, CheckCircle, X, Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useClinic } from '@/contexts/ClinicContext';
+import apiClient from '@/services/apiClient';
 
 interface GoogleCalendar {
   id: string;
@@ -29,8 +29,8 @@ export const GoogleCalendarSelector = ({
   onCalendarsSelected, 
   onCancel 
 }: GoogleCalendarSelectorProps) => {
-  const { user } = useAuth();
   const { toast } = useToast();
+  const { selectedClinicId } = useClinic();
   const [selectedCalendars, setSelectedCalendars] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -52,49 +52,20 @@ export const GoogleCalendarSelector = ({
       return;
     }
 
-    if (!user) {
-      toast({
-        title: 'Erro',
-        description: 'Usuário não autenticado.',
-        variant: 'destructive',
-      });
+    if (!selectedClinicId) {
+      toast({ title: 'Erro', description: 'Selecione uma clínica antes de associar calendários.', variant: 'destructive' });
       return;
     }
 
     setIsLoading(true);
 
     try {
-      // Buscar tokens do usuário na tabela google_calendar_tokens
-      const { data: tokenData, error: tokenError } = await supabase
-        .from('google_calendar_tokens')
-        .select('access_token, refresh_token, expires_at')
-        .eq('user_id', user.id)
-        .single();
-
-      if (tokenError || !tokenData) {
-        throw new Error('Tokens do Google não encontrados. Faça a autenticação novamente.');
-      }
-
-      // Conectar cada calendário selecionado
-      for (const calendarId of selectedCalendars) {
-        const calendar = calendars.find(cal => cal.id === calendarId);
-        if (!calendar) continue;
-
-        await supabase
-          .from('user_calendars')
-          .upsert({
-            user_id: user.id,
-            google_calendar_id: calendar.id,
-            calendar_name: calendar.summary,
-            calendar_color: calendar.backgroundColor || '#4285f4',
-            is_primary: calendar.primary || false,
-            is_active: true,
-            access_token: tokenData.access_token,
-            refresh_token: tokenData.refresh_token,
-            expires_at: tokenData.expires_at,
-          }, {
-            onConflict: 'user_id,google_calendar_id'
-          });
+      const resp = await apiClient.post('/api/google/calendars/associate', {
+        clinicId: selectedClinicId,
+        calendarIds: selectedCalendars,
+      });
+      if (!resp.success) {
+        throw new Error(resp.error || 'Falha ao associar calendários');
       }
 
       toast({

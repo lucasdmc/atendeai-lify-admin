@@ -5,6 +5,10 @@
 import express from 'express';
 import { sendWhatsAppTextMessage } from '../services/whatsappMetaService.js';
 import { createClient } from '@supabase/supabase-js';
+import { allowRequest } from '../services/utils/rateLimiter.js';
+import logger from '../services/utils/logger.js';
+import { withRetry, retryHandlers } from '../services/utils/retryHandler.js';
+import { generateTraceId } from '../services/utils/trace.js';
 
 const router = express.Router();
 
@@ -14,46 +18,184 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pYWtxZG9sY2R3eHRya2JxbWRpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDE4MjU1OSwiZXhwIjoyMDY1NzU4NTU5fQ.SY8A3ReAs_D7SFBp99PpSe8rpm1hbWMv4b2q-c_VS5M'
 );
 
+async function insertMessageIfNotExists({ conversationId, sender, receiver, content, messageType, whatsappMessageId, traceId }) {
+	const context = {
+		traceId: traceId || generateTraceId(),
+		operation: 'insert_message',
+		component: 'webhook',
+		conversationId,
+		whatsappMessageId,
+		messageType
+	};
+
+	logger.startOperation('insertMessageIfNotExists', context);
+	const startTime = Date.now();
+
+	try {
+		// Verificar duplicação com retry
+		if (whatsappMessageId) {
+			const existing = await withRetry(
+				async () => {
+					const { data, error } = await supabase
+						.from('whatsapp_messages_improved')
+						.select('id')
+						.eq('whatsapp_message_id', whatsappMessageId)
+						.maybeSingle();
+					if (error) throw error;
+					return data;
+				},
+				context,
+				{ preset: 'database', operationName: 'check_duplicate_message' }
+			);
+
+			if (existing) {
+				logger.info('Message already exists, skipping insert', {
+					...context,
+					existingMessageId: existing.id,
+					action: 'DUPLICATE_SKIPPED'
+				});
+				return existing.id;
+			}
+		}
+
+		// Inserir nova mensagem com retry
+		const result = await withRetry(
+			async () => {
+				const { data, error } = await supabase
+					.from('whatsapp_messages_improved')
+					.insert({
+						conversation_id: conversationId,
+						sender_phone: sender,
+						receiver_phone: receiver,
+						content: content,
+						message_type: messageType,
+						whatsapp_message_id: whatsappMessageId || null,
+					})
+					.select('id')
+					.single();
+				if (error) throw error;
+				return data;
+			},
+			context,
+			{ preset: 'database', operationName: 'insert_new_message' }
+		);
+
+		const duration = Date.now() - startTime;
+		logger.endOperation('insertMessageIfNotExists', {
+			...context,
+			messageId: result.id,
+			action: 'MESSAGE_INSERTED'
+		}, duration);
+
+		// Log LGPD para dados pessoais
+		logger.lgpdLog('message_stored', {
+			...context,
+			messageId: result.id,
+			dataType: 'whatsapp_message'
+		});
+
+		return result.id;
+
+	} catch (error) {
+		const duration = Date.now() - startTime;
+		logger.failOperation('insertMessageIfNotExists', error, {
+			...context,
+			action: 'INSERT_FAILED'
+		});
+		return null;
+	}
+}
+
 // Webhook para verificação (GET) e receber mensagens (POST)
 router.get('/whatsapp-meta', async (req, res) => {
+  const traceId = req.traceId || generateTraceId();
+  const context = {
+    traceId,
+    operation: 'webhook_verification',
+    component: 'webhook',
+    method: 'GET',
+    ip: req.ip
+  };
+
+  logger.startOperation('webhook_verification', context);
+
   try {
-    console.log('[Webhook-Final] Verificação GET recebida:', {
-      query: req.query,
-      headers: req.headers
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+
+    logger.info('Webhook verification request received', {
+      ...context,
+      mode,
+      hasToken: !!token,
+      hasChallenge: !!challenge
     });
 
     // Verificar se é um desafio de verificação
-    if (req.query['hub.mode'] === 'subscribe' && req.query['hub.challenge']) {
-      console.log('[Webhook-Final] Respondendo ao desafio de verificação GET');
-      
+    if (mode === 'subscribe' && challenge) {
       // Verificar o token de verificação
-      const verifyToken = req.query['hub.verify_token'];
       const expectedToken = process.env.WEBHOOK_VERIFY_TOKEN || 'atendeai-lify-backend';
       
-      if (verifyToken !== expectedToken) {
-        console.error('[Webhook-Final] Token de verificação inválido:', verifyToken);
+      if (token !== expectedToken) {
+        logger.warn('Webhook verification failed - invalid token', {
+          ...context,
+          action: 'VERIFICATION_FAILED',
+          reason: 'INVALID_TOKEN'
+        });
         return res.status(403).send('Forbidden');
       }
       
-      console.log('[Webhook-Final] Token de verificação válido (GET)');
-      return res.status(200).send(req.query['hub.challenge']);
+      logger.info('Webhook verification successful', {
+        ...context,
+        action: 'VERIFICATION_SUCCESS'
+      });
+      return res.status(200).send(challenge);
     }
 
+    logger.info('Webhook GET request - no verification challenge', context);
     return res.status(200).send('OK');
+
   } catch (error) {
-    console.error('[Webhook-Final] Erro na verificação GET:', error.message);
+    logger.failOperation('webhook_verification', error, context);
     return res.status(500).send('Internal Server Error');
   }
 });
 
 // Webhook para receber mensagens do WhatsApp
 router.post('/whatsapp-meta', async (req, res) => {
+  const traceId = req.traceId || generateTraceId();
+  const context = {
+    traceId,
+    operation: 'webhook_message_processing',
+    component: 'webhook',
+    method: 'POST',
+    ip: req.ip
+  };
+
+  logger.startOperation('webhook_message_processing', context);
+  const startTime = Date.now();
+
   try {
-    console.log('🚨 [Webhook-Final] WEBHOOK FINAL CHAMADO!');
-    console.log('[Webhook-Final] Mensagem recebida:', {
-      method: req.method,
-      headers: req.headers,
-      body: req.body
+    // Rate limiting já aplicado pelo middleware, mas verificamos se está sendo respeitado
+    const rateKey = `whatsapp:webhook:${req.headers['x-forwarded-for'] || req.ip || 'unknown'}`;
+    if (!allowRequest(rateKey)) {
+      logger.warn('Webhook rate limit exceeded', {
+        ...context,
+        rateKey: rateKey.replace(/:\d+\.\d+\.\d+\.\d+:/, ':***IP***:'), // Redact IP
+        action: 'RATE_LIMITED'
+      });
+      return res.status(429).json({ 
+        success: false, 
+        error: 'Too Many Requests',
+        traceId 
+      });
+    }
+
+    logger.info('Webhook message received', {
+      ...context,
+      hasEntry: !!req.body.entry,
+      entryLength: req.body.entry?.length || 0,
+      bodyKeys: Object.keys(req.body || {})
     });
 
     // Verificar se é um desafio de verificação
@@ -257,22 +399,16 @@ async function processWhatsAppWebhookFinal(webhookData, whatsappConfig) {
             );
 
             if (aiResult.success) {
-              // 4. SALVAR RESPOSTA NO BANCO DE DADOS
+              // 4. SALVAR RESPOSTA NO BANCO DE DADOS (idempotente)
               console.log('[Webhook-Final] Salvando resposta no banco...');
-              console.log('[Webhook-Final] Parâmetros da resposta:', {
+              await insertMessageIfNotExists({
                 conversationId,
-                senderPhone: normalizedToNumber, // Número do chatbot (quem ENVIA)
-                receiverPhone: message.from, // Número do paciente (quem RECEBE)
-                content: aiResult.response
+                sender: normalizedToNumber, // Número do chatbot (quem ENVIA)
+                receiver: message.from, // Número do paciente (quem RECEBE)
+                content: aiResult.response,
+                messageType: 'sent',
+                whatsappMessageId: null,
               });
-              await saveResponseToDatabase(
-                conversationId,
-                normalizedToNumber, // Número do chatbot (quem ENVIA)
-                message.from, // Número do paciente (quem RECEBE)
-                aiResult.response,
-                'sent',
-                null
-              );
 
               // 5. Enviar resposta via WhatsApp
               const sendResult = await sendAIResponseViaWhatsApp(
@@ -359,28 +495,18 @@ async function saveConversationToDatabase(fromNumber, toNumber, content, whatsap
         return null;
       }
 
-      // Salvar mensagem recebida
-      const { data: messageData, error: messageError } = await supabase
-        .from('whatsapp_messages_improved')
-        .insert({
-          conversation_id: conversationData.id,
-          sender_phone: fromNumber,
-          receiver_phone: toNumber,
-          content: content,
-          message_type: 'received',
-          whatsapp_message_id: whatsappMessageId
-        })
-        .select()
-        .single();
-
-      if (messageError) {
-        console.error('[Webhook-Final] Erro ao salvar mensagem:', messageError);
-        return null;
-      }
+      // Salvar mensagem recebida (idempotente)
+      await insertMessageIfNotExists({
+        conversationId: conversationData.id,
+        sender: fromNumber,
+        receiver: toNumber,
+        content,
+        messageType: 'received',
+        whatsappMessageId,
+      });
 
       console.log('[Webhook-Final] Conversa salva com sucesso:', {
         conversationId: conversationData.id,
-        messageId: messageData.id
       });
 
       return conversationData.id;
@@ -423,28 +549,18 @@ async function saveConversationToDatabase(fromNumber, toNumber, content, whatsap
       return null;
     }
 
-    // Salvar mensagem recebida
-    const { data: messageData, error: messageError } = await supabase
-      .from('whatsapp_messages_improved')
-      .insert({
-        conversation_id: conversationData.id,
-        sender_phone: fromNumber,
-        receiver_phone: toNumber,
-        content: content,
-        message_type: 'received',
-        whatsapp_message_id: whatsappMessageId
-      })
-      .select()
-      .single();
-
-    if (messageError) {
-      console.error('[Webhook-Final] Erro ao salvar mensagem:', messageError);
-      return null;
-    }
+    // Salvar mensagem recebida (idempotente)
+    await insertMessageIfNotExists({
+      conversationId: conversationData.id,
+      sender: fromNumber,
+      receiver: toNumber,
+      content,
+      messageType: 'received',
+      whatsappMessageId,
+    });
 
     console.log('[Webhook-Final] Conversa salva com sucesso:', {
       conversationId: conversationData.id,
-      messageId: messageData.id
     });
 
     return conversationData.id;
@@ -462,27 +578,15 @@ async function saveResponseToDatabase(conversationId, fromNumber, toNumber, cont
   try {
     console.log('[Webhook-Final] Salvando resposta:', { conversationId, content });
     
-    const { data: result, error } = await supabase
-      .from('whatsapp_messages_improved')
-      .insert({
-        conversation_id: conversationId,
-        sender_phone: fromNumber,
-        receiver_phone: toNumber,
-        content: content,
-        message_type: messageType,
-        whatsapp_message_id: whatsappMessageId
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('[Webhook-Final] Erro ao salvar resposta:', error);
-      return null;
-    }
-
-    console.log('[Webhook-Final] Resposta salva com sucesso, ID:', result.id);
-    return result.id;
-
+    const id = await insertMessageIfNotExists({
+      conversationId,
+      sender: fromNumber,
+      receiver: toNumber,
+      content,
+      messageType,
+      whatsappMessageId: whatsappMessageId || null,
+    });
+    return id;
   } catch (error) {
     console.error('[Webhook-Final] Erro ao salvar resposta:', error);
     return null;
