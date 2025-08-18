@@ -10,7 +10,7 @@ console.log('🚀 [Server] Inicializando AtendeAI Lify Admin...');
 
 const whatsappRoutes = await import('./routes/whatsapp.js');
 const webhookRoutes = await import('./routes/webhook-final.js');
-const simulationRoutes = await import('./routes/simulation-test.js');
+// Removido: rota de simulação de testes
 
 // ✅ INICIALIZAR SERVIÇOS CORE
 console.log('🔧 [Server] Inicializando serviços core...');
@@ -31,7 +31,7 @@ app.use(express.json());
 // Rotas do WhatsApp
 app.use('/api/whatsapp', whatsappRoutes.default);
 app.use('/webhook', webhookRoutes.default);
-app.use('/api/simulation', simulationRoutes.default);
+// app.use('/api/simulation', simulationRoutes.default);
 
 // Rota de teste para verificar se o servidor está funcionando
 app.get('/', (req, res) => {

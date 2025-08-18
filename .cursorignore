@@ -1,0 +1,37 @@
+# Arquivos/diretórios arquivados ou legados
+archive/**
+archive/tests_legacy/**
+archive/services_legacy/**
+archive/atendeai-lify-backend/**
+services/core/llmOrchestratorService.js.backup
+
+# Testes e runners manuais (não necessários no contexto do editor)
+tests/**
+test-*.js
+run-all-appointment-tests.js
+
+# Scripts de diagnóstico/checagem (poluem o contexto)
+diagnose-*.js
+check-*.js
+
+# Migrations e funções serverless (grandes e raramente úteis no contexto de edição)
+supabase/migrations/**
+supabase/functions/**
+
+# Dados duplicados/estáticos que não deveriam entrar no contexto
+public/data/**
+data/**
+
+# Credenciais/artefatos sensíveis
+config/google-credentials.json
+config/google-oauth2.json
+config/tokens/**
+ssl/**
+qrcode.png
+
+# Documentos grandes
+ANALISE_IA_MANUS.docx
+
+# Builds/artefatos
+dist/**
+build/**
