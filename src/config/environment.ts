@@ -24,8 +24,8 @@ const getBaseUrl = (): string => {
     return `${protocol}//${hostname}${port ? `:${port}` : ''}/agendamentos`;
   }
   
-  // Fallback para desenvolvimento
-  return 'http://localhost:8080/agendamentos';
+  // Fallback: usar produção se não conseguir detectar
+  return 'https://atendeai.lify.com.br/agendamentos';
 };
 
 // Configuração de ambiente para Vite/React
