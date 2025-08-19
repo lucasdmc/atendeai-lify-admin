@@ -8,12 +8,16 @@ import { googleAuthManager } from '@/services/google/auth'
 import { useGoogleAuthRedirect } from '@/hooks/useGoogleAuthRedirect'
 import { googleTokenManager } from '@/services/google/tokens'
 import { CalendarMigrationService } from '@/services/calendarMigrationService'
+import { useGoogleConnectionManager } from '@/hooks/useGoogleConnectionManager'
 import apiClient from '@/services/apiClient'
 
 export const useGoogleUserAuth = () => {
   const { user } = useAuth()
   const { selectedClinicId } = useClinic()
   const { toast } = useToast()
+  
+  // Usar o hook de conexão para evitar duplicação
+  const connectionManager = useGoogleConnectionManager()
   
   const [state, setState] = useState<GoogleAuthState>({
     isAuthenticated: false,
@@ -53,13 +57,9 @@ export const useGoogleUserAuth = () => {
         } catch {}
       }
       
-      // Checar status por clínica no backend
-      let connected = false
-      if (selectedClinicId) {
-        const statusResp = await apiClient.get(`/api/google/session/status`, { params: { clinicId: selectedClinicId } } as any)
-        connected = !!(statusResp.success && (statusResp.data as any)?.data?.connected)
-      }
-
+      // Usar o connectionManager para verificar status de conexão
+      const isConnected = connectionManager.isConnected
+      
       // Buscar calendários do usuário (legado) para manter compatibilidade de UI
       let query = supabase
         .from('user_calendars')
@@ -79,7 +79,7 @@ export const useGoogleUserAuth = () => {
 
       setState(prev => ({
         ...prev,
-        isAuthenticated: Boolean((userCalendars || []).length > 0 && hasValidTokens) || connected,
+        isAuthenticated: Boolean((userCalendars || []).length > 0 && hasValidTokens) || isConnected,
         userCalendars: (userCalendars || []).map(cal => ({
           ...cal,
           is_primary: cal.is_primary ?? false,
@@ -94,7 +94,7 @@ export const useGoogleUserAuth = () => {
       }))
 
       // Se conectado por clínica, buscar calendários disponíveis pelo backend
-      if (selectedClinicId && connected) {
+      if (selectedClinicId && isConnected) {
         await loadAvailableCalendars()
       }
     } catch (error) {
@@ -106,7 +106,7 @@ export const useGoogleUserAuth = () => {
         isLoading: false
       }))
     }
-  }, [user, selectedClinicId, loadAvailableCalendars])
+  }, [user, selectedClinicId, loadAvailableCalendars, connectionManager.isConnected])
 
   // Iniciar processo de autenticação
   const initiateAuth = useCallback(async () => {
@@ -121,12 +121,18 @@ export const useGoogleUserAuth = () => {
 
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }))
-      await googleAuthManager.initiateAuth(selectedClinicId)
+      
+      // Usar o connectionManager se disponível, senão usar o método legado
+      if (connectionManager.connectToGoogle) {
+        await connectionManager.connectToGoogle()
+      } else {
+        await googleAuthManager.initiateAuth(selectedClinicId)
+      }
     } catch (error) {
       setState(prev => ({ ...prev, error: error instanceof Error ? error.message : 'Erro ao iniciar autenticação', isLoading: false }))
       toast({ title: 'Erro', description: 'Falha ao conectar com Google', variant: 'destructive' })
     }
-  }, [user, toast, selectedClinicId])
+  }, [user, toast, selectedClinicId, connectionManager.connectToGoogle])
 
   // Processar callback (legado) — manter compatível
   useGoogleAuthRedirect(async (calendars) => {
@@ -150,6 +156,42 @@ export const useGoogleUserAuth = () => {
     setAvailableCalendars([])
     checkAuthentication()
   }, [checkAuthentication])
+
+  // Desconectar calendários
+  const disconnectCalendars = useCallback(async (calendarIds?: string[]) => {
+    if (!selectedClinicId) {
+      toast({ title: 'Erro', description: 'Selecione uma clínica para desconectar calendários', variant: 'destructive' })
+      return
+    }
+
+    try {
+      setState(prev => ({ ...prev, isLoading: true, error: null }))
+      
+      // Usar o connectionManager para desconectar
+      await connectionManager.disconnectFromGoogle()
+      
+      // Atualizar estado local para sincronizar com connectionManager
+      setState(prev => ({
+        ...prev,
+        isAuthenticated: false,
+        userCalendars: [],
+        isLoading: false
+      }))
+      
+      // Limpar calendários selecionados
+      setShowCalendarSelector(false)
+      setAvailableCalendars([])
+      
+      toast({ title: 'Sucesso', description: 'Calendários desconectados com sucesso' })
+    } catch (error) {
+      setState(prev => ({ 
+        ...prev, 
+        error: error instanceof Error ? error.message : 'Erro ao desconectar calendários',
+        isLoading: false 
+      }))
+      toast({ title: 'Erro', description: 'Falha ao desconectar calendários', variant: 'destructive' })
+    }
+  }, [selectedClinicId, toast, connectionManager])
 
   // Verificar autenticação quando o usuário mudar
   useEffect(() => {

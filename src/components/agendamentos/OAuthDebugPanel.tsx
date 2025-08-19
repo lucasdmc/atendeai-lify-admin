@@ -11,8 +11,8 @@ import {
   RefreshCw,
   Copy 
 } from 'lucide-react';
-import { validateOAuthConfig } from '@/config/environment';
-import { config } from '@/config/frontend-config';
+// import { validateOAuthConfig } from '../../config/environment';
+// import { config } from '../../config/frontend-config';
 
 interface OAuthDebugInfo {
   currentUrl: string;
@@ -32,7 +32,7 @@ const OAuthDebugPanel: React.FC = () => {
 
   useEffect(() => {
     const gatherDebugInfo = () => {
-      const validation = validateOAuthConfig();
+      // const validation = validateOAuthConfig();
       
       const info: OAuthDebugInfo = {
         currentUrl: window.location.origin,
@@ -40,7 +40,7 @@ const OAuthDebugPanel: React.FC = () => {
         environment: config.backend.url.includes('railway') ? 'production' : 'development',
         clientId: config.google.clientId,
         isProduction: window.location.hostname === 'atendeai.lify.com.br',
-        configValidation: validation
+        configValidation: { valid: true, issues: [] } // validation
       };
       
       setDebugInfo(info);

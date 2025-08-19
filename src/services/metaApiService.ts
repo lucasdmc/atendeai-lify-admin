@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { config } from '@/config/environment';
+import { config } from '../config/environment';
 
 export interface MetaPhoneNumber {
   id: string; // phone_number_id

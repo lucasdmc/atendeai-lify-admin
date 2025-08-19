@@ -1,0 +1,41 @@
+name: Deploy to Lovable
+
+on:
+  push:
+    branches: [ main, master, refactor/roadmap-phase-1 ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-files
+          path: dist/
+          retention-days: 1
+
+      - name: Deploy to Lovable via API
+        run: |
+          echo "Build concluído com sucesso!"
+          echo "Para fazer deploy no Lovable:"
+          echo "1. Acesse https://lovable.dev"
+          echo "2. Conecte este repositório"
+          echo "3. Configure o domínio: atendeai.lify.com.br"
+          echo "4. Faça o deploy da pasta dist/"

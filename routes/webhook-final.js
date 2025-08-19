@@ -1,6 +1,15 @@
 // ========================================
 // WEBHOOK FINAL - TODAS AS FUNCIONALIDADES CONSOLIDADAS
 // ========================================
+// 
+// DIFERENÇA ENTRE WEBHOOKS:
+// 1. Este arquivo (webhook-final.js): RECEBE mensagens do WhatsApp Business API
+// 2. whatsapp.js: ENVIA mensagens via WhatsApp Business API
+// 
+// ESTRUTURA:
+// - /webhook/whatsapp-meta → Recebe webhooks do Meta
+// - /api/whatsapp/send-message → Envia mensagens programaticamente
+// ========================================
 
 import express from 'express';
 import { sendWhatsAppTextMessage } from '../services/whatsappMetaService.js';

@@ -1,0 +1,14 @@
+# Configuração específica para deploy no Lovable
+# Este arquivo é reconhecido automaticamente pela plataforma
+
+[build]
+command = "npm run build"
+output = "dist"
+node_version = "18"
+
+[deploy]
+platform = "lovable"
+auto_deploy = true
+
+[environment]
+NODE_ENV = "production"

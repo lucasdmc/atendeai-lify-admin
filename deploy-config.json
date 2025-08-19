@@ -8,7 +8,7 @@
   "VITE_BACKEND_URL": "https://atendeai-lify-backend-production.up.railway.app",
     "NODE_ENV": "production"
   },
-  "buildCommand": "npm run build:prod",
+  "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "deployUrl": "https://atendeai.lify.com.br"
 }
