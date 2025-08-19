@@ -94,7 +94,7 @@ app.post('/api/ai/process', async (req, res) => {
       });
     }
 
-    console.log('🤖 [AI Process] Processando mensagem:', { message, clinicId, userId, traceId: (req as any).traceId });
+    console.log('🤖 [AI Process] Processando mensagem:', { message, clinicId, userId, traceId: req.traceId });
 
     const { LLMOrchestratorService } = await import('./services/core/index.js');
     
@@ -123,7 +123,7 @@ app.post('/api/ai/process', async (req, res) => {
           conversationContext: { lastIntent: response.intent?.name || 'GREETING' },
           intent: response.intent,
           toolsUsed: response.toolsUsed,
-          traceId: (req as any).traceId
+          traceId: req.traceId
         }
       },
     });
