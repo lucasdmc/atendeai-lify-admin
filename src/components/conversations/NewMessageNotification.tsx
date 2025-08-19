@@ -17,7 +17,7 @@ const NewMessageNotification: React.FC<NewMessageNotificationProps> = ({
   onDismiss
 }) => {
   const [isVisible, setIsVisible] = useState(true);
-  const { setSelectedConversation, markConversationAsRead } = useConversation();
+  const { markConversationAsRead } = useConversation();
 
   useEffect(() => {
     // Auto-dismiss após 5 segundos

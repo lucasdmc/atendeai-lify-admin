@@ -17,7 +17,7 @@ export const WhatsAppIntegrationInfo = () => {
     return null;
   }
 
-  const integrationType = selectedClinic.whatsapp_integration_type || 'meta_api';
+  
 
   return (
     <div className="space-y-4">

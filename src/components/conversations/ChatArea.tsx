@@ -56,9 +56,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ conversation, conversationId, isSim
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [newMessage, setNewMessage] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
   const [contactAvatar, setContactAvatar] = useState<string>('');
-  const [avatarError, setAvatarError] = useState(false);
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(conversation || null);
   
   const { markConversationAsRead } = useConversation();
@@ -78,7 +76,6 @@ const ChatArea: React.FC<ChatAreaProps> = ({ conversation, conversationId, isSim
           setContactAvatar(url);
         } catch (error) {
           console.error('Erro ao gerar avatar:', error);
-          setAvatarError(true);
         }
       };
 
@@ -260,7 +257,6 @@ const ChatArea: React.FC<ChatAreaProps> = ({ conversation, conversationId, isSim
           <Avatar className="h-10 w-10">
             <AvatarImage 
               src={contactAvatar} 
-              onError={() => setAvatarError(true)}
             />
             <AvatarFallback 
               style={{
@@ -346,21 +342,6 @@ const ChatArea: React.FC<ChatAreaProps> = ({ conversation, conversationId, isSim
                 </div>
               </div>
             ))}
-            
-            {isTyping && (
-              <div className="flex justify-start">
-                <div className="bg-white border border-gray-200 rounded-lg px-4 py-2">
-                  <div className="flex items-center gap-1">
-                    <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                    </div>
-                    <span className="text-xs text-gray-500 ml-2">digitando...</span>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
       </ScrollArea>
