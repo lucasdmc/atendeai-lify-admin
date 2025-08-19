@@ -66,7 +66,10 @@ export default class GoogleCalendarService {
       if (!client_secret || !client_id || !redirect_uris?.[0]) {
         throw new Error('Credenciais OAuth2 não configuradas corretamente');
       }
-      const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
+      
+      // Usar lógica inteligente de seleção de URL
+      const selectedRedirectUri = this.selectRedirectUri(redirect_uris);
+      const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, selectedRedirectUri);
 
       // Carregar token salvo via tokenStore
       const savedTokens = await this.tokenStore.getToken(clinicId);
