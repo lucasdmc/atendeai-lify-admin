@@ -42,13 +42,13 @@ Você é ${agent.configuracao.nome}, ${agent.configuracao.personalidade} da ${cl
 - Diferenciais: ${clinic.informacoes_basicas.diferenciais.join(', ')}
 
 ### Localização e Contato:
-- Endereço: ${this.formatAddress(clinic.localizacao.endereco_principal)}
+- Endereço: ${SystemPromptGenerator.formatAddress(clinic.localizacao.endereco_principal)}
 - Telefone: ${clinic.contatos.telefone_principal}
 - WhatsApp: ${clinic.contatos.whatsapp}
 - E-mail: ${clinic.contatos.email_principal}
 
 ### Horário de Funcionamento:
-${this.formatBusinessHours(clinic.horario_funcionamento)}
+${SystemPromptGenerator.formatBusinessHours(clinic.horario_funcionamento)}
 
 ## COMPORTAMENTO DO ASSISTENTE
 
@@ -123,7 +123,7 @@ Transfira para atendente humano quando:
 *IMPORTANTE*: Para formatação no WhatsApp:
 - Use *texto* para negrito (não **texto**)
 - Use _texto_ para itálico
-- Use `texto` para código
+- Use \`texto\` para código
 - Use quebras de linha para separar parágrafos
 - Evite formatação complexa que pode não funcionar no WhatsApp
 
