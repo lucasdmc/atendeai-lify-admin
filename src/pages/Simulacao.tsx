@@ -1,58 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { MessageCircle, Search, Play, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { MessageCircle, Search, MoreVertical, Filter, Phone, Video, Info, Paperclip, Smile, Mic, Play, Eye } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
-import ConversationSearch from '@/components/conversations/ConversationSearch';
 import LoadingState from '@/components/conversations/LoadingState';
-import WhatsAppStyleConversation from '@/components/conversations/WhatsAppStyleConversation';
 import ChatArea from '@/components/conversations/ChatArea';
 import { getDisplayName } from '@/utils/conversationUtils';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useAuth } from '@/hooks/useAuth';
-import { useClinic } from '@/contexts/ClinicContext';
-import { useConversation } from '@/contexts/ConversationContext';
+import { useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useClinic } from '@/contexts/ClinicContext';
 
-// Função JavaScript para formatar número de telefone
-const formatPhoneNumber = (phoneNumber: string): string => {
-  // Remove todos os caracteres não numéricos
-  const cleaned = phoneNumber.replace(/\D/g, '');
-  
-  // Se começa com código do país (55 para Brasil)
-  if (cleaned.startsWith('55')) {
-    const number = cleaned.substring(2);
-    if (number.length === 10) {
-      return `(${number.substring(0, 2)}) ${number.substring(2, 6)}-${number.substring(6)}`;
-    } else if (number.length === 11) {
-      return `(${number.substring(0, 2)}) ${number.substring(2, 7)}-${number.substring(7)}`;
-    }
-  }
-  
-  // Se é um número brasileiro sem código do país
-  if (cleaned.length === 10) {
-    return `(${cleaned.substring(0, 2)}) ${cleaned.substring(2, 6)}-${cleaned.substring(6)}`;
-  } else if (cleaned.length === 11) {
-    return `(${cleaned.substring(0, 2)}) ${cleaned.substring(2, 7)}-${cleaned.substring(7)}`;
-  }
-  
-  // Se não conseguir formatar, retorna o número original
-  return phoneNumber;
-};
-
-// Função JavaScript para extrair código do país
-const extractCountryCode = (phoneNumber: string): string => {
-  const cleaned = phoneNumber.replace(/\D/g, '');
-  if (cleaned.startsWith('55')) {
-    return 'BR';
-  }
-  return 'BR'; // Default para Brasil
-};
 
 interface SimulationConversation {
   id: string;
@@ -76,8 +35,6 @@ const Simulacao = () => {
   const [selectedConversation, setSelectedConversation] = useState<SimulationConversation | null>(null);
   const [conversations, setConversations] = useState<SimulationConversation[]>([]);
   const navigate = useNavigate();
-  const { conversationId } = useParams();
-  const { user, userProfile, userRole } = useAuth();
   const { selectedClinicId } = useClinic();
 
   // Carregar conversas em modo simulação
@@ -115,8 +72,8 @@ const Simulacao = () => {
       // Transformar os dados para incluir informações da clínica
       const simulationConversations: SimulationConversation[] = conversationsData?.map(conv => ({
         ...conv,
-        clinic_name: conv.clinics?.name,
-        simulation_mode: conv.clinics?.simulation_mode || false
+        clinic_name: (conv.clinics as any)?.name,
+        simulation_mode: (conv.clinics as any)?.simulation_mode || false
       })) || [];
 
       setConversations(simulationConversations);

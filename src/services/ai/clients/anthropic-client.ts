@@ -34,13 +34,18 @@ export class AnthropicClient {
     }
   ) {
     try {
-      const response = await this.client.messages.create({
+      const requestBody: any = {
         model,
         messages,
         temperature: options?.temperature ?? 0.7,
         max_tokens: options?.maxTokens ?? 1000,
-        system: options?.system,
-      });
+      };
+
+      if (options?.system) {
+        requestBody.system = options.system;
+      }
+
+      const response = await this.client.messages.create(requestBody);
 
       return response;
     } catch (error) {
@@ -63,10 +68,11 @@ export class AnthropicClient {
         ],
       });
 
+      const textContent = response.content.find(c => c.type === 'text');
       return {
         success: true,
         message: 'Anthropic connection successful',
-        response: response.content[0].text,
+        response: textContent ? (textContent as any).text : 'Response received',
       };
     } catch (error) {
       return {

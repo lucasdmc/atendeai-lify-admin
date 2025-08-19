@@ -497,7 +497,13 @@ Retorne apenas um JSON válido com:
         return this.getDefaultEmotionTrendsReport();
       }
 
-      const emotionDistribution: Record<EmotionType, number> = {};
+      // Initialize emotionDistribution with all emotions set to 0
+      const emotionDistribution: Record<EmotionType, number> = {
+        joy: 0, satisfaction: 0, excitement: 0, gratitude: 0,
+        frustration: 0, anger: 0, anxiety: 0, confusion: 0,
+        sadness: 0, disappointment: 0, worry: 0, impatience: 0,
+        calm: 0, neutral: 0, curiosity: 0, surprise: 0
+      };
       const urgencyBreakdown: Record<string, number> = { low: 0, medium: 0, high: 0 };
       const triggerCounts: Record<string, number> = {};
       let totalIntensity = 0;
@@ -508,7 +514,7 @@ Retorne apenas um JSON válido com:
         urgencyBreakdown[row.urgency] = (urgencyBreakdown[row.urgency] || 0) + 1;
         totalIntensity += row.intensity || 0;
 
-        (row.triggers || []).forEach(trigger => {
+        (row.triggers || []).forEach((trigger: string) => {
           triggerCounts[trigger] = (triggerCounts[trigger] || 0) + 1;
         });
       });
@@ -590,9 +596,17 @@ Retorne apenas um JSON válido com:
    * Relatório padrão de tendências
    */
   private getDefaultEmotionTrendsReport() {
+    // Initialize emotionDistribution with all emotions set to 0
+    const emotionDistribution: Record<EmotionType, number> = {
+      joy: 0, satisfaction: 0, excitement: 0, gratitude: 0,
+      frustration: 0, anger: 0, anxiety: 0, confusion: 0,
+      sadness: 0, disappointment: 0, worry: 0, impatience: 0,
+      calm: 0, neutral: 0, curiosity: 0, surprise: 0
+    };
+    
     return {
       totalInteractions: 0,
-      emotionDistribution: {},
+      emotionDistribution,
       averageIntensity: 0,
       urgencyBreakdown: { low: 0, medium: 0, high: 0 },
       topTriggers: [],
