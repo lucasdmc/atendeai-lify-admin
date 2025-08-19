@@ -151,6 +151,24 @@ export const useGoogleUserAuth = () => {
     checkAuthentication()
   }, [checkAuthentication])
 
+  const disconnectCalendars = useCallback(async () => {
+    if (!selectedClinicId) return
+    try {
+      setState(prev => ({ ...prev, isLoading: true }))
+      const resp = await apiClient.delete(`/api/google/calendars/disconnect`, { params: { clinicId: selectedClinicId } } as any)
+      if (resp.success) {
+        await checkAuthentication()
+        toast({ title: 'Sucesso', description: 'Calendários desconectados com sucesso!' })
+      } else {
+        toast({ title: 'Erro', description: resp.error || 'Falha ao desconectar calendários', variant: 'destructive' })
+      }
+    } catch (error) {
+      toast({ title: 'Erro', description: 'Falha ao desconectar calendários', variant: 'destructive' })
+    } finally {
+      setState(prev => ({ ...prev, isLoading: false }))
+    }
+  }, [selectedClinicId, checkAuthentication, toast])
+
   // Verificar autenticação quando o usuário mudar
   useEffect(() => {
     if (user) {

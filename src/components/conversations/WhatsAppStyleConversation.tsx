@@ -3,7 +3,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { getAvatarUrl, generateColorsFromName } from '@/utils/avatarUtils';
-import { formatPhoneNumber } from '@/utils/conversationUtils';
+
 
 interface WhatsAppStyleConversationProps {
   conversation: {
@@ -31,7 +31,7 @@ const WhatsAppStyleConversation: React.FC<WhatsAppStyleConversationProps> = ({
 }) => {
   const displayName = getDisplayName(conversation);
   const [avatarUrl, setAvatarUrl] = useState<string>('');
-  const [avatarError, setAvatarError] = useState(false);
+  
   const colors = generateColorsFromName(displayName);
 
   useEffect(() => {
@@ -45,7 +45,6 @@ const WhatsAppStyleConversation: React.FC<WhatsAppStyleConversationProps> = ({
         setAvatarUrl(url);
       } catch (error) {
         console.error('Erro ao gerar avatar:', error);
-        setAvatarError(true);
       }
     };
 
@@ -83,7 +82,6 @@ const WhatsAppStyleConversation: React.FC<WhatsAppStyleConversationProps> = ({
         <Avatar className="h-12 w-12">
           <AvatarImage 
             src={avatarUrl} 
-            onError={() => setAvatarError(true)}
           />
           <AvatarFallback 
             className="font-semibold"
@@ -99,7 +97,7 @@ const WhatsAppStyleConversation: React.FC<WhatsAppStyleConversationProps> = ({
         {/* Indicador de mensagens não lidas */}
         {hasUnreadMessages && (
           <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-green-500 text-white border-2 border-white font-medium">
-            {conversation.unread_count > 99 ? '99+' : conversation.unread_count}
+            {(conversation.unread_count ?? 0) > 99 ? '99+' : conversation.unread_count}
           </Badge>
         )}
         

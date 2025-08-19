@@ -2,7 +2,6 @@ import { useState, memo, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocation, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { 
   LayoutDashboard, 
   MessageSquare, 
@@ -20,31 +19,6 @@ import { cn } from '@/lib/utils';
 import { hasPermission } from '@/components/users/UserRoleUtils';
 import { useClinic } from '@/contexts/ClinicContext';
 import { useSidebar } from '@/contexts/SidebarContext';
-// import { useConversation } from '@/contexts/ConversationContext';
-
-// Interface estendida para incluir configuração WhatsApp
-interface ClinicWithWhatsApp {
-  id: string;
-  name: string;
-  whatsapp_integration_type?: 'meta_api';
-  address?: unknown;
-  phone?: unknown;
-  email?: unknown;
-  created_by: string;
-  created_at?: string | null;
-  updated_at?: string | null;
-  working_hours?: unknown;
-  specialties?: unknown;
-  payment_methods?: unknown;
-  insurance_accepted?: unknown;
-  emergency_contact?: unknown;
-  admin_notes?: unknown;
-  logo_url?: unknown;
-  primary_color?: unknown;
-  secondary_color?: unknown;
-  timezone?: string | null;
-  language?: string | null;
-}
 
 const menuItems = [
   {
@@ -98,8 +72,6 @@ const Sidebar = memo(() => {
   const { isCollapsed, setIsCollapsed } = useSidebar();
   const { userRole, loading } = useAuth();
   const { selectedClinic } = useClinic();
-  // const { unreadCount } = useConversation();
-  const unreadCount = 0; // Temporariamente desabilitado para resolver erro
   const location = useLocation();
 
   // Filtrar itens do menu baseado nas permissões do usuário e configuração da clínica

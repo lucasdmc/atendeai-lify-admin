@@ -6,7 +6,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { CalendarMigrationService, useCalendarMigration } from '@/services/calendarMigrationService'
 import { useAuth } from '@/hooks/useAuth'
 import { useClinic } from '@/contexts/ClinicContext'
-import { RefreshCw, CheckCircle, AlertTriangle, Clock } from 'lucide-react'
+import { RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react'
 
 interface MigrationStatus {
   needsMigration: boolean
