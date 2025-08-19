@@ -9,7 +9,7 @@ const supabase = config.getSupabaseClient();
 // Inicialização preguiçosa
 async function ensureInitialized() {
 	if (!googleService.credentials) {
-		await googleService.initialize();
+		await googleService.initialize('./config/google-oauth2.json');
 	}
 }
 
