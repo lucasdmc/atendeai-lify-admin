@@ -5,7 +5,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { 
   ArrowLeft, 
   Search, 
-  MoreVertical, 
   Phone, 
   Video, 
   Info, 
@@ -20,7 +19,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
 import { getDisplayName } from '@/utils/conversationUtils';
 
 interface Message {
@@ -51,7 +49,6 @@ const ConversaIndividual = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [newMessage, setNewMessage] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
 
   useEffect(() => {
     if (conversationId) {
@@ -163,7 +160,7 @@ const ConversaIndividual = () => {
     );
   }
 
-  const displayName = getDisplayName(conversation);
+  const displayName = getDisplayName(conversation as any);
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
@@ -242,21 +239,6 @@ const ConversaIndividual = () => {
                 </div>
               </div>
             ))
-          )}
-          
-          {isTyping && (
-            <div className="flex justify-start">
-              <div className="bg-white border border-gray-200 rounded-lg px-4 py-2">
-                <div className="flex items-center gap-1">
-                  <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                  </div>
-                  <span className="text-xs text-gray-500 ml-2">digitando...</span>
-                </div>
-              </div>
-            </div>
           )}
         </div>
       </ScrollArea>

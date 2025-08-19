@@ -101,8 +101,8 @@ export class ConversationMemoryService {
         history: this.buildHistory(messages || []),
         userProfile: {
           phone: phoneNumber,
-          name: userName,
-          email: conversationData?.email,
+          name: userName || '',
+          email: conversationData?.email || '',
           lastInteraction: memoryData?.last_interaction ? new Date(memoryData.last_interaction) : new Date()
         },
         context: memoryData?.memory_data?.context || {},

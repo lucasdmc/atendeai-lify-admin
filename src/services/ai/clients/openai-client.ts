@@ -79,7 +79,7 @@ export class OpenAIClient {
   ) {
     try {
       const response = await this.client.audio.transcriptions.create({
-        file: audioBuffer,
+        file: audioBuffer as any,
         model: 'whisper-1',
         language: options?.language ?? 'pt',
         prompt: options?.prompt,

@@ -196,9 +196,7 @@ const Agendamentos = () => {
         <div className="max-w-2xl w-full">
           <GoogleCalendarSelector
             calendars={availableCalendars}
-            onCalendarsSelected={() => {
-              onCalendarsSelected([])
-            }}
+            onCalendarsSelected={onCalendarsSelected}
             onCancel={onCancelSelection}
           />
         </div>
@@ -267,7 +265,7 @@ const Agendamentos = () => {
         isConnected={isAuthenticated}
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         sidebarOpen={sidebarOpen}
-        clinicName={selectedClinic?.name} // Adicionar nome da clínica
+        clinicName={selectedClinic?.name || 'Clínica Selecionada'}
       />
 
       {/* Filtros por Serviço / Profissional (mapeamento do JSON da clínica) */}
@@ -324,7 +322,7 @@ const Agendamentos = () => {
             onDisconnectCalendars={disconnectCalendars}
             events={events}
             isLoading={eventsLoading}
-            clinicName={selectedClinic?.name}
+            clinicName={selectedClinic?.name || 'Clínica Selecionada'}
           />
 
           {/* Área principal do calendário */}
