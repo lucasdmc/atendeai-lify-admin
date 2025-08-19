@@ -29,16 +29,30 @@ export default class AppointmentFlowManager {
    */
   async initialize() {
     try {
-      console.log('🔧 Inicializando AppointmentFlowManager...');
+      console.log('🔧 [AppointmentFlowManager] Iniciando inicialização...');
       
       // Inicializar Google Calendar Service
+      console.log('🔧 [AppointmentFlowManager] Inicializando Google Calendar Service...');
       await this.googleCalendar.initialize();
+      console.log('✅ [AppointmentFlowManager] Google Calendar Service inicializado');
+      
+      // Inicializar Flow State Store
+      console.log('🔧 [AppointmentFlowManager] Inicializando Flow State Store...');
+      // Testar conexão com o store
+      try {
+        await this.flowStore.set('test', { test: true });
+        await this.flowStore.clear('test');
+        console.log('✅ [AppointmentFlowManager] Flow State Store funcionando');
+      } catch (storeError) {
+        console.warn('⚠️ [AppointmentFlowManager] Flow State Store com problemas, mas continuando:', storeError.message);
+      }
       
       this.initialized = true;
-      console.log('✅ AppointmentFlowManager inicializado com sucesso');
+      console.log('✅ [AppointmentFlowManager] Inicialização completa com sucesso');
       
     } catch (error) {
-      console.error('❌ Erro ao inicializar AppointmentFlowManager:', error);
+      console.error('❌ [AppointmentFlowManager] Erro na inicialização:', error);
+      this.initialized = false;
       throw error;
     }
   }
@@ -113,24 +127,45 @@ export default class AppointmentFlowManager {
    */
   async handleAppointmentIntent(phoneNumber, message, intent, clinicContext, memory) {
     try {
-      console.log('📅 Processando intenção de agendamento:', {
+      console.log('📅 [AppointmentFlowManager] Processando intenção de agendamento:', {
         phoneNumber,
         intent: intent.name,
-        clinic: clinicContext.name
+        clinic: clinicContext.name,
+        isInitialized: this.initialized
       });
 
-      // Verificar se o serviço foi inicializado
+      // 🔧 CORREÇÃO: Verificar se o serviço foi inicializado
       if (!this.initialized) {
+        console.log('🔧 [AppointmentFlowManager] Serviço não inicializado, inicializando...');
         await this.initialize();
       }
 
+      // 🔧 CORREÇÃO: Validar contexto da clínica
+      if (!clinicContext || !clinicContext.name) {
+        console.error('❌ [AppointmentFlowManager] Contexto da clínica inválido:', clinicContext);
+        return {
+          response: 'Desculpe, não consegui identificar a clínica. Por favor, entre em contato diretamente.',
+          intent: { name: 'APPOINTMENT_ERROR', confidence: 1.0 },
+          toolsUsed: ['appointment_flow'],
+          metadata: { error: 'invalid_clinic_context', flowStep: 'error' }
+        };
+      }
+
       // Obter ou criar estado do fluxo
-             let flowState = await this.getFlowState(phoneNumber) || this.createNewFlowState(clinicContext);
+      console.log('🔧 [AppointmentFlowManager] Obtendo/criando estado do fluxo...');
+      let flowState = await this.getFlowState(phoneNumber) || this.createNewFlowState(clinicContext);
+      
+      console.log('✅ [AppointmentFlowManager] Estado do fluxo:', {
+        step: flowState.step,
+        isNew: flowState.step === 'initial',
+        hasData: !!flowState.data
+      });
        
-       // Registrar início do fluxo se for novo
-       if (flowState.step === 'initial') {
-         this.trackFlowStart(phoneNumber, clinicContext.id);
-       }
+      // Registrar início do fluxo se for novo
+      if (flowState.step === 'initial') {
+        console.log('🆕 [AppointmentFlowManager] Novo fluxo iniciado, registrando...');
+        this.trackFlowStart(phoneNumber, clinicContext.id);
+      }
 
       // Processar baseado na intenção específica
       let result;
@@ -263,14 +298,37 @@ export default class AppointmentFlowManager {
         userName,
         clinicName: clinicContext.name,
         hasServices: !!clinicContext.services,
-        hasServicesDetails: !!clinicContext.servicesDetails
+        hasServicesDetails: !!clinicContext.servicesDetails,
+        servicesKeys: clinicContext.servicesDetails ? Object.keys(clinicContext.servicesDetails) : 'null'
       });
       
+      // 🔧 CORREÇÃO: Validar se há contexto de serviços
+      if (!clinicContext.servicesDetails || Object.keys(clinicContext.servicesDetails).length === 0) {
+        console.error('❌ [AppointmentFlowManager] Clínica não tem serviços configurados:', {
+          clinicName: clinicContext.name,
+          hasServicesDetails: !!clinicContext.servicesDetails,
+          servicesKeys: clinicContext.servicesDetails ? Object.keys(clinicContext.servicesDetails) : 'null'
+        });
+        
+        return {
+          response: `Desculpe, ${userName}! A clínica ${clinicContext.name} ainda não configurou os serviços disponíveis para agendamento online. 😔\n\nEntre em contato conosco pelo telefone ${clinicContext.contacts?.telefone || clinicContext.contacts?.whatsapp || 'da clínica'} para mais informações.`,
+          intent: { name: 'APPOINTMENT_ERROR', confidence: 1.0 },
+          toolsUsed: ['appointment_flow'],
+          metadata: { flowStep: 'error', error: 'no_services_configured' }
+        };
+      }
+      
       // Extrair serviços do JSON de contextualização
+      console.log('🔧 [AppointmentFlowManager] Extraindo serviços do contexto...');
       const availableServices = this.extractServicesFromContext(clinicContext);
       
+      console.log('✅ [AppointmentFlowManager] Serviços extraídos:', {
+        total: availableServices.length,
+        services: availableServices.map(s => ({ name: s.name, type: s.type, duration: s.duration }))
+      });
+      
       if (!availableServices || availableServices.length === 0) {
-        console.warn('⚠️ [AppointmentFlowManager] Nenhum serviço disponível para agendamento');
+        console.warn('⚠️ [AppointmentFlowManager] Nenhum serviço disponível para agendamento após extração');
         return {
           response: `Desculpe, ${userName}! No momento não consegui carregar os serviços disponíveis para agendamento online. 😔\n\nEntre em contato conosco pelo telefone ${clinicContext.contacts?.telefone || clinicContext.contacts?.whatsapp || 'da clínica'} para mais informações.`,
           intent: { name: 'APPOINTMENT_ERROR', confidence: 1.0 },
@@ -315,18 +373,27 @@ export default class AppointmentFlowManager {
         hasServices: !!clinicContext.services,
         hasServicesDetails: !!clinicContext.servicesDetails,
         servicesType: typeof clinicContext.services,
-        servicesDetailsType: typeof clinicContext.servicesDetails
+        servicesDetailsType: typeof clinicContext.servicesDetails,
+        servicesDetailsKeys: clinicContext.servicesDetails ? Object.keys(clinicContext.servicesDetails) : 'null'
       });
       
       // 🔧 CORREÇÃO: Usar a estrutura correta retornada pelo ClinicContextManager
       let availableServices = [];
       
-      // Tentar diferentes estruturas possíveis
-      if (clinicContext.servicesDetails && clinicContext.servicesDetails.consultas) {
+      // 🔧 CORREÇÃO: Estrutura principal do JSON de contextualização
+      if (clinicContext.servicesDetails && typeof clinicContext.servicesDetails === 'object') {
+        console.log('🔧 [AppointmentFlowManager] Estrutura servicesDetails encontrada:', Object.keys(clinicContext.servicesDetails));
+        
         // Estrutura do JSON de contextualização
-        const consultas = clinicContext.servicesDetails.consultas || [];
-        const exames = clinicContext.servicesDetails.exames || [];
-        const procedimentos = clinicContext.servicesDetails.procedimentos || [];
+        const consultas = Array.isArray(clinicContext.servicesDetails.consultas) ? clinicContext.servicesDetails.consultas : [];
+        const exames = Array.isArray(clinicContext.servicesDetails.exames) ? clinicContext.servicesDetails.exames : [];
+        const procedimentos = Array.isArray(clinicContext.servicesDetails.procedimentos) ? clinicContext.servicesDetails.procedimentos : [];
+        
+        console.log('🔧 [AppointmentFlowManager] Serviços encontrados:', {
+          consultas: consultas.length,
+          exames: exames.length,
+          procedimentos: procedimentos.length
+        });
         
         // Converter para formato padrão
         availableServices = [
@@ -361,8 +428,12 @@ export default class AppointmentFlowManager {
             available: true
           }))
         ];
+        
+        console.log('✅ [AppointmentFlowManager] Serviços convertidos:', availableServices.length);
+        
       } else if (clinicContext.services && Array.isArray(clinicContext.services)) {
         // Estrutura alternativa
+        console.log('🔧 [AppointmentFlowManager] Usando estrutura services alternativa');
         availableServices = clinicContext.services.filter(service => 
           service.available !== false && service.enabled !== false
         ).map(service => ({
@@ -375,9 +446,16 @@ export default class AppointmentFlowManager {
           category: service.category || 'geral',
           available: true
         }));
+      } else {
+        console.warn('⚠️ [AppointmentFlowManager] Nenhuma estrutura de serviços reconhecida');
       }
       
-      console.log('✅ [AppointmentFlowManager] Serviços extraídos:', {
+      // 🔧 CORREÇÃO: Filtrar serviços válidos
+      availableServices = availableServices.filter(service => 
+        service && service.name && service.name !== 'Serviço sem nome' && service.name !== 'Consulta sem nome'
+      );
+      
+      console.log('✅ [AppointmentFlowManager] Serviços finais extraídos:', {
         total: availableServices.length,
         services: availableServices.map(s => ({ name: s.name, type: s.type, duration: s.duration }))
       });
@@ -385,7 +463,7 @@ export default class AppointmentFlowManager {
       return availableServices;
       
     } catch (error) {
-      console.error('❌ Erro ao extrair serviços do contexto:', error);
+      console.error('❌ [AppointmentFlowManager] Erro ao extrair serviços do contexto:', error);
       return [];
     }
   }

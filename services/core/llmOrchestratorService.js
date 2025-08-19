@@ -25,16 +25,52 @@ export default class LLMOrchestratorService {
   static appointmentFlowManager = null;
   static conversationMetrics = new Map();
   
-  // ✅ INICIALIZAÇÃO DO APPOINTMENT FLOW MANAGER
+  // ✅ INICIALIZAÇÃO ROBUSTA DO APPOINTMENT FLOW MANAGER
   static async initializeAppointmentFlow() {
     try {
+      console.log('🔧 [LLMOrchestrator] Iniciando inicialização do AppointmentFlowManager...');
+      
       if (!this.appointmentFlowManager) {
+        console.log('🔧 [LLMOrchestrator] Criando nova instância do AppointmentFlowManager...');
+        this.appointmentFlowManager = new AppointmentFlowManager(this);
+        
+        console.log('🔧 [LLMOrchestrator] Inicializando AppointmentFlowManager...');
+        await this.appointmentFlowManager.initialize();
+        
+        console.log('✅ [LLMOrchestrator] AppointmentFlowManager inicializado com sucesso');
+        logger.info('AppointmentFlowManager inicializado com sucesso');
+        
+        // ✅ VALIDAÇÃO: Verificar se realmente foi inicializado
+        if (!this.appointmentFlowManager.initialized) {
+          throw new Error('AppointmentFlowManager não foi inicializado corretamente');
+        }
+        
+        console.log('✅ [LLMOrchestrator] Validação de inicialização passou');
+      } else {
+        console.log('✅ [LLMOrchestrator] AppointmentFlowManager já existe e está inicializado');
+      }
+      
+      return this.appointmentFlowManager;
+      
+    } catch (error) {
+      console.error('❌ [LLMOrchestrator] Erro ao inicializar AppointmentFlowManager:', error);
+      logger.error('Erro ao inicializar AppointmentFlowManager', { message: error.message });
+      
+      // 🔧 CORREÇÃO: Limpar instância falhada e tentar novamente
+      this.appointmentFlowManager = null;
+      
+      // 🔧 CORREÇÃO: Retry logic
+      try {
+        console.log('🔄 [LLMOrchestrator] Tentando reinicialização...');
         this.appointmentFlowManager = new AppointmentFlowManager(this);
         await this.appointmentFlowManager.initialize();
-        logger.info('AppointmentFlowManager inicializado com sucesso');
+        console.log('✅ [LLMOrchestrator] Reinicialização bem-sucedida');
+        return this.appointmentFlowManager;
+      } catch (retryError) {
+        console.error('❌ [LLMOrchestrator] Falha na reinicialização:', retryError);
+        logger.error('Falha na reinicialização do AppointmentFlowManager', { message: retryError.message });
+        throw retryError;
       }
-    } catch (error) {
-      logger.error('Erro ao inicializar AppointmentFlowManager', { message: error.message });
     }
   }
 
@@ -204,13 +240,25 @@ export default class LLMOrchestratorService {
         
         try {
           // 🔧 CORREÇÃO: Garantir que AppointmentFlowManager está inicializado
+          console.log('🔧 [LLMOrchestrator] Verificando AppointmentFlowManager...');
           if (!this.appointmentFlowManager) {
+            console.log('🔧 [LLMOrchestrator] AppointmentFlowManager não encontrado, inicializando...');
             await this.initializeAppointmentFlow();
           }
           
+          // 🔧 CORREÇÃO: Validar se AppointmentFlowManager foi inicializado com sucesso
+          if (!this.appointmentFlowManager || !this.appointmentFlowManager.initialized) {
+            console.error('❌ [LLMOrchestrator] AppointmentFlowManager não está disponível após inicialização');
+            throw new Error('AppointmentFlowManager não está disponível');
+          }
+          
+          console.log('✅ [LLMOrchestrator] AppointmentFlowManager validado, roteando...');
           logger.info('Roteando para ferramenta apropriada...', { traceId });
+          
           const { default: ToolsRouter } = await import('./toolsRouter.js');
           const toolsRouter = new ToolsRouter({ appointmentFlowManager: this.appointmentFlowManager });
+          
+          console.log('🔧 [LLMOrchestrator] ToolsRouter criado, chamando roteamento...');
           const appointmentResult = await toolsRouter.route({
             phoneNumber,
             message,
@@ -220,6 +268,13 @@ export default class LLMOrchestratorService {
             traceId,
           });
           
+          console.log('✅ [LLMOrchestrator] Resultado do roteamento:', {
+            hasResult: !!appointmentResult,
+            hasResponse: !!appointmentResult?.response,
+            hasError: !!appointmentResult?.error,
+            flowStep: appointmentResult?.metadata?.flowStep
+          });
+          
           logger.info('Resultado do AppointmentFlowManager obtido', { traceId, success: !!appointmentResult?.success });
           
           if (appointmentResult && appointmentResult.success) {
@@ -227,8 +282,27 @@ export default class LLMOrchestratorService {
           } else if (appointmentResult && appointmentResult.response) {
             return appointmentResult;
           }
+          
+          // 🔧 CORREÇÃO: Se não há resultado válido, retornar erro
+          console.warn('⚠️ [LLMOrchestrator] AppointmentFlowManager não retornou resultado válido');
+          return {
+            response: 'Desculpe, não consegui processar sua solicitação de agendamento. Por favor, tente novamente ou entre em contato pelo telefone.',
+            intent: { name: 'APPOINTMENT_ERROR', confidence: 0.8 },
+            toolsUsed: ['appointment_flow'],
+            metadata: { error: 'no_valid_result', flowStep: 'error' }
+          };
+          
         } catch (error) {
+          console.error('❌ [LLMOrchestrator] Erro no AppointmentFlowManager:', error);
           logger.error('Erro no AppointmentFlowManager', { traceId, error: error.message });
+          
+          // 🔧 CORREÇÃO: Retornar resposta de erro útil
+          return {
+            response: 'Desculpe, ocorreu um erro técnico no sistema de agendamento. Por favor, entre em contato conosco pelo telefone para agendar sua consulta.',
+            intent: { name: 'APPOINTMENT_ERROR', confidence: 0.8 },
+            toolsUsed: ['appointment_flow'],
+            metadata: { error: 'appointment_flow_error', errorMessage: error.message }
+          };
         }
       }
 
