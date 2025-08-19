@@ -103,12 +103,48 @@ export default class GoogleCalendarService {
   }
 
   /**
+   * Seleciona a URL de redirecionamento baseada no ambiente
+   * @param {Array} redirect_uris - Array de URLs de redirecionamento 
+   * @returns {string} URL de redirecionamento apropriada
+   */
+  selectRedirectUri(redirect_uris) {
+    if (!redirect_uris || redirect_uris.length === 0) {
+      throw new Error('Nenhuma URL de redirecionamento configurada');
+    }
+
+    // Em produção Railway, usar a URL de produção
+    if (process.env.RAILWAY_ENVIRONMENT === 'production' || 
+        process.env.NODE_ENV === 'production') {
+      // Procurar por atendeai.lify.com.br primeiro
+      const prodUrl = redirect_uris.find(uri => uri.includes('atendeai.lify.com.br'));
+      if (prodUrl) {
+        logger.info('Usando URL de produção para OAuth', { url: prodUrl });
+        return prodUrl;
+      }
+    }
+
+    // Desenvolvimento: usar localhost
+    const devUrl = redirect_uris.find(uri => uri.includes('localhost'));
+    if (devUrl) {
+      logger.info('Usando URL de desenvolvimento para OAuth', { url: devUrl });
+      return devUrl;
+    }
+
+    // Fallback: primeira URL disponível
+    logger.info('Usando URL fallback para OAuth', { url: redirect_uris[0] });
+    return redirect_uris[0];
+  }
+
+  /**
    * Gera URL de autenticação para uma clínica
    * @param {string} clinicId - ID da clínica
    */
   generateAuthUrl(clinicId) {
     const { client_secret, client_id, redirect_uris } = this.credentials.web || this.credentials.installed || {};
-    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris?.[0]);
+    
+    // Selecionar URL de redirecionamento baseada no ambiente
+    const selectedRedirectUri = this.selectRedirectUri(redirect_uris);
+    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, selectedRedirectUri);
 
     const authUrl = oAuth2Client.generateAuthUrl({
       access_type: 'offline',
@@ -116,7 +152,13 @@ export default class GoogleCalendarService {
       state: clinicId // Para identificar a clínica no callback
     });
 
-    logger.info('URL de autenticação gerada', { clinicId, authUrl });
+    logger.info('URL de autenticação gerada', { 
+      clinicId, 
+      authUrl, 
+      redirectUri: selectedRedirectUri,
+      environment: process.env.NODE_ENV || 'development',
+      railway: process.env.RAILWAY_ENVIRONMENT || 'none'
+    });
     return authUrl;
   }
 
@@ -128,7 +170,10 @@ export default class GoogleCalendarService {
   async processAuthCode(code, clinicId) {
     try {
       const { client_secret, client_id, redirect_uris } = this.credentials.web || this.credentials.installed || {};
-      const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris?.[0]);
+      
+      // Usar a mesma lógica de seleção de URL
+      const selectedRedirectUri = this.selectRedirectUri(redirect_uris);
+      const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, selectedRedirectUri);
 
       const { tokens } = await oAuth2Client.getToken(code);
       oAuth2Client.setCredentials(tokens);

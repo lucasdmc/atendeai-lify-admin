@@ -2,6 +2,36 @@
 // CONFIGURAÇÃO DE AMBIENTE FRONTEND
 // ========================================
 
+// Função para detectar URL base automaticamente
+const getRedirectUri = (): string => {
+  // Se variável de ambiente estiver definida, use ela
+  if (import.meta.env.VITE_GOOGLE_REDIRECT_URI) {
+    return import.meta.env.VITE_GOOGLE_REDIRECT_URI;
+  }
+  
+  // Detectar automaticamente baseado no ambiente
+  if (typeof window !== 'undefined') {
+    const { protocol, hostname, port } = window.location;
+    
+    // Produção: atendeai.lify.com.br
+    if (hostname === 'atendeai.lify.com.br') {
+      return 'https://atendeai.lify.com.br/agendamentos';
+    }
+    
+    // Localhost com porta específica
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      const portSuffix = port ? `:${port}` : ':8080';
+      return `${protocol}//${hostname}${portSuffix}/agendamentos`;
+    }
+    
+    // Outros domínios (como Railway preview)
+    return `${protocol}//${hostname}${port ? `:${port}` : ''}/agendamentos`;
+  }
+  
+  // Fallback para desenvolvimento
+  return 'http://localhost:8080/agendamentos';
+};
+
 // Configuração para o frontend
 export const config = {
   google: {
@@ -14,7 +44,7 @@ export const config = {
     ].join(' ')
   },
   urls: {
-    redirectUri: import.meta.env.VITE_GOOGLE_REDIRECT_URI || 'http://localhost:8080/agendamentos'
+    redirectUri: getRedirectUri()
   },
   backend: {
     url: import.meta.env.VITE_BACKEND_URL || 'https://atendeai-lify-backend-production.up.railway.app'

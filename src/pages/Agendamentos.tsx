@@ -5,6 +5,7 @@ import { GoogleCalendarEvent } from '@/types/calendar'
 import { LoadingPage } from '@/components/ui/loading'
 import GoogleAuthSetup from '@/components/agendamentos/GoogleAuthSetup'
 import { GoogleCalendarSelector } from '@/components/agendamentos/GoogleCalendarSelector'
+import OAuthDebugPanel from '@/components/agendamentos/OAuthDebugPanel'
 import { useAuth } from '@/hooks/useAuth'
 import { useClinic } from '@/contexts/ClinicContext'
 import CalendarMainView from '@/components/agendamentos/CalendarMainView'
@@ -209,7 +210,12 @@ const Agendamentos = () => {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <div className="max-w-2xl w-full">
+        <div className="max-w-4xl w-full space-y-6">
+          {/* Painel de Debug OAuth - Apenas em desenvolvimento ou quando há erros */}
+          {(!isAuthenticated || authError) && (
+            <OAuthDebugPanel />
+          )}
+          
           <GoogleAuthSetup
             isAuthenticated={isAuthenticated}
             userCalendars={userCalendars}

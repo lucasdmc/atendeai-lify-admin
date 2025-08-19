@@ -1,3 +1,33 @@
+// Função para detectar URL base automaticamente
+const getBaseUrl = (): string => {
+  // Se variável de ambiente estiver definida, use ela
+  if (import.meta.env.VITE_GOOGLE_REDIRECT_URI) {
+    return import.meta.env.VITE_GOOGLE_REDIRECT_URI;
+  }
+  
+  // Detectar automaticamente baseado no ambiente
+  if (typeof window !== 'undefined') {
+    const { protocol, hostname, port } = window.location;
+    
+    // Produção: atendeai.lify.com.br
+    if (hostname === 'atendeai.lify.com.br') {
+      return 'https://atendeai.lify.com.br/agendamentos';
+    }
+    
+    // Localhost com porta específica
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      const portSuffix = port ? `:${port}` : ':8080';
+      return `${protocol}//${hostname}${portSuffix}/agendamentos`;
+    }
+    
+    // Outros domínios (como Railway preview)
+    return `${protocol}//${hostname}${port ? `:${port}` : ''}/agendamentos`;
+  }
+  
+  // Fallback para desenvolvimento
+  return 'http://localhost:8080/agendamentos';
+};
+
 // Configuração de ambiente para Vite/React
 export const environment = {
   google: {
@@ -10,7 +40,7 @@ export const environment = {
     ].join(' '),
   },
   urls: {
-    redirectUri: import.meta.env.VITE_GOOGLE_REDIRECT_URI || 'http://localhost:8080/agendamentos',
+    redirectUri: getBaseUrl(),
   },
   supabase: {
     url: import.meta.env.VITE_SUPABASE_URL || 'https://niakqdolcdwxtrkbqmdi.supabase.co',
@@ -25,6 +55,39 @@ export const environment = {
   environment: import.meta.env.MODE || 'development',
   isDevelopment: import.meta.env.MODE === 'development',
   isProduction: import.meta.env.MODE === 'production',
+};
+
+// Log de debug da configuração (apenas em desenvolvimento)
+if (environment.isDevelopment) {
+  console.log('🔧 [OAuth Config] Current redirect URI:', environment.urls.redirectUri);
+  console.log('🔧 [OAuth Config] Environment:', environment.environment);
+  console.log('🔧 [OAuth Config] Client ID:', environment.google.clientId);
+}
+
+// Função para validar configuração OAuth
+export const validateOAuthConfig = () => {
+  const config = environment;
+  const issues: string[] = [];
+  
+  if (!config.google.clientId) {
+    issues.push('Google Client ID não configurado');
+  }
+  
+  if (!config.urls.redirectUri) {
+    issues.push('Redirect URI não configurado');
+  }
+  
+  if (config.urls.redirectUri.includes('localhost') && config.isProduction) {
+    issues.push('Usando localhost em produção');
+  }
+  
+  if (issues.length > 0) {
+    console.error('❌ [OAuth Config] Problemas encontrados:', issues);
+    return { valid: false, issues };
+  }
+  
+  console.log('✅ [OAuth Config] Configuração válida');
+  return { valid: true, issues: [] };
 };
 
 // Exportação de compatibilidade para config

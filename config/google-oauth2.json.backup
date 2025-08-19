@@ -7,7 +7,6 @@
     "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
     "client_secret": "GOCSPX-your_actual_client_secret_here",
     "redirect_uris": [
-      "https://atendeai.lify.com.br/agendamentos",
       "http://localhost:8080/agendamentos",
       "https://atendeai-lify-admin-production.up.railway.app/agendamentos",
       "https://atendeai.com.br/agendamentos"
