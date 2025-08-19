@@ -174,6 +174,19 @@ export default class LLMOrchestratorService {
       const { default: IntentDetector } = await import('./intentDetector.js');
       const intentDetector = new IntentDetector();
       const intent = await intentDetector.detect(message, conversationHistory, clinicContext);
+      
+      // 🔧 CORREÇÃO: Normalizar estrutura do intent se necessário
+      if (intent && intent.intent && !intent.name) {
+        console.log('🔧 [LLMOrchestrator] Normalizando estrutura do intent...');
+        intent.name = intent.intent;
+        delete intent.intent;
+      }
+      
+      console.log('🔍 [LLMOrchestrator] Intent detectado:', {
+        name: intent?.name,
+        confidence: intent?.confidence,
+        structure: Object.keys(intent || {})
+      });
 
       // INICIALIZAR APPOINTMENT FLOW MANAGER SE NECESSÁRIO
       if (this.isAppointmentIntent(intent)) {
