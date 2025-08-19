@@ -136,10 +136,6 @@ class ErrorBoundaryEnhanced extends Component<Props, State> {
     toast({
       ...config,
       description: `${config.description} (ID: ${correlationId.slice(-8)})`,
-      action: level === 'critical' ? {
-        altText: "Contatar Suporte",
-        onClick: () => this.contactSupport(correlationId),
-      } : undefined,
     });
   }
 

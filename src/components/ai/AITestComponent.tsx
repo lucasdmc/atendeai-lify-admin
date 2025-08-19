@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AIOrchestrator } from '../../services/ai';
+// import { AIOrchestrator } from '../../services/ai'; // Temporariamente removido
 
 interface TestResult {
   success: boolean;

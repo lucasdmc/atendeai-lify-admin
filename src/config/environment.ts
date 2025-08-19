@@ -1,5 +1,5 @@
 // Função para detectar URL base automaticamente
-const getBaseUrl = (): string => {
+export const getBaseUrl = (): string => {
   // Se variável de ambiente estiver definida, use ela
   if (import.meta.env.VITE_GOOGLE_REDIRECT_URI) {
     return import.meta.env.VITE_GOOGLE_REDIRECT_URI;
@@ -93,10 +93,7 @@ export const validateOAuthConfig = () => {
 // Exportação de compatibilidade para config
 export const config = environment;
 
-// Função para obter URL base dinamicamente
-export function getBaseUrl(): string {
-  return environment.backend.url;
-}
+// Usar a função getBaseUrl definida no início do arquivo
 
 // Validação das variáveis obrigatórias
 export const validateConfig = () => {
