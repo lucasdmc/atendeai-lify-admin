@@ -18,7 +18,7 @@ export const rateLimiter = (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): void => {
   const userId = req.body.userId || req.query.userId || 'anonymous';
   const clinicId = req.body.clinicId || req.query.clinicId || 'default';
   const key = `${userId}:${clinicId}`;
@@ -44,11 +44,12 @@ export const rateLimiter = (
 
   // Verificar se excedeu o limite
   if (rateLimitStore[key].count >= limit.requests) {
-    return res.status(429).json({
+    res.status(429).json({
       success: false,
       error: 'Rate limit exceeded',
       retryAfter: Math.ceil((rateLimitStore[key].resetTime - now) / 1000),
     });
+    return;
   }
 
   // Incrementar contador
@@ -69,7 +70,7 @@ export const aiRateLimiter = (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): void => {
   const userId = req.body.userId || req.query.userId || 'anonymous';
   const clinicId = req.body.clinicId || req.query.clinicId || 'default';
   const key = `ai:${userId}:${clinicId}`;
@@ -95,11 +96,12 @@ export const aiRateLimiter = (
 
   // Verificar se excedeu o limite
   if (rateLimitStore[key].count >= limit.requests) {
-    return res.status(429).json({
+    res.status(429).json({
       success: false,
       error: 'AI rate limit exceeded',
       retryAfter: Math.ceil((rateLimitStore[key].resetTime - now) / 1000),
     });
+    return;
   }
 
   // Incrementar contador
@@ -113,4 +115,4 @@ export const aiRateLimiter = (
   });
 
   next();
-}; 
+};

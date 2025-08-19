@@ -1,5 +1,4 @@
 import { useToast } from './use-toast';
-import { ToastActionElement } from '@/components/ui/toast';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info' | 'loading';
 export type ToastPersistence = 'auto' | 'persistent' | 'critical';
@@ -9,11 +8,6 @@ interface EnhancedToastOptions {
   description?: string;
   type?: ToastType;
   persistence?: ToastPersistence;
-  action?: {
-    label: string;
-    onClick: () => void;
-  };
-  onRetry?: () => void;
   correlationId?: string;
   duration?: number;
 }
@@ -67,8 +61,6 @@ export function useEnhancedToast() {
       description,
       type = 'info',
       persistence = 'auto',
-      action,
-      onRetry,
       correlationId,
       duration: customDuration
     } = options;
@@ -76,13 +68,6 @@ export function useEnhancedToast() {
     const preset = TOAST_PRESETS[type];
     const shouldPersist = persistence === 'persistent' || persistence === 'critical' || preset.persistent;
     const toastDuration = customDuration ?? (shouldPersist ? Infinity : preset.duration);
-
-    // Preparar ações contextuais
-    let toastAction: ToastActionElement | undefined;
-
-    // Temporariamente removido para corrigir erros de tipo
-    // TODO: Implementar ToastAction corretamente com React.createElement
-    toastAction = undefined;
 
     // Formatear título e descrição
     const formattedTitle = title ? `${preset.icon} ${title}` : undefined;
@@ -120,11 +105,14 @@ export function useEnhancedToast() {
   };
 
   // Toasts específicos para casos comuns
-  const networkError = (onRetry?: () => void, correlationId?: string) => {
+  const networkError = (correlationId?: string) => {
     return error(
       "Erro de Conexão",
       "Não foi possível conectar ao servidor. Verifique sua conexão.",
-      { onRetry, correlationId, persistence: 'persistent' }
+      { 
+        ...(correlationId && { correlationId }), 
+        persistence: 'persistent' 
+      }
     );
   };
 
@@ -152,24 +140,27 @@ export function useEnhancedToast() {
     return error(
       "Erro Crítico",
       message,
-      { persistence: 'critical', correlationId }
+      { 
+        persistence: 'critical',
+        ...(correlationId && { correlationId })
+      }
     );
   };
 
   // Toasts para operações específicas do sistema
-  const whatsappConnectionLost = (onRetry?: () => void) => {
+  const whatsappConnectionLost = () => {
     return error(
       "Conexão WhatsApp Perdida",
       "A conexão com o WhatsApp foi perdida. Tentando reconectar...",
-      { onRetry, persistence: 'persistent' }
+      { persistence: 'persistent' }
     );
   };
 
-  const googleCalendarError = (onRetry?: () => void) => {
+  const googleCalendarError = () => {
     return error(
       "Erro Google Calendar",
       "Não foi possível acessar o Google Calendar. Verifique as permissões.",
-      { onRetry, persistence: 'persistent' }
+      { persistence: 'persistent' }
     );
   };
 
@@ -216,14 +207,6 @@ export function useEnhancedToast() {
     appointmentCreated,
     simulationMode,
   };
-}
-
-function contactSupport(correlationId?: string): void {
-  const subject = encodeURIComponent(`Erro Crítico - ID: ${correlationId || 'N/A'}`);
-  const body = encodeURIComponent(
-    `Olá,\n\nEncontrei um erro crítico no sistema.\n\nID do Erro: ${correlationId || 'N/A'}\nData/Hora: ${new Date().toLocaleString()}\nPágina: ${window.location.href}\n\nDescrição do problema:\n[Descreva o que estava fazendo quando o erro ocorreu]\n\nObrigado!`
-  );
-  window.open(`mailto:suporte@atendeai.com?subject=${subject}&body=${body}`);
 }
 
 export default useEnhancedToast;

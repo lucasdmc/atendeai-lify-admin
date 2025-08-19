@@ -48,9 +48,12 @@ export const useGoogleSessionMonitor = (checkInterval: number = 300000) => { // 
       }
 
       const newStatus: GoogleSessionStatus = {
-        ...status,
         lastChecked: now,
-        timeUntilExpiry
+        isConnected: status.isConnected,
+        isValid: status.isValid,
+        needsReauth: status.needsReauth,
+        ...(timeUntilExpiry !== undefined && { timeUntilExpiry }),
+        ...(status.expiresAt && { expiresAt: status.expiresAt })
       };
 
       setSessionStatus(newStatus);

@@ -85,7 +85,7 @@ export const useConversationData = (conversationId: string | undefined) => {
       setSending(true);
       
       console.log('📤 === ENVIANDO MENSAGEM ===');
-      console.log('📞 Para:', conversation.phone_number);
+      console.log('📞 Para:', conversation.patient_phone_number);
       console.log('💬 Mensagem:', messageContent);
       console.log('🔗 Conversation ID:', conversation.id);
       
@@ -93,7 +93,7 @@ export const useConversationData = (conversationId: string | undefined) => {
       console.log('🚀 Chamando edge function...');
       const { data, error } = await supabase.functions.invoke('whatsapp-integration/send-message', {
         body: {
-          to: conversation.phone_number,
+          to: conversation.patient_phone_number,
           message: messageContent
         }
       });

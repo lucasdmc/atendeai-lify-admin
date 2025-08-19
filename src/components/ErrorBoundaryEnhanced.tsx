@@ -10,9 +10,9 @@ interface Props {
 
 interface State {
   hasError: boolean;
-  error?: Error;
-  errorInfo?: ErrorInfo;
-  errorId?: string;
+  error?: Error | undefined;
+  errorInfo?: ErrorInfo | undefined;
+  errorId?: string | undefined;
 }
 
 class ErrorBoundaryEnhanced extends Component<Props, State> {
@@ -150,9 +150,6 @@ class ErrorBoundaryEnhanced extends Component<Props, State> {
       console.log('🔄 Auto-resetting ErrorBoundary...');
       this.setState({
         hasError: false,
-        error: undefined,
-        errorInfo: undefined,
-        errorId: undefined,
       });
     }, 10000);
   }
@@ -168,9 +165,6 @@ class ErrorBoundaryEnhanced extends Component<Props, State> {
   private handleRetry = (): void => {
     this.setState({
       hasError: false,
-      error: undefined,
-      errorInfo: undefined,
-      errorId: undefined,
     });
   };
 
@@ -187,7 +181,6 @@ class ErrorBoundaryEnhanced extends Component<Props, State> {
   public override render(): ReactNode {
     if (this.state.hasError) {
       const { level = 'component', fallback } = this.props;
-      const { error, errorId } = this.state;
 
       if (fallback) {
         return fallback;
@@ -289,7 +282,7 @@ class ErrorBoundaryEnhanced extends Component<Props, State> {
   }
 
   private renderComponentError(): ReactNode {
-    const { error, errorId } = this.state;
+    const { errorId } = this.state;
     return (
       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 m-2">
         <div className="flex items-start">

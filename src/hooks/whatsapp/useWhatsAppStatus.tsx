@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from 'react';
 import { whatsappLogger } from '@/utils/whatsappLogger';
-import { config } from '@/config/frontend-config';
 import { useClinic } from '@/contexts/ClinicContext';
 
 interface WhatsAppStatusHook {

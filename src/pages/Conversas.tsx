@@ -1,58 +1,15 @@
 
 import { useEffect, useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { supabase } from '@/integrations/supabase/client';
-import { MessageCircle, Search, MoreVertical, Filter, Phone, Video, Info, Paperclip, Smile, Mic } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
-import ConversationSearch from '@/components/conversations/ConversationSearch';
+import { MessageCircle, Search, MoreVertical } from 'lucide-react';
+import { useParams } from 'react-router-dom';
 import LoadingState from '@/components/conversations/LoadingState';
 import WhatsAppStyleConversation from '@/components/conversations/WhatsAppStyleConversation';
 import ChatArea from '@/components/conversations/ChatArea';
 import { getDisplayName } from '@/utils/conversationUtils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useAuth } from '@/hooks/useAuth';
-import { useClinic } from '@/contexts/ClinicContext';
 import { useConversation } from '@/contexts/ConversationContext';
-
-// Função JavaScript para formatar número de telefone
-const formatPhoneNumber = (phoneNumber: string): string => {
-  // Remove todos os caracteres não numéricos
-  const cleaned = phoneNumber.replace(/\D/g, '');
-  
-  // Se começa com código do país (55 para Brasil)
-  if (cleaned.startsWith('55')) {
-    const number = cleaned.substring(2);
-    if (number.length === 10) {
-      return `(${number.substring(0, 2)}) ${number.substring(2, 6)}-${number.substring(6)}`;
-    } else if (number.length === 11) {
-      return `(${number.substring(0, 2)}) ${number.substring(2, 7)}-${number.substring(7)}`;
-    }
-  }
-  
-  // Se é um número brasileiro sem código do país
-  if (cleaned.length === 10) {
-    return `(${cleaned.substring(0, 2)}) ${cleaned.substring(2, 6)}-${cleaned.substring(6)}`;
-  } else if (cleaned.length === 11) {
-    return `(${cleaned.substring(0, 2)}) ${cleaned.substring(2, 7)}-${cleaned.substring(7)}`;
-  }
-  
-  // Se não conseguir formatar, retorna o número original
-  return phoneNumber;
-};
-
-// Função JavaScript para extrair código do país
-const extractCountryCode = (phoneNumber: string): string => {
-  const cleaned = phoneNumber.replace(/\D/g, '');
-  if (cleaned.startsWith('55')) {
-    return 'BR';
-  }
-  return 'BR'; // Default para Brasil
-};
 
 interface Conversation {
   id: string;
@@ -71,10 +28,7 @@ const Conversas = () => {
   const [filteredConversations, setFilteredConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const navigate = useNavigate();
   const { conversationId } = useParams();
-  const { user, userProfile, userRole } = useAuth();
-  const { selectedClinicId } = useClinic();
   
   // Usar o contexto de conversas
   const { 
@@ -120,20 +74,6 @@ const Conversas = () => {
     setSelectedConversation(conversation);
   };
 
-  const formatTime = (dateString: string | null) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    
-    if (diffInHours < 24) {
-      return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    } else if (diffInHours < 48) {
-      return 'Ontem';
-    } else {
-      return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-    }
-  };
 
   if (loading) {
     return <LoadingState />;

@@ -25,22 +25,21 @@ export const WhatsAppPhoneNumberField = ({
   value,
   onChange,
   integrationType,
-  isVerified = false,
   verificationStatus = 'pending',
   verificationDate,
   onVerify,
   disabled = false
 }: WhatsAppPhoneNumberFieldProps) => {
   const [isVerifying, setIsVerifying] = useState(false);
-  const [localValue, setLocalValue] = useState(value);
+  const [localValue, setLocalValue] = useState<string>(value || '');
   const [validationError, setValidationError] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    setLocalValue(value);
-    // Validar quando o valor externo muda
-    const validation = validateMetaPhoneFormat(value);
-    setValidationError(validation.isValid ? null : validation.error);
+    const validValue = value || '';
+    setLocalValue(validValue);
+    const validation = validateMetaPhoneFormat(validValue);
+    setValidationError(validation.isValid ? null : (validation.error || null));
   }, [value]);
 
 
@@ -51,11 +50,11 @@ export const WhatsAppPhoneNumberField = ({
     
     // Validar o formato
     const validation = validateMetaPhoneFormat(formatted);
-    setValidationError(validation.isValid ? null : validation.error);
+    setValidationError(validation.isValid ? null : (validation.error || null));
     
     // Só chama onChange se o formato for válido ou se estiver vazio (para permitir edição)
     if (validation.isValid || !formatted) {
-      onChange(formatted);
+      onChange(formatted || '');
     }
   };
 
@@ -67,7 +66,7 @@ export const WhatsAppPhoneNumberField = ({
     if (!validation.isValid) {
       toast({
         title: "Formato inválido",
-        description: validation.error,
+        description: validation.error || 'Formato inválido',
         variant: "destructive",
       });
       return;

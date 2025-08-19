@@ -41,28 +41,34 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {selectedClinic.address && typeof selectedClinic.address === 'object' && 
+                {selectedClinic.address && 
+                 typeof selectedClinic.address === 'object' && 
                  (selectedClinic.address as { city?: string; state?: string }).city && (
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-gray-500" />
                     <span className="text-sm text-gray-600">
-                      {(selectedClinic.address as { city?: string; state?: string }).city || ''}, 
-                      {(selectedClinic.address as { city?: string; state?: string }).state || ''}
+                      {(selectedClinic.address as { city?: string; state?: string }).city}, {(selectedClinic.address as { city?: string; state?: string }).state}
                     </span>
                   </div>
                 )}
-                {selectedClinic.phone && typeof selectedClinic.phone === 'object' && 
+                {selectedClinic.phone && 
+                 typeof selectedClinic.phone === 'object' && 
                  (selectedClinic.phone as { value?: string }).value && (
                   <div className="flex items-center gap-2">
                     <Phone className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm text-gray-600">{(selectedClinic.phone as { value?: string }).value || ''}</span>
+                    <span className="text-sm text-gray-600">
+                      {(selectedClinic.phone as { value?: string }).value}
+                    </span>
                   </div>
                 )}
-                {selectedClinic.email && typeof selectedClinic.email === 'object' && 
+                {selectedClinic.email && 
+                 typeof selectedClinic.email === 'object' && 
                  (selectedClinic.email as { value?: string }).value && (
                   <div className="flex items-center gap-2">
                     <Mail className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm text-gray-600">{(selectedClinic.email as { value?: string }).value || ''}</span>
+                    <span className="text-sm text-gray-600">
+                      {(selectedClinic.email as { value?: string }).value}
+                    </span>
                   </div>
                 )}
               </div>

@@ -89,7 +89,7 @@ export class ConfidenceService {
 
     // 8. Determinar se deve escalar
     const shouldEscalate = this.shouldEscalateBasedOnConfidence(overallConfidence, {
-      intentConfidence,
+      // intentConfidence, // Temporarily removed
       responseQuality,
       contextRelevance,
       medicalContent: medicalContentScore,

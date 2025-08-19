@@ -9,7 +9,7 @@ import {
   MapPin, 
   Clock, 
   MessageCircle, 
-  Camera,
+  
   Edit,
   Star,
   MoreVertical
@@ -38,7 +38,6 @@ interface ContactProfileProps {
 }) => {
   const displayName = getDisplayName(conversation);
   const [avatarUrl, setAvatarUrl] = useState<string>('');
-  const [avatarError, setAvatarError] = useState(false);
   const colors = generateColorsFromName(displayName);
 
   useEffect(() => {
@@ -52,7 +51,6 @@ interface ContactProfileProps {
         setAvatarUrl(url);
       } catch (error) {
         console.error('Erro ao gerar avatar:', error);
-        setAvatarError(true);
       }
     };
 
@@ -82,7 +80,6 @@ interface ContactProfileProps {
           <Avatar className="h-32 w-32 mx-auto mb-4">
             <AvatarImage 
               src={avatarUrl} 
-              onError={() => setAvatarError(true)}
             />
             <AvatarFallback 
               className="text-4xl font-bold"
